@@ -52,7 +52,7 @@ async function cloudLogoutOk(){if(!Cloud.on)return true;await Cloud.sync();const
   if(n&&!confirm(tx(`لم تُرسل ${n} من التعديلات بعد (لا يوجد اتصال). ستبقى على هذا الجهاز وتُرسل عند دخولك مرة أخرى. خروج على أي حال؟`,`${n} changes are not sent yet (no connection). They stay on this device and are sent when you sign in again. Sign out anyway?`)))return false;
   await Cloud.signOut();return true}
 /* sign-in (NV7 layout, same fields as login.blade.php) */
-function vLogin(err,val){
+function vLogin(err,val){if(Cloud.on){if(!err&&Cloud.role==='tech'&&Cloud.emp){setSess({emp:Cloud.emp.id,school:null,coll:null});return go('#employee-data')}if(!err&&isAuthed())return go('#admin');return vCloudLogin(err)}
   const remembered=lsGet('nv_remember_tech','');
   authPage({kind:'tech',title:t('Login'),sub:tx('مرحباً بك، يرجى تسجيل الدخول للمتابعة','Welcome — please sign in to continue'),err,
     fields:[{id:'employee-id',label:t('Employee ID'),icon:'bi-person-badge',ph:tx('أدخل رقمك الوظيفي','Enter your employee ID'),value:val||(remembered&&remembered!=='1'?remembered:''),mode:'numeric',auto:'username',dir:'ltr',bad:1},

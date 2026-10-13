@@ -104,6 +104,9 @@ grant execute on function public.nv_staff_create(text,text,text,text), public.nv
 -- ---------- 2) data ----------
 create table if not exists public.nv_employees(id text primary key, number text not null unique, name text not null,
   user_id uuid unique references auth.users(id) on delete set null, created_at timestamptz not null default now());
+-- NV17: field supervisors sign in with their own e-mail (the account is nv<number>@novaro.local until one is set)
+alter table public.nv_employees add column if not exists email text;
+create unique index if not exists nv_employees_email_u on public.nv_employees(lower(email)) where email is not null and email <> '';
 create or replace function public.nv_my_emp() returns text language sql stable security definer set search_path = public as $$
   select e.id from public.nv_employees e where e.user_id = auth.uid() and auth.uid() is not null $$;
 create or replace function public.nv_member() returns boolean language sql stable as $$
@@ -232,8 +235,20 @@ begin
   if length(coalesce(p_password,'')) < 8 then raise exception 'password too short'; end if;
   select * into e from public.nv_employees where id = p_emp;
   if e.id is null then raise exception 'employee not found'; end if;
-  v_email := 'nv' || lower(regexp_replace(e.number, '[^A-Za-z0-9]', '', 'g')) || '@novaro.local';
+  if coalesce(trim(e.email),'') <> '' then
+    v_email := lower(trim(e.email));
+    if v_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then raise exception 'invalid email'; end if;
+    if exists(select 1 from public.nv_staff s join auth.users u on u.id = s.user_id where lower(u.email) = v_email) then raise exception 'this e-mail belongs to a management account'; end if;
+    -- the supervisor already has a sign-in (old nv<number>@novaro.local or another e-mail): move it to the new e-mail, same account
+    if e.user_id is not null and not exists(select 1 from auth.users where lower(email) = v_email) then
+      update auth.users set email = v_email, email_confirmed_at = coalesce(email_confirmed_at, now()), updated_at = now() where id = e.user_id;
+      update auth.identities set identity_data = jsonb_set(identity_data, '{email}', to_jsonb(v_email)) where user_id = e.user_id and provider = 'email';
+    end if;
+  else
+    v_email := 'nv' || lower(regexp_replace(e.number, '[^A-Za-z0-9]', '', 'g')) || '@novaro.local';
+  end if;
   select id into v_id from auth.users where lower(email) = v_email;
+  if v_id is not null and exists(select 1 from public.nv_employees x where x.user_id = v_id and x.id <> e.id) then raise exception 'this e-mail is used by another field supervisor'; end if;
   if v_id is null then
     v_id := gen_random_uuid();
     insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
@@ -248,6 +263,23 @@ begin
   update public.nv_employees set user_id = v_id where id = p_emp;
   return v_email;
 end $$;
+-- NV17: after an admin changes a supervisor's e-mail, move his existing sign-in to it (no password change)
+create or replace function public.nv_emp_sync_email(p_emp text) returns text
+language plpgsql security definer set search_path = public, auth as $$
+declare e public.nv_employees; v_email text;
+begin
+  if not public.nv_is_admin() then raise exception 'not allowed' using errcode = '42501'; end if;
+  select * into e from public.nv_employees where id = p_emp;
+  if e.id is null or e.user_id is null or coalesce(trim(e.email),'') = '' then return null; end if;
+  v_email := lower(trim(e.email));
+  if v_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then raise exception 'invalid email'; end if;
+  if exists(select 1 from auth.users where lower(email) = v_email and id <> e.user_id) then raise exception 'this e-mail is used by another account'; end if;
+  update auth.users set email = v_email, email_confirmed_at = coalesce(email_confirmed_at, now()), updated_at = now() where id = e.user_id;
+  update auth.identities set identity_data = jsonb_set(identity_data, '{email}', to_jsonb(v_email)) where user_id = e.user_id and provider = 'email';
+  return v_email;
+end $$;
+revoke all on function public.nv_emp_sync_email(text) from public, anon;
+grant execute on function public.nv_emp_sync_email(text) to authenticated;
 create or replace function public.nv_emp_logins() returns table(id text, has_login boolean) language sql stable security definer set search_path = public as $$
   select e.id, e.user_id is not null from public.nv_employees e where public.nv_can_read() $$;
 revoke all on function public.nv_can_users(), public.nv_is_owner(), public.nv_my_role() from public, anon;

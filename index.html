@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV16">
+<meta name="fm-version" content="NV17">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -220,7 +220,7 @@ body.sx-body{margin:0;background:#f4f7fb}
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV16',date:'2026-10-13'};
+const NV={version:'NV17',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -405,7 +405,7 @@ const cfgOk=o=>!!(o&&/^https:\/\/[^/]+/.test(o.url||'')&&String(o.key||'').lengt
 const NV_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
 const NV_T={categories:'nv_categories',conditions:'nv_conditions',rooms:'nv_rooms',types:'nv_types',employees:'nv_employees',schools:'nv_schools',collections:'nv_collections'};
 const NV_ORDER=['categories','conditions','rooms','types','employees','schools','collections'];
-const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','created_at'],
+const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','email','created_at'],
   schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
     'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','parent_child','tag','submitted_at','created_at']};
@@ -545,7 +545,7 @@ async function cloudLogoutOk(){if(!Cloud.on)return true;await Cloud.sync();const
   if(n&&!confirm(tx(`لم تُرسل ${n} من التعديلات بعد (لا يوجد اتصال). ستبقى على هذا الجهاز وتُرسل عند دخولك مرة أخرى. خروج على أي حال؟`,`${n} changes are not sent yet (no connection). They stay on this device and are sent when you sign in again. Sign out anyway?`)))return false;
   await Cloud.signOut();return true}
 /* sign-in (NV7 layout, same fields as login.blade.php) */
-function vLogin(err,val){
+function vLogin(err,val){if(Cloud.on){if(!err&&Cloud.role==='tech'&&Cloud.emp){setSess({emp:Cloud.emp.id,school:null,coll:null});return go('#employee-data')}if(!err&&isAuthed())return go('#admin');return vCloudLogin(err)}
   const remembered=lsGet('nv_remember_tech','');
   authPage({kind:'tech',title:t('Login'),sub:tx('مرحباً بك، يرجى تسجيل الدخول للمتابعة','Welcome — please sign in to continue'),err,
     fields:[{id:'employee-id',label:t('Employee ID'),icon:'bi-person-badge',ph:tx('أدخل رقمك الوظيفي','Enter your employee ID'),value:val||(remembered&&remembered!=='1'?remembered:''),mode:'numeric',auto:'username',dir:'ltr',bad:1},
@@ -862,12 +862,12 @@ function authPage(o){
     <div class="sx-card-logo sx-wm"><img src="${esc(S.settings.logo||NV_LOGO)}" alt="${esc(appName())}"><small>${esc(tag)}</small></div>
     <h2 id="sxTitle">${o.title}</h2><p class="sx-sub">${o.sub}</p>
     <form id="f" novalidate>${o.fields.map(f).join('')}
-     ${o.err?`<div class="sx-err" role="alert">${esc(o.err)}</div>`:''}${o.note?`<div class="sx-note">${o.note}</div>`:''}
-     ${o.remember!==false?`<div class="sx-row"><label><input type="checkbox" id="rem" ${lsGet('nv_remember_'+o.kind,'')?'checked':''}> ${tx('تذكرني','Remember me')}</label><a data-m="${o.kind==='admin'?'support':'support'}">${tx('نسيت كلمة المرور؟','Forgot password?')}</a></div>`:''}
+     ${o.err?`<div class="sx-err" role="alert">${esc(o.err)}</div>`:''}${o.ok?`<div class="sx-note" role="status" style="background:#ecfdf5;border-color:#a7f3d0;color:#065f46">${o.ok}</div>`:''}${o.note?`<div class="sx-note">${o.note}</div>`:''}
+     ${o.remember!==false?`<div class="sx-row"><label><input type="checkbox" id="rem" ${lsGet('nv_remember_'+o.kind,'')?'checked':''}> ${tx('تذكرني','Remember me')}</label>${Cloud.on?`<a href="#forgot">${tx('نسيت كلمة المرور؟','Forgot password?')}</a>`:`<a data-m="support">${tx('نسيت كلمة المرور؟','Forgot password?')}</a>`}</div>`:''}
      <button type="submit" class="sx-go">${o.submit} <i class="bi bi-arrow-${ar?'left':'right'}"></i></button></form>
     <div class="sx-or">${tx('أو','or')}</div>
     <div class="sx-secure"><i class="bi bi-shield-check"></i> ${tx('تسجيل دخول آمن ومشفّر لحماية بياناتك','Secure, encrypted sign-in to protect your data')}</div>
-    <div class="sx-alt">${o.kind==='admin'?`<a href="#login">${tx('دخول مشرفي الميدان بالرقم الوظيفي','Technician sign-in')}</a>`:`<a href="#admin">${tx('دخول الإدارة','Admin sign-in')}</a>`}</div>
+    <div class="sx-alt">${o.alt!=null?o.alt:o.kind==='admin'?`<a href="#login">${tx('دخول مشرفي الميدان بالرقم الوظيفي','Technician sign-in')}</a>`:`<a href="#admin">${tx('دخول الإدارة','Admin sign-in')}</a>`}</div>
     ${o.extra||''}
    </section>
    <section class="sx-hero"><h1>${S.settings.logo?`<span>${esc(appName())}</span>`:`<img class="sx-hero-logo" src="${NV_LOGO}" alt="${esc(appName())}">`}</h1><h3>${esc(tag)}</h3>
@@ -885,6 +885,41 @@ function authPage(o){
   $('#f').onsubmit=async e=>{e.preventDefault();const fm=e.target;const miss=[...fm.querySelectorAll('input[required]')].find(i=>!i.value.trim());if(miss){miss.closest('.sx-in').classList.add('bad');miss.focus();return}
     const r=$('#rem');lsSet('nv_remember_'+o.kind,r&&r.checked?(o.rememberValue?o.rememberValue():'1'):'');const b=fm.querySelector('.sx-go');b.disabled=true;try{await o.onSubmit(fm)}finally{if(document.body.contains(b))b.disabled=false}};
 }
+
+/* NV17 — with the cloud everyone signs in with e-mail + password (field supervisors too); the role decides where he lands.
+   Forgotten password: Supabase sends a reset link back to this page (#reset-password). */
+function vCloudLogin(err,emv){const rem=lsGet('nv_remember_all','');
+  authPage({kind:'all',title:tx('تسجيل الدخول','Sign in'),sub:tx('ادخل إلى Solvix ببريدك الإلكتروني وكلمة المرور','Sign in to Solvix with your e-mail and password'),err,remember:true,alt:'',
+    fields:[{id:'em',label:tx('البريد الإلكتروني','E-mail'),type:'email',icon:'bi-envelope',ph:tx('أدخل بريدك الإلكتروني','Enter your e-mail'),value:emv||(rem&&rem!=='1'?rem:''),auto:'username',dir:'ltr',bad:1},
+      {id:'pw',label:tx('كلمة المرور','Password'),type:'password',icon:'bi-lock',ph:tx('أدخل كلمة المرور','Enter your password'),auto:'current-password',dir:'ltr',bad:1}],
+    submit:tx('دخول','Sign in'),rememberValue:()=>$('#em').value.trim().toLowerCase(),
+    onSubmit:async()=>{let em=$('#em').value.trim().toLowerCase();const pw=$('#pw').value;
+      /* older field accounts: an employee number still works until his e-mail is set */
+      if(!em.includes('@')&&/^[a-z0-9-]+$/i.test(em))em='nv'+em.replace(/[^a-z0-9]/g,'')+'@novaro.local';
+      try{const me=await Cloud.signIn(em,pw);return afterSignIn(me,em)}
+      catch(er){return vCloudLogin(/Invalid login/i.test(er.message)?tx('البريد أو كلمة المرور غير صحيحة.','Wrong e-mail or password.'):/Email not confirmed/i.test(er.message)?tx('البريد غير مؤكد بعد — راجع مدير المشروع.','E-mail not confirmed yet.'):/fetch|network|lib/i.test(er.message)?tx('تعذر الاتصال بالخادم — تحقق من الإنترنت.','Cannot reach the server.'):er.message,$('#em').value.trim())}}})}
+async function afterSignIn(me,em){
+  if(me&&me.role==='tech'&&me.emp){await Cloud.pull();setSess({emp:me.emp.id,school:null,coll:null});return go('#employee-data')}
+  if(me&&(me.role==='admin'||me.role==='reader')){clearSess();await Cloud.pull();return go('#admin')}
+  await Cloud.signOut();return vCloudLogin(tx('هذا الحساب ليس له صلاحية على Solvix. راجع مدير المشروع.','This account has no access to Solvix.'),em)}
+function vForgot(ok,err){
+  authPage({kind:'all',title:tx('استعادة كلمة المرور','Reset your password'),sub:tx('اكتب بريدك الإلكتروني المسجل، وسنرسل لك رابطاً لتعيين كلمة مرور جديدة','Enter your registered e-mail and we will send you a reset link'),err,ok,remember:false,
+    alt:`<a href="#login">${tx('العودة لتسجيل الدخول','Back to sign in')}</a>`,
+    fields:[{id:'em',label:tx('البريد الإلكتروني','E-mail'),type:'email',icon:'bi-envelope',ph:'name@example.com',value:(lsGet('nv_remember_all','')||'').includes('@')?lsGet('nv_remember_all',''):'',auto:'username',dir:'ltr',bad:1}],
+    submit:tx('إرسال رابط الاستعادة','Send reset link'),
+    onSubmit:async()=>{const em=$('#em').value.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)||em.endsWith('@novaro.local'))return vForgot('',tx('اكتب بريدك الإلكتروني الصحيح. إن لم يكن لحسابك بريد، اطلب من مدير المشروع إضافته أو تعيين كلمة مرور لك.','Enter a valid e-mail.'));
+      try{const c=await Cloud.sb();Cloud.chk(await c.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname}));
+        vForgot(tx(`إذا كان البريد <b dir="ltr">${esc(em)}</b> مسجلاً فستصله رسالة خلال دقائق فيها رابط تعيين كلمة مرور جديدة. افتح الرابط من نفس الجهاز أو أي جهاز، وراجع مجلد الرسائل غير المرغوب فيها.`,'If this e-mail is registered, a reset link is on its way.'))}
+      catch(er){vForgot('',/rate|too many|security purposes/i.test(er.message)?tx('طلبات كثيرة — انتظر دقيقة ثم حاول مرة أخرى.','Too many requests — wait a minute.'):er.message)}}})}
+async function vResetPw(err){let has=false;try{const c=await Cloud.sb();const {data}=await c.auth.getSession();has=!!(data&&data.session)}catch(e){}
+  if(!has)return vForgot('',tx('انتهت صلاحية رابط الاستعادة أو استُخدم من قبل — اطلب رابطاً جديداً.','The reset link expired — request a new one.'));
+  authPage({kind:'all',title:tx('تعيين كلمة مرور جديدة','Set a new password'),sub:Cloud.user&&Cloud.user.email&&!/novaro\.local$/.test(Cloud.user.email)?`<span dir="ltr">${esc(Cloud.user.email)}</span>`:'',err,remember:false,alt:`<a href="#login">${tx('إلغاء','Cancel')}</a>`,
+    fields:[{id:'pw',label:tx('كلمة المرور الجديدة','New password'),type:'password',icon:'bi-lock',ph:tx('8 أحرف على الأقل','At least 8 characters'),auto:'new-password',dir:'ltr',bad:1},{id:'pw2',label:tx('تأكيد كلمة المرور','Confirm password'),type:'password',icon:'bi-lock',ph:tx('أعد كتابة كلمة المرور','Repeat the password'),auto:'new-password',dir:'ltr',bad:1}],
+    submit:tx('حفظ كلمة المرور','Save password'),
+    onSubmit:async()=>{const pw=$('#pw').value;if(pw.length<8)return vResetPw(tx('كلمة المرور 8 أحرف على الأقل.','At least 8 characters.'));if(pw!==$('#pw2').value)return vResetPw(tx('كلمتا المرور غير متطابقتين.','The passwords do not match.'));
+      try{const c=await Cloud.sb();Cloud.chk(await c.auth.updateUser({password:pw}));const {data}=await c.auth.getSession();const u=data.session.user;Cloud.user=u;const me=Cloud.chk(await c.rpc('nv_me'));await Cloud.setMe(me,u.id);
+        toast(tx('تم حفظ كلمة المرور الجديدة.','Password saved.'),4000);return afterSignIn(me,u.email)}
+      catch(er){vResetPw(/same.*password|different from the old/i.test(er.message)?tx('اختر كلمة مرور مختلفة عن السابقة.','Choose a different password.'):er.message)}}})}
 </script>
 <script id="nv-admin">
 /* Admin pages — markup copied from resources/views/admin/** (AdminLTE 4; NV9: Arabic, RTL). */
@@ -917,7 +952,7 @@ function paginate(list,per=20){const total=list.length,last=Math.max(1,Math.ceil
   const footer=last>1?`<div class="card-footer clearfix"><div class="row align-items-center"><div class="col-sm-6"><span class="text-muted">عرض ${(page-1)*per+1} إلى ${(page-1)*per+items.length} من ${total} نتيجة</span></div><div class="col-sm-6">${links}</div></div></div>`:'';
   return {items,footer}}
 let aflash=null;const charts=[];function destroyCharts(){while(charts.length){try{charts.pop().destroy()}catch(e){}}}
-const chart=(el,o)=>{const c=new ApexCharts(el,o);charts.push(c);c.render()};const setAFlash=(m,k='success')=>{aflash={m,k}};
+const chart=(el,o)=>{if(!el||!el.isConnected)return;o.chart=Object.assign({animations:{enabled:false}},o.chart);const c=new ApexCharts(el,o);charts.push(c);c.render()};const setAFlash=(m,k='success')=>{aflash={m,k}};
 const isAuthed=()=>Cloud.on?(Cloud.role==='admin'||Cloud.role==='reader'):isAdmin();
 /* NV10 roles: owner (مالك المشروع) / manager (مدير المشروع) / coordinator (منسق المشروع) sign in by e-mail; field supervisors (مشرف ميدان) are employees */
 const ROLE_L={owner:'مالك المشروع',manager:'مدير المشروع',coordinator:'منسق المشروع',reader:'قراءة فقط',field:'مشرف ميدان'};
@@ -948,7 +983,7 @@ function adminShell(active,title,content){
      <ul class="dropdown-menu dropdown-menu-end" style="--bs-dropdown-min-width: 8rem;">${[['light','bi-sun-fill','فاتح'],['dark','bi-moon-fill','داكن'],['auto','bi-circle-half','تلقائي']].map(([v,i,l])=>`<li><button type="button" class="dropdown-item d-flex align-items-center ${th===v?'active':''}" data-bs-theme-value="${v}" aria-pressed="${th===v}"><i class="bi ${i} me-2"></i> ${l}<i class="bi bi-check-lg ms-auto ${th===v?'':'d-none'}"></i></button></li>`).join('')}</ul></li>
     <li class="nav-item dropdown user-menu"><a href="javascript:void 0" class="nav-link dropdown-toggle" data-bs-toggle="dropdown"><span class="user-image rounded-circle shadow d-inline-flex align-items-center justify-content-center bg-secondary text-white" style="width:2rem;height:2rem"><i class="bi bi-person-fill"></i></span><span class="d-none d-md-inline">${ROLE_L[staffRole()]||'المدير'}</span></a>
      <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end"><li class="user-header text-bg-primary"><span class="rounded-circle shadow d-inline-flex align-items-center justify-content-center bg-white text-primary" style="width:90px;height:90px;font-size:2.5rem"><i class="bi bi-person-fill"></i></span><p>${ROLE_L[staffRole()]||'المدير'}<small>${esc(adm.email||'')}</small></p></li>
-      <li class="user-footer"><a href="javascript:void 0" class="btn btn-outline-danger float-end" data-nv-logout><i class="bi bi-box-arrow-right me-1"></i>تسجيل الخروج</a></li></ul></li></ul></div></nav>
+      <li class="user-footer">${Cloud.on?'<a href="#reset-password" class="btn btn-outline-primary"><i class="bi bi-key me-1"></i>تغيير كلمة المرور</a>':''}<a href="javascript:void 0" class="btn btn-outline-danger float-end" data-nv-logout><i class="bi bi-box-arrow-right me-1"></i>تسجيل الخروج</a></li></ul></li></ul></div></nav>
   <aside class="app-sidebar nv-rkz shadow-sm">
    <div class="sidebar-brand bg-white p-2" style="height: auto; min-height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden;"><a href="#admin" class="brand-link p-0 w-100 h-100 d-flex align-items-center justify-content-center"><img src="${esc(logoURL())}" alt="Logo" class="w-100 h-auto" style="max-height: 70px; object-fit: contain;"><span class="brand-text d-none">${esc(appName())}</span></a></div>
    <div class="sidebar-wrapper" style="overflow-y:auto"><nav class="mt-2"><ul class="nav sidebar-menu flex-column" role="menu" data-accordion="false">
@@ -988,7 +1023,7 @@ function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?
 const iconBtn=(href,icon,title)=>`<a href="${href}" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle"${title?` title="${title}"`:''}><i class="bi ${icon}"></i></a>`;
 
 /* ---------- auth/login.blade.php ---------- */
-function vAdminLogin(err,emv){
+function vAdminLogin(err,emv){if(Cloud.on)return vCloudLogin(err,emv);
   const first=!Cloud.on&&!(S.settings.admin_login&&S.settings.admin_login.hash);const rem=lsGet('nv_remember_admin','');
   authPage({kind:'admin',title:tx('دخول الإدارة','Admin sign-in'),err,
     sub:first?tx('أول دخول على هذا الجهاز: البريد وكلمة المرور اللذان تكتبهما الآن يصبحان دخول المدير هنا','First use on this device: the e-mail and password you enter become the admin sign-in here'):Cloud.on?tx('ادخل بحساب Solvix (البريد وكلمة المرور)','Sign in with your Solvix account'):tx('مرحباً بك، يرجى تسجيل الدخول للمتابعة','Welcome — please sign in to continue'),
@@ -1200,9 +1235,13 @@ function vSchoolForm(id){const isNew=!id;const s=isNew?{status:'active'}:get('sc
 /* technicians' sign-in (cloud): employee number + a password set here */
 const genPw=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return String(10000000+a[0]%90000000)};
 function vEmployeeForm(id){const isNew=!id;const e=isNew?{}:get('employees',id);if(!e){go('#admin/employees');return}
-  crudForm(isNew?'employees.create':'employees.edit',isNew?'إضافة موظف':'تعديل موظف',[{k:'number',l:'الرقم الوظيفي',req:1},{k:'name',l:'الاسم',req:1}],e,v=>{
+  const oldEm=e.email||'';
+  crudForm(isNew?'employees.create':'employees.edit',isNew?'إضافة مشرف ميدان':'تعديل مشرف ميدان',[{k:'number',l:'الرقم الوظيفي',req:1},{k:'name',l:'الاسم',req:1},{k:'email',l:'البريد الإلكتروني (للدخول واستعادة كلمة المرور)',req:Cloud.on?1:0}],e,v=>{
+    v.email=(v.email||'').trim().toLowerCase()||null;if(v.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.email))return ['email','البريد الإلكتروني غير صحيح.'];
+    if(v.email&&S.employees.some(x=>x!==e&&(x.email||'').toLowerCase()===v.email))return ['email','هذا البريد مستخدم لمشرف آخر.'];
     if(S.employees.some(x=>String(x.number)===v.number&&x!==e))return ['number','هذا الرقم الوظيفي مستخدم لموظف آخر.'];
-    Object.assign(e,v);if(isNew){Object.assign(e,{id:nextId('employees','e'),created_at:now()});S.employees.push(e)}reindex();save('employees');setAFlash(isNew?'تمت إضافة الموظف.':'تم تحديث الموظف.');go('#admin/employees')},'#admin/employees')}
+    Object.assign(e,v);if(isNew){Object.assign(e,{id:nextId('employees','e'),created_at:now()});S.employees.push(e)}reindex();save('employees');
+    (async()=>{if(Cloud.on&&!isNew&&v.email&&v.email!==oldEm){try{await Cloud.sync();const c=await Cloud.sb();const r=Cloud.chk(await c.rpc('nv_emp_sync_email',{p_emp:e.id}));if(r)setAFlash(`تم التحديث. صار دخول ${e.name} بالبريد ${r}.`)}catch(er){setAFlash('تم حفظ البيانات، لكن لم يُنقل حساب الدخول للبريد الجديد: '+er.message,'warning')}}else setAFlash(isNew?'تمت إضافة مشرف الميدان.':'تم تحديث مشرف الميدان.');go('#admin/employees')})()},'#admin/employees')}
 
 /* ---------- lookups: asset categories / types / conditions / room names ---------- */
 const LK={
@@ -1336,21 +1375,22 @@ function addUserCard(){const staff=Cloud.on&&canUsers();
    <div class="col-md-3"><label class="form-label fw-bold small">الدور</label><select class="form-select" id="u_role">${roles.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></div>
    <div class="col-md-3"><label class="form-label fw-bold small">الاسم</label><input class="form-control" id="u_name" required></div>
    <div class="col-md-3" data-for="field"><label class="form-label fw-bold small">الرقم الوظيفي</label><input class="form-control" id="u_num" dir="ltr"></div>
-   <div class="col-md-3 d-none" data-for="staff"><label class="form-label fw-bold small">البريد الإلكتروني</label><input type="email" class="form-control" id="u_email" dir="ltr"></div>
+   <div class="col-md-3"><label class="form-label fw-bold small">البريد الإلكتروني</label><input type="email" class="form-control" id="u_email" dir="ltr"></div>
    ${Cloud.on?'<div class="col-md-3"><label class="form-label fw-bold small">كلمة المرور</label><input class="form-control" id="u_pw" minlength="8" dir="ltr"></div>':''}
   </div><p class="form-text mt-2 mb-3" id="u_hint"></p><button class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>إضافة</button></form></div>`}
 function bindAddUser(){const card=$('#addUser');if(!card)return;
   $$('[data-adduser]').forEach(b=>b.onclick=()=>{card.classList.toggle('d-none');if(!card.classList.contains('d-none'))$('#u_name').focus()});
   if($('#u_pw'))$('#u_pw').value=genPw();
-  const HINT={field:'مشرف الميدان يدخل تطبيق الجرد على الجوال برقمه الوظيفي وكلمة المرور، ويرى أعماله فقط.',coordinator:'منسق المشروع يدخل لوحة الإدارة بالبريد: يعدّل المدارس والجرد والقوائم وينقل الأعمال، ولا يدير المستخدمين ولا الإعدادات العامة.',manager:'مدير المشروع: كل الصلاحيات، ومنها إدارة المستخدمين، عدا تعديل حسابات المالكين.',owner:'مالك المشروع: كل الصلاحيات.'};
-  const sync=()=>{const v=$('#u_role').value,f=v==='field';$$('[data-for="field"]').forEach(x=>x.classList.toggle('d-none',!f));$$('[data-for="staff"]').forEach(x=>x.classList.toggle('d-none',f));$('#u_num').required=f;$('#u_email').required=!f;$('#u_hint').textContent=HINT[v]+(Cloud.on?'':' (هذا الجهاز غير متصل بقاعدة البيانات: يُضاف مشرف الميدان بدون حساب دخول.)')};
+  const HINT={field:'مشرف الميدان يدخل تطبيق الجرد على الجوال ببريده الإلكتروني وكلمة المرور، ويرى أعماله فقط.',coordinator:'منسق المشروع يدخل لوحة الإدارة بالبريد: يعدّل المدارس والجرد والقوائم وينقل الأعمال، ولا يدير المستخدمين ولا الإعدادات العامة.',manager:'مدير المشروع: كل الصلاحيات، ومنها إدارة المستخدمين، عدا تعديل حسابات المالكين.',owner:'مالك المشروع: كل الصلاحيات.'};
+  const sync=()=>{const v=$('#u_role').value,f=v==='field';$$('[data-for="field"]').forEach(x=>x.classList.toggle('d-none',!f));$$('[data-for="staff"]').forEach(x=>x.classList.toggle('d-none',f));$('#u_num').required=f;$('#u_email').required=!f||Cloud.on;$('#u_hint').textContent=HINT[v]+(Cloud.on?'':' (هذا الجهاز غير متصل بقاعدة البيانات: يُضاف مشرف الميدان بدون حساب دخول.)')};
   $('#u_role').onchange=sync;sync();
   $('#fu').onsubmit=async e=>{e.preventDefault();const role=$('#u_role').value,name=$('#u_name').value.trim(),pw=$('#u_pw')?$('#u_pw').value:'';const btn=e.submitter||$('#fu button');
     if(!name)return;if(Cloud.on&&pw.length<8)return alert('كلمة المرور 8 أحرف على الأقل.');btn.disabled=true;
     try{if(role==='field'){const num=$('#u_num').value.trim();if(!num)return;if(S.employees.some(x=>String(x.number)===num))throw new Error('هذا الرقم الوظيفي مستخدم لموظف آخر.');
-        const emp={id:nextId('employees','e'),number:num,name,created_at:now()};S.employees.push(emp);reindex();save('employees');
+        const fe=$('#u_email').value.trim().toLowerCase()||null;if(Cloud.on&&!fe)throw new Error('اكتب البريد الإلكتروني لمشرف الميدان — يدخل به.');if(fe&&S.employees.some(x=>(x.email||'').toLowerCase()===fe))throw new Error('هذا البريد مستخدم لمشرف آخر.');
+        const emp={id:nextId('employees','e'),number:num,name,email:fe,created_at:now()};S.employees.push(emp);reindex();save('employees');
         if(Cloud.on){await Cloud.sync();if(Cloud.err)throw new Error('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message);const c=await Cloud.sb();Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:emp.id,p_password:pw}));
-          setAFlash(`تمت إضافة مشرف الميدان ${name}. الدخول: الرقم الوظيفي ${num} / كلمة المرور ${pw}`)}else setAFlash(`تمت إضافة مشرف الميدان ${name}.`)}
+          setAFlash(`تمت إضافة مشرف الميدان ${name}. الدخول: ${fe} / كلمة المرور ${pw}`)}else setAFlash(`تمت إضافة مشرف الميدان ${name}.`)}
       else{const em=$('#u_email').value.trim().toLowerCase();if(!em)return;const c=await Cloud.sb();Cloud.chk(await c.rpc('nv_staff_create',{p_email:em,p_password:pw,p_name:name,p_role:role}));
         setAFlash(`تمت إضافة ${ROLE_L[role]} ${name}. الدخول: ${em} / ${pw}`)}
       location.hash='#admin/employees';vEmployees()}catch(er){alert(er.message)}finally{if(document.body.contains(btn))btn.disabled=false}}}
@@ -1638,15 +1678,15 @@ async function loadEmpLogins(force){if(!Cloud.on)return;if(empLoginMap&&!force)r
 function vEmployees(){const cnt=new Map();for(const c of S.collections)cnt.set(c.employee_id,(cnt.get(c.employee_id)||0)+1);const ed=Cloud.role==='admin'||!Cloud.on;
   const T=nvTable({key:'employees',title:'مشرفو الميدان',icon:'bi-person-badge',sub:'يدخلون تطبيق الجرد برقمهم الوظيفي',sort:'name',minW:Cloud.on?860:760,actW:'120px',
     init:st=>{const q=qp().get('search');if(q)st.f.q=q},
-    rows:()=>S.employees.map(e=>({id:e.id,e,no:num(dispId(e.id))||0,number:String(e.number),name:e.name,role:'مشرف ميدان',recs:cnt.get(e.id)||0,login:!Cloud.on?'':empLoginMap?(empLoginMap.get(e.id)?'نعم':'لا'):'…',created:fmtYmd(e.created_at)})),
-    cols:[{k:'no',l:'#',w:'60px',cls:'text-muted small'},{k:'number',l:'الرقم الوظيفي',w:'130px',html:r=>`<code class="text-primary">${esc(r.number)}</code>`},{k:'name',l:'الاسم',w:'30%',cls:'fw-medium'},
+    rows:()=>S.employees.map(e=>({id:e.id,e,no:num(dispId(e.id))||0,number:String(e.number),name:e.name,email:e.email||'',role:'مشرف ميدان',recs:cnt.get(e.id)||0,login:!Cloud.on?'':empLoginMap?(empLoginMap.get(e.id)?'نعم':'لا'):'…',created:fmtYmd(e.created_at)})),
+    cols:[{k:'no',l:'#',w:'60px',cls:'text-muted small'},{k:'number',l:'الرقم الوظيفي',w:'130px',html:r=>`<code class="text-primary">${esc(r.number)}</code>`},{k:'name',l:'الاسم',w:'24%',cls:'fw-medium'},{k:'email',l:'البريد الإلكتروني',w:'22%',cls:'small',html:r=>r.email?`<span dir="ltr">${esc(r.email)}</span>`:'<span class="text-danger small">بدون بريد</span>'},
       {k:'role',l:'الدور',w:'110px',filter:'select',html:()=>'<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">مشرف ميدان</span>'},
       {k:'recs',l:'السجلات',w:'90px',cls:'text-center',filter:false,html:r=>r.recs?`<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle">${r.recs}</span>`:'<span class="text-muted">—</span>'},
       ...(Cloud.on?[{k:'login',l:'حساب الدخول',w:'110px',filter:'select',html:r=>r.login==='نعم'?'<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>نعم</span>':r.login==='لا'?'<span class="badge rounded-pill bg-secondary-subtle text-secondary border">لا</span>':'…'}]:[]),
       {k:'created',l:'تاريخ الإضافة',w:'110px',cls:'small text-muted'}],
     actions:r=>`${Cloud.on&&ed?`<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-setpw="${esc(r.id)}" title="${r.login==='نعم'?'كلمة مرور جديدة':'إنشاء حساب دخول'}"><i class="bi bi-key text-primary"></i></button> `:''}${iconBtn('#admin/employees/'+encodeURIComponent(r.id)+'/edit','bi-pencil text-warning','تعديل')} <button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-delemp="${esc(r.id)}" title="حذف"><i class="bi bi-trash text-danger"></i></button>`,
     tools:`<button type="button" data-adduser class="btn btn-sm btn-primary"><i class="bi bi-person-plus me-1"></i>إضافة مستخدم</button>`,
-    exp:(rows,name)=>writeXlsx([['مشرفو الميدان',[['Employee Number','Name','الدور','Asset Collections Count',...(Cloud.on?['حساب الدخول']:[]),'Created At'],...rows.map(r=>[r.number,r.name,r.role,r.recs,...(Cloud.on?[r.login]:[]),ymdhms(r.e.created_at)])]]],'field-supervisors-'+stampDash()+'.xlsx'),
+    exp:(rows,name)=>writeXlsx([['مشرفو الميدان',[['Employee Number','Name','Email','الدور','Asset Collections Count',...(Cloud.on?['حساب الدخول']:[]),'Created At'],...rows.map(r=>[r.number,r.name,r.email,r.role,r.recs,...(Cloud.on?[r.login]:[]),ymdhms(r.e.created_at)])]]],'field-supervisors-'+stampDash()+'.xlsx'),
     onImport:()=>importEmployeesFile(()=>vEmployees()),
     bulk:[...(Cloud.on&&ed?[{id:'logins',label:'<i class="bi bi-key"></i> إنشاء حسابات دخول',cls:'btn-success',run:async ids=>{await createLogins(ids.map(id=>get('employees',id)).filter(e=>e&&!(empLoginMap&&empLoginMap.get(e.id))))}}]:[]),
       {id:'del',label:'<i class="bi bi-trash"></i> حذف',cls:'btn-danger',run:async (ids,st)=>{if(await deleteEmployees(ids)){ids.forEach(id=>st.sel.delete(id));vEmployees()}}}],
@@ -1658,11 +1698,11 @@ function vEmployees(){const cnt=new Map();for(const c of S.collections)cnt.set(c
   document.getElementById('nvt-employees').addEventListener('click',async e=>{const b=e.target.closest('[data-delemp]');if(b&&await deleteEmployees([b.dataset.delemp]))vEmployees()})}
 async function setEmpPw(id){const e=get('employees',id);if(!e)return;if(Cloud.pendingCount())await Cloud.sync();
   const pw=prompt(`كلمة المرور لـ ${e.name} (${e.number}) — 8 أحرف على الأقل. اترك المقترحة أو اكتب غيرها:`,genPw());if(!pw)return;
-  try{const c=await Cloud.sb();Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:e.id,p_password:pw}));alert(`تم.\n\nالرقم الوظيفي: ${e.number}\nكلمة المرور: ${pw}\n\nيفتح مشرف الميدان رابط Solvix ويدخل بهما.`);await loadEmpLogins(true);vEmployees()}catch(er){alert(er.message)}}
+  try{const c=await Cloud.sb();Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:e.id,p_password:pw}));alert(`تم.\n\nالبريد: ${e.email||'(بدون بريد — يدخل بالرقم الوظيفي '+e.number+')'}\nكلمة المرور: ${pw}\n\nيفتح مشرف الميدان رابط Solvix ويدخل بهما.`);await loadEmpLogins(true);vEmployees()}catch(er){alert(er.message)}}
 async function createLogins(list){if(!list.length)return alert('لكل المحددين حسابات دخول بالفعل.');
   if(!confirm(`إنشاء حسابات دخول لـ ${list.length} مشرف ميدان؟ سيُنزَّل ملف Excel بكلمات المرور — احفظه بأمان وأعطِ كل مشرف سطره فقط.`))return;
-  await Cloud.sync();const c=await Cloud.sb();const rows=[['الرقم الوظيفي','الاسم','كلمة المرور','الرابط']];let ok=0;toast('جارٍ إنشاء الحسابات…',4000);
-  for(const e of list){const pw=genPw();try{Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:e.id,p_password:pw}));rows.push([e.number,e.name,pw,location.origin+location.pathname]);ok++}catch(er){rows.push([e.number,e.name,'خطأ: '+er.message,''])}}
+  await Cloud.sync();const c=await Cloud.sb();const rows=[['الرقم الوظيفي','الاسم','البريد (للدخول)','كلمة المرور','الرابط']];let ok=0;toast('جارٍ إنشاء الحسابات…',4000);
+  for(const e of list){const pw=genPw();try{Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:e.id,p_password:pw}));rows.push([e.number,e.name,e.email||('nv'+String(e.number).toLowerCase().replace(/[^a-z0-9]/g,'')+'@novaro.local'),pw,location.origin+location.pathname]);ok++}catch(er){rows.push([e.number,e.name,'خطأ: '+er.message,''])}}
   await writeXlsx([['حسابات الدخول',rows]],'solvix-logins-'+stampDash()+'.xlsx');setAFlash(`تم إنشاء ${ok} حساب دخول. كلمات المرور موجودة فقط في الملف الذي نزل.`);await loadEmpLogins(true);vEmployees()}
 async function deleteEmployees(ids){const set=new Set(ids);const recs=S.collections.filter(c=>set.has(c.employee_id));
   const msg=`حذف ${ids.length===1?'مشرف الميدان «'+((get('employees',ids[0])||{}).name||'')+'»':ids.length+' مشرف ميدان'} نهائياً${recs.length?` مع ${recs.length} سجل جرد وصورها`:''}؟`;
@@ -1670,7 +1710,7 @@ async function deleteEmployees(ids){const set=new Set(ids);const recs=S.collecti
   await removeCollections(recs);S.employees=S.employees.filter(x=>!set.has(x.id));for(const s of S.schools)if(set.has(s.completed_by))s.completed_by=null;reindex();save('employees');save('schools');setAFlash(`تم حذف ${ids.length} مشرف ميدان.`);return true}
 async function importEmployeesFile(done){const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;let rows;try{rows=await readXlsx(f)}catch(e){return alert(e.message)}let add=0,upd=0,skip=0;const seen=new Set();
   for(const r of rows){const n=String(r['Employee Number']??r['employee_number']??r['الرقم الوظيفي']??'').trim(),nm=String(r['Name']??r['name']??r['الاسم']??'').trim();if(!n||!nm||seen.has(n)){skip++;continue}seen.add(n);
-    const e=S.employees.find(x=>String(x.number)===n);if(e){e.name=nm;upd++}else{S.employees.push({id:nextId('employees','e'),number:n,name:nm,created_at:now()});add++}}
+    const em=String(r['Email']??r['email']??r['البريد الإلكتروني']??r['البريد']??'').trim().toLowerCase()||null;const e=S.employees.find(x=>String(x.number)===n);if(e){e.name=nm;if(em)e.email=em;upd++}else{S.employees.push({id:nextId('employees','e'),number:n,name:nm,email:em,created_at:now()});add++}}
   reindex();save('employees');setAFlash(`استيراد مشرفي الميدان: ${add} جديد، ${upd} محدَّث${skip?`، ${skip} صف متجاهَل`:''}.`);done()}
 </script>
 <script id="nv-boot">
@@ -1679,6 +1719,7 @@ const LIST_PAGES=/^admin(\/(collections|schools|employees|asset-categories|asset
 function route(){
   if(/[#&]cfg=/.test(location.hash)){/* a connection link opened in a tab that was already open */try{const m=location.hash.match(/[#&]cfg=([^&]+)/);const o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));if(cfgOk(o))localStorage.setItem(NV_CFG_KEY,JSON.stringify({url:o.url.replace(/\/+$/,''),key:o.key}))}catch(e){}location.replace(location.pathname+location.search+'#login');location.reload();return}
   const path=decodeURIComponent(location.hash.replace(/^#/,'').split('?')[0]);const seg=path.split('/');window.scrollTo(0,0);
+  if(Cloud.on&&seg[0]==='forgot'){destroyCharts();const ae=Cloud.authErr;Cloud.authErr=null;return vForgot('',ae?'رابط الاستعادة غير صالح أو انتهت صلاحيته — اطلب رابطاً جديداً.':'')}if(Cloud.on&&seg[0]==='reset-password'){destroyCharts();return vResetPw()}
   if(seg[0]==='admin'){
     if(seg[1]==='login'||!isAuthed())return vAdminLogin();
     needAdminLibs().catch(()=>{});
@@ -1703,11 +1744,14 @@ window.addEventListener('hashchange',route);
 (async()=>{try{
   /* cloud by default (same project as start.html); «?local» or a project without section 20 keeps the offline copy */
   const local=/[?&]local\b/.test(location.search)||!Cloud.cfg();Cloud.noCfg=!Cloud.cfg();
+  /* NV17: a password-reset link from Supabase lands here as #access_token=…&type=recovery (or #error=…) */
+  const H=location.hash;const recovery=/type=recovery/.test(H);const authErr=/error_description=/.test(H)?decodeURIComponent((H.match(/error_description=([^&]+)/)||[])[1]||'').replace(/\+/g,' '):'';
   if(!local){
     await loadState(true);Cloud.on=true;
     let ok=true;try{const c=await Cloud.sb();const {error}=await c.from('nv_settings').select('id').limit(1);if(error&&/does not exist|schema cache|nv_settings/i.test(error.message))ok=false}catch(e){/* offline: work from the cached copy */}
     if(!ok){Cloud.on=false;Cloud.tablesMissing=true;IDB.db.close();IDB.name='novaro_v2';for(const t of TABLES)S[t]=null;await loadState(false)}
     else{await Cloud.init();await Cloud.loadPublicSettings();
+      if(recovery){history.replaceState(null,'',location.pathname+location.search+'#reset-password')}else if(authErr){history.replaceState(null,'',location.pathname+location.search+'#forgot');Cloud.authErr=authErr}
       if(Cloud.role){app().innerHTML='<p style="padding:24px;font-family:Cairo,sans-serif;color:#64748b">…</p>';
         try{await Promise.race([Cloud.sync().then(()=>Cloud.pull()),new Promise(r=>setTimeout(r,15000))])}catch(e){console.warn(e)}}}
   }else await loadState(false);

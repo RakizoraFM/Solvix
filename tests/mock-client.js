@@ -14,7 +14,9 @@ const b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.sp
 window.supabase={createClient(){return {
   auth:{async getSession(){const s=sess();return {data:{session:s}}},
     async signInWithPassword({email,password}){const r=await call({op:'signin',email,password});if(r.error)return r;localStorage.setItem(KEY,JSON.stringify({user:r.data.user}));return r},
-    async signOut(){localStorage.removeItem(KEY);return {error:null}}},
+    async signOut(){localStorage.removeItem(KEY);return {error:null}},
+    async resetPasswordForEmail(email,o){return call({op:'reset',email,redirectTo:o&&o.redirectTo})},
+    async updateUser({password}){return call({op:'setpw',password})}},
   from:t=>new Q(t), rpc:(fn,args)=>({then:(a,b)=>call({op:'rpc',fn,args}).then(a,b)}),
   storage:{from:()=>({async upload(name,blob){return call({op:'upload',name,data:await b64(blob)})},
     async download(name){const r=await call({op:'download',name});if(r.error)return r;const bin=atob(r.data);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return {data:new Blob([u],{type:'image/jpeg'}),error:null}}})}

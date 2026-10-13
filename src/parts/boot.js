@@ -4,6 +4,7 @@ const LIST_PAGES=/^admin(\/(collections|schools|employees|asset-categories|asset
 function route(){
   if(/[#&]cfg=/.test(location.hash)){/* a connection link opened in a tab that was already open */try{const m=location.hash.match(/[#&]cfg=([^&]+)/);const o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));if(cfgOk(o))localStorage.setItem(NV_CFG_KEY,JSON.stringify({url:o.url.replace(/\/+$/,''),key:o.key}))}catch(e){}location.replace(location.pathname+location.search+'#login');location.reload();return}
   const path=decodeURIComponent(location.hash.replace(/^#/,'').split('?')[0]);const seg=path.split('/');window.scrollTo(0,0);
+  if(Cloud.on&&seg[0]==='forgot'){destroyCharts();const ae=Cloud.authErr;Cloud.authErr=null;return vForgot('',ae?'رابط الاستعادة غير صالح أو انتهت صلاحيته — اطلب رابطاً جديداً.':'')}if(Cloud.on&&seg[0]==='reset-password'){destroyCharts();return vResetPw()}
   if(seg[0]==='admin'){
     if(seg[1]==='login'||!isAuthed())return vAdminLogin();
     needAdminLibs().catch(()=>{});
@@ -28,11 +29,14 @@ window.addEventListener('hashchange',route);
 (async()=>{try{
   /* cloud by default (same project as start.html); «?local» or a project without section 20 keeps the offline copy */
   const local=/[?&]local\b/.test(location.search)||!Cloud.cfg();Cloud.noCfg=!Cloud.cfg();
+  /* NV17: a password-reset link from Supabase lands here as #access_token=…&type=recovery (or #error=…) */
+  const H=location.hash;const recovery=/type=recovery/.test(H);const authErr=/error_description=/.test(H)?decodeURIComponent((H.match(/error_description=([^&]+)/)||[])[1]||'').replace(/\+/g,' '):'';
   if(!local){
     await loadState(true);Cloud.on=true;
     let ok=true;try{const c=await Cloud.sb();const {error}=await c.from('nv_settings').select('id').limit(1);if(error&&/does not exist|schema cache|nv_settings/i.test(error.message))ok=false}catch(e){/* offline: work from the cached copy */}
     if(!ok){Cloud.on=false;Cloud.tablesMissing=true;IDB.db.close();IDB.name='novaro_v2';for(const t of TABLES)S[t]=null;await loadState(false)}
     else{await Cloud.init();await Cloud.loadPublicSettings();
+      if(recovery){history.replaceState(null,'',location.pathname+location.search+'#reset-password')}else if(authErr){history.replaceState(null,'',location.pathname+location.search+'#forgot');Cloud.authErr=authErr}
       if(Cloud.role){app().innerHTML='<p style="padding:24px;font-family:Cairo,sans-serif;color:#64748b">…</p>';
         try{await Promise.race([Cloud.sync().then(()=>Cloud.pull()),new Promise(r=>setTimeout(r,15000))])}catch(e){console.warn(e)}}}
   }else await loadState(false);

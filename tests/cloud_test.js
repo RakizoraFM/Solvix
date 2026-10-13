@@ -20,9 +20,9 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  M.handle(JSON.stringify({user:{id:'u-admin'},op:'rpc',fn:'nv_emp_set_login',args:{p_emp:M.db.nv_employees.find(e=>e.number==='21426').id,p_password:'87654321'}}));
  // ---- technician phone
  const T=await mk({width:390,height:844});const t=T.p;t.on('dialog',d=>d.accept());
- await t.goto(U);await t.waitForSelector('#employee-pw');await t.fill('#employee-id','22912');await t.fill('#employee-pw','bad');await t.click('button[type=submit]');
+ await t.goto(U);await t.waitForSelector('#pw');await t.fill('#em','22912');await t.fill('#pw','bad');await t.click('button[type=submit]');
  await t.waitForSelector('.sx-err');ok((await t.textContent('.sx-err')).includes('غير صحيحة'),'tech wrong password');
- await t.fill('#employee-pw',pw);await t.click('button[type=submit]');await t.waitForSelector('#screen-data');ok(!(await t.$('#send')),'no send-file card in cloud');
+ await t.fill('#pw',pw);await t.click('button[type=submit]');await t.waitForSelector('#screen-data');ok(!(await t.$('#send')),'no send-file card in cloud');
  await t.click('text=تأكيد البيانات');await t.fill('#q','الضياء');await t.waitForSelector('#res li');await t.click('#res li >> nth=0');await t.setInputFiles('#school-image',B+'/a.png');await t.click('#next');
  await t.waitForSelector('#floor-select');await t.selectOption('#floor-select','الأرضي');await t.selectOption('#room-number','1');
  await t.selectOption('#room-name',await t.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await t.click('#submit-btn');await t.waitForSelector('#a_category_id');
@@ -39,13 +39,13 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  ok(M.db.nv_collections.filter(c=>c.submitted_at).length===2,'online again: sent ('+M.db.nv_collections.filter(c=>c.submitted_at).length+')');
  const school=M.db.nv_collections[0].school_id;
  // second technician cannot take a school the first one is working on
- const T2=await mk({width:390,height:844});const t2=T2.p;await t2.goto(U);await t2.waitForSelector('#employee-pw');await t2.fill('#employee-id','21426');await t2.fill('#employee-pw','87654321');await t2.click('button[type=submit]');
+ const T2=await mk({width:390,height:844});const t2=T2.p;await t2.goto(U);await t2.waitForSelector('#pw');await t2.fill('#em','21426');await t2.fill('#pw','87654321');await t2.click('button[type=submit]');
  await t2.waitForSelector('#screen-data');await t2.click('text=تأكيد البيانات');const sname=M.db.nv_schools.find(s=>s.id===school).name;await t2.uncheck('#favail');await t2.fill('#q',M.db.nv_schools.find(s=>s.id===school).moe);await t2.waitForSelector('#res li');await t2.click('#res li >> nth=0');
  ok((await t2.textContent('#eid')).length>0,'busy school blocked for technician 2');
  // first technician finishes the school
  await t.click('#fin');await t.waitForSelector('#screen-job-completed');await t.waitForTimeout(1500);
  const sc=M.db.nv_schools.find(s=>s.id===school);ok(sc.completed_at&&sc.status==='inactive'&&M.db.nv_collections.every(c=>c.submitted_at),'school completed through nv_complete_school');
- await t.click('#out');await t.waitForSelector('#employee-pw');ok(true,'tech signed out');
+ await t.click('#out');await t.waitForSelector('#pw');ok(true,'tech signed out');
  // ---- admin sees it, edits, change log from the server
  await a.goto(U+'#admin/collections');await a.waitForSelector('table');await a.waitForTimeout(1500);await a.goto(U+'#admin/data');await a.click('#cPull');await a.waitForSelector('.alert-success');
  await a.goto(U+'#admin/collections');await a.waitForSelector('.app-main a[href^="#admin/collections/view/"]');ok(true,'admin sees the technician group');
@@ -58,12 +58,20 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await a.goto(U+'#admin/users');await a.waitForSelector('#staffBox table');ok((await a.textContent('#staffBox')).includes('مالك المشروع'),'owner listed in the users page');
  await a.click('button.btn-primary[data-adduser]');await a.selectOption('#u_role','coordinator');await a.fill('#u_name','Coord');await a.fill('#u_email','co@x.com');const cpw=await a.inputValue('#u_pw');await a.click('#fu button.btn-primary');await a.waitForSelector('.alert-success');
  ok(M.db.nv_staff.some(u=>u.email==='co@x.com'&&u.role==='coordinator'),'coordinator added');
- await a.click('button.btn-primary[data-adduser]');await a.selectOption('#u_role','field');await a.fill('#u_name','Field One');await a.fill('#u_num','99001');await a.click('#fu button.btn-primary');await a.waitForSelector('.alert-success');
+ await a.click('button.btn-primary[data-adduser]');await a.selectOption('#u_role','field');await a.fill('#u_name','Field One');await a.fill('#u_num','99001');await a.fill('#u_email','field.one@x.com');const fpw=await a.inputValue('#u_pw');await a.click('#fu button.btn-primary');await a.waitForSelector('.alert-success');
  ok(M.db.nv_employees.some(e=>e.number==='99001'&&e.user_id),'field supervisor added with a sign-in');
  const R=await mk();const rp=R.p;rp.on('dialog',d=>d.accept());await rp.goto(U+'#admin');await rp.waitForSelector('#em');await rp.fill('#em','co@x.com');await rp.fill('#pw',cpw);await rp.click('button[type=submit]');await rp.waitForSelector('.app-sidebar');
  ok(!(await rp.$('a[href="#admin/settings"]')),'coordinator has no general settings');
  await rp.goto(U+'#admin/employees');await rp.waitForSelector('button.btn-primary[data-adduser]');ok((await rp.$$eval('#u_role option',o=>o.map(x=>x.value).join(',')))==='field'&&!(await rp.$('#staffBox table')),'coordinator adds field supervisors only');
  await rp.goto(U+'#admin/schools/'+M.db.nv_schools[0].id+'/edit');await rp.waitForSelector('#name');await rp.fill('#name','Coord edit');await rp.click('button:has-text("حفظ")');await rp.waitForTimeout(1500);ok(M.db.nv_schools[0].name==='Coord edit','coordinator edit saved');
+ // NV17: e-mail sign-in for a field supervisor, forgotten password, new password
+ const F1=await mk({width:390,height:844});const f1=F1.p;await f1.goto(U);await f1.waitForSelector('#pw');await f1.fill('#em','field.one@x.com');await f1.fill('#pw',fpw);await f1.click('button[type=submit]');await f1.waitForSelector('#screen-data');ok(true,'field supervisor signs in with e-mail');
+ const F2=await mk();const f2=F2.p;await f2.goto(U+'#login');await f2.waitForSelector('#pw');await f2.click('a[href="#forgot"]');await f2.waitForSelector('#em');await f2.fill('#em','field.one@x.com');await f2.click('button[type=submit]');await f2.waitForSelector('.sx-note');
+ ok(M.resets.includes('field.one@x.com')&&(await f2.textContent('.sx-note')).includes('field.one@x.com'),'forgot password: reset link requested');
+ await f2.goto(U+'#reset-password');await f2.waitForSelector('.sx-err');ok((await f2.textContent('.sx-err')).includes('انتهت صلاحية'),'reset page without a session asks for a new link');
+ await f1.goto(U+'#reset-password');await f1.waitForSelector('#pw2');await f1.fill('#pw','NewPass123');await f1.fill('#pw2','NewPass123');await f1.click('button[type=submit]');await f1.waitForSelector('#screen-data');
+ ok(M.users['field.one@x.com'].pw==='NewPass123','new password saved');
+ await a.goto(U+'#admin');await a.waitForSelector('.user-menu');ok(!!(await a.$('a[href="#reset-password"]')),'admin menu: change password');
  // a read-only account (older installs) cannot change anything
  M.users['reader@x.com']={id:'u-reader',pw:'readpass',kind:'reader'};M.db.nv_staff.push({user_id:'u-reader',email:'reader@x.com',name:'Reader',role:'reader',active:true,created_at:'2026-01-02'});
  const R2=await mk();const rq=R2.p;rq.on('dialog',d=>d.accept());await rq.goto(U+'#admin');await rq.waitForSelector('#em');await rq.fill('#em','reader@x.com');await rq.fill('#pw','readpass');await rq.click('button[type=submit]');await rq.waitForSelector('.app-sidebar');const before=JSON.stringify(M.db.nv_schools[0]);

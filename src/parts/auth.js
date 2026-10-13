@@ -56,12 +56,12 @@ function authPage(o){
     <div class="sx-card-logo sx-wm"><img src="${esc(S.settings.logo||NV_LOGO)}" alt="${esc(appName())}"><small>${esc(tag)}</small></div>
     <h2 id="sxTitle">${o.title}</h2><p class="sx-sub">${o.sub}</p>
     <form id="f" novalidate>${o.fields.map(f).join('')}
-     ${o.err?`<div class="sx-err" role="alert">${esc(o.err)}</div>`:''}${o.note?`<div class="sx-note">${o.note}</div>`:''}
-     ${o.remember!==false?`<div class="sx-row"><label><input type="checkbox" id="rem" ${lsGet('nv_remember_'+o.kind,'')?'checked':''}> ${tx('تذكرني','Remember me')}</label><a data-m="${o.kind==='admin'?'support':'support'}">${tx('نسيت كلمة المرور؟','Forgot password?')}</a></div>`:''}
+     ${o.err?`<div class="sx-err" role="alert">${esc(o.err)}</div>`:''}${o.ok?`<div class="sx-note" role="status" style="background:#ecfdf5;border-color:#a7f3d0;color:#065f46">${o.ok}</div>`:''}${o.note?`<div class="sx-note">${o.note}</div>`:''}
+     ${o.remember!==false?`<div class="sx-row"><label><input type="checkbox" id="rem" ${lsGet('nv_remember_'+o.kind,'')?'checked':''}> ${tx('تذكرني','Remember me')}</label>${Cloud.on?`<a href="#forgot">${tx('نسيت كلمة المرور؟','Forgot password?')}</a>`:`<a data-m="support">${tx('نسيت كلمة المرور؟','Forgot password?')}</a>`}</div>`:''}
      <button type="submit" class="sx-go">${o.submit} <i class="bi bi-arrow-${ar?'left':'right'}"></i></button></form>
     <div class="sx-or">${tx('أو','or')}</div>
     <div class="sx-secure"><i class="bi bi-shield-check"></i> ${tx('تسجيل دخول آمن ومشفّر لحماية بياناتك','Secure, encrypted sign-in to protect your data')}</div>
-    <div class="sx-alt">${o.kind==='admin'?`<a href="#login">${tx('دخول مشرفي الميدان بالرقم الوظيفي','Technician sign-in')}</a>`:`<a href="#admin">${tx('دخول الإدارة','Admin sign-in')}</a>`}</div>
+    <div class="sx-alt">${o.alt!=null?o.alt:o.kind==='admin'?`<a href="#login">${tx('دخول مشرفي الميدان بالرقم الوظيفي','Technician sign-in')}</a>`:`<a href="#admin">${tx('دخول الإدارة','Admin sign-in')}</a>`}</div>
     ${o.extra||''}
    </section>
    <section class="sx-hero"><h1>${S.settings.logo?`<span>${esc(appName())}</span>`:`<img class="sx-hero-logo" src="${NV_LOGO}" alt="${esc(appName())}">`}</h1><h3>${esc(tag)}</h3>
@@ -79,4 +79,39 @@ function authPage(o){
   $('#f').onsubmit=async e=>{e.preventDefault();const fm=e.target;const miss=[...fm.querySelectorAll('input[required]')].find(i=>!i.value.trim());if(miss){miss.closest('.sx-in').classList.add('bad');miss.focus();return}
     const r=$('#rem');lsSet('nv_remember_'+o.kind,r&&r.checked?(o.rememberValue?o.rememberValue():'1'):'');const b=fm.querySelector('.sx-go');b.disabled=true;try{await o.onSubmit(fm)}finally{if(document.body.contains(b))b.disabled=false}};
 }
+
+/* NV17 — with the cloud everyone signs in with e-mail + password (field supervisors too); the role decides where he lands.
+   Forgotten password: Supabase sends a reset link back to this page (#reset-password). */
+function vCloudLogin(err,emv){const rem=lsGet('nv_remember_all','');
+  authPage({kind:'all',title:tx('تسجيل الدخول','Sign in'),sub:tx('ادخل إلى Solvix ببريدك الإلكتروني وكلمة المرور','Sign in to Solvix with your e-mail and password'),err,remember:true,alt:'',
+    fields:[{id:'em',label:tx('البريد الإلكتروني','E-mail'),type:'email',icon:'bi-envelope',ph:tx('أدخل بريدك الإلكتروني','Enter your e-mail'),value:emv||(rem&&rem!=='1'?rem:''),auto:'username',dir:'ltr',bad:1},
+      {id:'pw',label:tx('كلمة المرور','Password'),type:'password',icon:'bi-lock',ph:tx('أدخل كلمة المرور','Enter your password'),auto:'current-password',dir:'ltr',bad:1}],
+    submit:tx('دخول','Sign in'),rememberValue:()=>$('#em').value.trim().toLowerCase(),
+    onSubmit:async()=>{let em=$('#em').value.trim().toLowerCase();const pw=$('#pw').value;
+      /* older field accounts: an employee number still works until his e-mail is set */
+      if(!em.includes('@')&&/^[a-z0-9-]+$/i.test(em))em='nv'+em.replace(/[^a-z0-9]/g,'')+'@novaro.local';
+      try{const me=await Cloud.signIn(em,pw);return afterSignIn(me,em)}
+      catch(er){return vCloudLogin(/Invalid login/i.test(er.message)?tx('البريد أو كلمة المرور غير صحيحة.','Wrong e-mail or password.'):/Email not confirmed/i.test(er.message)?tx('البريد غير مؤكد بعد — راجع مدير المشروع.','E-mail not confirmed yet.'):/fetch|network|lib/i.test(er.message)?tx('تعذر الاتصال بالخادم — تحقق من الإنترنت.','Cannot reach the server.'):er.message,$('#em').value.trim())}}})}
+async function afterSignIn(me,em){
+  if(me&&me.role==='tech'&&me.emp){await Cloud.pull();setSess({emp:me.emp.id,school:null,coll:null});return go('#employee-data')}
+  if(me&&(me.role==='admin'||me.role==='reader')){clearSess();await Cloud.pull();return go('#admin')}
+  await Cloud.signOut();return vCloudLogin(tx('هذا الحساب ليس له صلاحية على Solvix. راجع مدير المشروع.','This account has no access to Solvix.'),em)}
+function vForgot(ok,err){
+  authPage({kind:'all',title:tx('استعادة كلمة المرور','Reset your password'),sub:tx('اكتب بريدك الإلكتروني المسجل، وسنرسل لك رابطاً لتعيين كلمة مرور جديدة','Enter your registered e-mail and we will send you a reset link'),err,ok,remember:false,
+    alt:`<a href="#login">${tx('العودة لتسجيل الدخول','Back to sign in')}</a>`,
+    fields:[{id:'em',label:tx('البريد الإلكتروني','E-mail'),type:'email',icon:'bi-envelope',ph:'name@example.com',value:(lsGet('nv_remember_all','')||'').includes('@')?lsGet('nv_remember_all',''):'',auto:'username',dir:'ltr',bad:1}],
+    submit:tx('إرسال رابط الاستعادة','Send reset link'),
+    onSubmit:async()=>{const em=$('#em').value.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)||em.endsWith('@novaro.local'))return vForgot('',tx('اكتب بريدك الإلكتروني الصحيح. إن لم يكن لحسابك بريد، اطلب من مدير المشروع إضافته أو تعيين كلمة مرور لك.','Enter a valid e-mail.'));
+      try{const c=await Cloud.sb();Cloud.chk(await c.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname}));
+        vForgot(tx(`إذا كان البريد <b dir="ltr">${esc(em)}</b> مسجلاً فستصله رسالة خلال دقائق فيها رابط تعيين كلمة مرور جديدة. افتح الرابط من نفس الجهاز أو أي جهاز، وراجع مجلد الرسائل غير المرغوب فيها.`,'If this e-mail is registered, a reset link is on its way.'))}
+      catch(er){vForgot('',/rate|too many|security purposes/i.test(er.message)?tx('طلبات كثيرة — انتظر دقيقة ثم حاول مرة أخرى.','Too many requests — wait a minute.'):er.message)}}})}
+async function vResetPw(err){let has=false;try{const c=await Cloud.sb();const {data}=await c.auth.getSession();has=!!(data&&data.session)}catch(e){}
+  if(!has)return vForgot('',tx('انتهت صلاحية رابط الاستعادة أو استُخدم من قبل — اطلب رابطاً جديداً.','The reset link expired — request a new one.'));
+  authPage({kind:'all',title:tx('تعيين كلمة مرور جديدة','Set a new password'),sub:Cloud.user&&Cloud.user.email&&!/novaro\.local$/.test(Cloud.user.email)?`<span dir="ltr">${esc(Cloud.user.email)}</span>`:'',err,remember:false,alt:`<a href="#login">${tx('إلغاء','Cancel')}</a>`,
+    fields:[{id:'pw',label:tx('كلمة المرور الجديدة','New password'),type:'password',icon:'bi-lock',ph:tx('8 أحرف على الأقل','At least 8 characters'),auto:'new-password',dir:'ltr',bad:1},{id:'pw2',label:tx('تأكيد كلمة المرور','Confirm password'),type:'password',icon:'bi-lock',ph:tx('أعد كتابة كلمة المرور','Repeat the password'),auto:'new-password',dir:'ltr',bad:1}],
+    submit:tx('حفظ كلمة المرور','Save password'),
+    onSubmit:async()=>{const pw=$('#pw').value;if(pw.length<8)return vResetPw(tx('كلمة المرور 8 أحرف على الأقل.','At least 8 characters.'));if(pw!==$('#pw2').value)return vResetPw(tx('كلمتا المرور غير متطابقتين.','The passwords do not match.'));
+      try{const c=await Cloud.sb();Cloud.chk(await c.auth.updateUser({password:pw}));const {data}=await c.auth.getSession();const u=data.session.user;Cloud.user=u;const me=Cloud.chk(await c.rpc('nv_me'));await Cloud.setMe(me,u.id);
+        toast(tx('تم حفظ كلمة المرور الجديدة.','Password saved.'),4000);return afterSignIn(me,u.email)}
+      catch(er){vResetPw(/same.*password|different from the old/i.test(er.message)?tx('اختر كلمة مرور مختلفة عن السابقة.','Choose a different password.'):er.message)}}})}
 </script>
