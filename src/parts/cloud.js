@@ -67,7 +67,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
         else for(const [r,row,js] of upd){const o=Object.assign({},row);delete o.id;this.chk(await c.from(NV_T[t]).update(o).eq('id',r.id));snap[r.id]=js;await this.persistSnap()}
         for(let i=0;i<del.length;i+=200){const part=del.slice(i,i+200);this.chk(await c.from(NV_T[t]).delete().in('id',part));for(const id of part)delete snap[id];await this.persistSnap()}
       }
-      if(this.role==='admin'&&['owner','manager'].includes(this.staffRole||'owner')){const st={app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null};const js=JSON.stringify(st);
+      if(this.role==='admin'&&['owner','manager'].includes(this.staffRole||'owner')){const st={app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null};const js=JSON.stringify(st);
         if(this.snap.settings.data!==js){this.chk(await c.from('nv_settings').update({data:st,updated_at:new Date().toISOString()}).eq('id',1));this.snap.settings.data=js;await this.persistSnap()}}
       await saveNow('collections');this.err=null;
     }catch(e){this.err=e;console.warn('Novaro sync:',e.message);clearTimeout(this._r);this._r=setTimeout(()=>this.sync(),30000);if(!this._shown){this._shown=1;toast('لم تُرسل بعض البيانات بعد: '+e.message,5000)}}
@@ -86,7 +86,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
       if(!discard)for(const l of S[t])if(!cloudIds.has(l.id)&&snap[l.id]===undefined)next.push(l);
       S[t]=next;this.snap[t]=ns}
     if(this.role!=='tech'){S.log=(await this.fetchAll('nv_log',r=>r.order('at',{ascending:false}).limit(3000))).slice(0,3000)}else S.log=[];
-    const st=this.chk(await (await this.sb()).from('nv_settings').select('data').eq('id',1).maybeSingle());if(st&&st.data){const d=st.data;Object.assign(S.settings,{app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null});this.snap.settings.data=JSON.stringify({app_name:S.settings.app_name,admin_email:S.settings.admin_email,logo:S.settings.logo})}
+    const st=this.chk(await (await this.sb()).from('nv_settings').select('data').eq('id',1).maybeSingle());if(st&&st.data){const d=st.data;Object.assign(S.settings,{app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null});this.snap.settings.data=JSON.stringify({app_name:S.settings.app_name,admin_email:S.settings.admin_email,logo:S.settings.logo,label:S.settings.label})}
     if(this.role==='tech'){try{this.busy=new Set(this.chk(await (await this.sb()).rpc('nv_busy_schools'))||[])}catch(e){}}
     reindex();await saveAll();await this.persistSnap();this.lastPull=Date.now();this.badge();
   },

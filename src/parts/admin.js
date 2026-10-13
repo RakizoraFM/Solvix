@@ -424,9 +424,15 @@ function vSettings(){if(!canUsers())return go('#admin/asset-categories');
   <div class="mb-3"><label for="admin_email" class="form-label">بريد المستلمين</label><input type="text" id="admin_email" class="form-control" value="${esc(S.settings.admin_email||'')}" maxlength="500"><div class="form-text text-muted">البريد الذي تصله إشعارات جرد المدارس. افصل بين العناوين بفاصلة (مثال: admin@example.com, manager@example.com). هذه النسخة لا ترسل بريداً؛ التعديلات تُحفظ في «سجل التعديلات».</div></div>
   <div class="mb-3"><label for="application_logo" class="form-label">شعار التطبيق</label><input type="file" id="application_logo" class="form-control" accept="image/png,image/jpeg,image/jpg,image/gif,image/svg+xml,image/webp">
    <div class="mt-2"><p class="text-muted small mb-1">الشعار الحالي:</p><img src="${esc(logoURL())}" alt="شعار التطبيق" class="img-thumbnail" style="max-height: 80px; max-width: 200px;" id="logo-preview"></div></div>
+  <hr><h6 class="fw-bold mb-1"><i class="bi bi-qr-code me-1"></i>مقاس ملصق الأصل</h6><p class="form-text mt-0">بالسنتيمتر. تُرتَّب الملصقات على صفحة A4 بقدر ما تتسع، أو اختر «ملصق واحد في كل صفحة» لطابعة الملصقات.</p>
+  <div class="row g-2 align-items-end"><div class="col-6 col-md-3"><label class="form-label small" for="lbl_w">العرض (سم)</label><input type="number" id="lbl_w" class="form-control" min="3" max="20" step="0.1" value="${esc(labelSize().w)}"></div><div class="col-6 col-md-3"><label class="form-label small" for="lbl_h">الارتفاع (سم)</label><input type="number" id="lbl_h" class="form-control" min="2" max="20" step="0.1" value="${esc(labelSize().h)}"></div>
+   <div class="col-12 col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="lbl_one" ${labelSize().one?'checked':''}><label class="form-check-label" for="lbl_one">ملصق واحد في كل صفحة (طابعة ملصقات)</label></div></div></div>
+  <div class="mt-2 d-flex align-items-center gap-2"><span class="small text-muted">معاينة بالمقاس الحقيقي:</span><div id="lbl_prev" class="border border-secondary rounded" style="border-style:dashed!important"></div></div>
   </div><div class="card-footer"><button type="submit" class="btn btn-primary">حفظ</button></div></form></div></div></div>`);
+  const pv=()=>{const w=+$('#lbl_w').value||0,h=+$('#lbl_h').value||0;$('#lbl_prev').style.width=w+'cm';$('#lbl_prev').style.height=h+'cm'};$('#lbl_w').oninput=pv;$('#lbl_h').oninput=pv;pv();
   let logo=null;$('#application_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{logo=await blobToData(await resizeImage(f,600,.9));$('#logo-preview').src=logo}catch(er){alert(er.message)}};
-  $('#f').onsubmit=async e=>{e.preventDefault();const n=$('#application_name').value.trim();if(!n)return;S.settings.app_name=n;S.settings.admin_email=$('#admin_email').value.trim();if(logo)S.settings.logo=logo;await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
+  $('#f').onsubmit=async e=>{e.preventDefault();const n=$('#application_name').value.trim();if(!n)return;S.settings.app_name=n;S.settings.admin_email=$('#admin_email').value.trim();if(logo)S.settings.logo=logo;
+    const lw=+$('#lbl_w').value,lh=+$('#lbl_h').value;if(!(lw>=3&&lw<=20&&lh>=2&&lh<=20)){alert('مقاس الملصق: العرض من 3 إلى 20 سم، والارتفاع من 2 إلى 20 سم.');return}S.settings.label={w:Math.round(lw*10)/10,h:Math.round(lh*10)/10,one:$('#lbl_one').checked};await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
 }
 
 /* ---------- extra: data & backup, admin account (replaces the server and the database) ---------- */
@@ -549,7 +555,8 @@ async function loadStaff(){const box=$('#staffBox');if(!box)return;let list=[],e
 </script>
 <script id="nv-nv12">
 /* NV12 — asset labels (number + QR), school report (Arabic / English), category drill-down, collections import, in-app notifications */
-let qrP=null;const needQR=()=>qrP||(qrP=window.qrcode?Promise.resolve():loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js').catch(e=>{qrP=null;throw e}));
+let qrP=null;const labelSize=()=>{const l=S.settings.label||{};return {w:Number(l.w)||6.3,h:Number(l.h)||3.6,one:!!l.one}};
+const needQR=()=>qrP||(qrP=window.qrcode?Promise.resolve():loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js').catch(e=>{qrP=null;throw e}));
 function qrSvg(text){qrcode.stringToBytes=qrcode.stringToBytesFuncs['UTF-8'];const q=qrcode(0,'M');q.addData(text,'Byte');q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})}
 function qrText(c){const s=get('schools',c.school_id)||{},r=get('rooms',c.room_name_id)||{};
   return [`Solvix ${assetLabel(c)}`,`المدرسة: ${s.name||''} (${s.moe||''})`,`الفئة: ${(get('categories',c.category_id)||{}).ar||''}`,`النوع: ${(get('types',c.type_id)||{}).ar||''}`,`الحالة: ${(get('conditions',c.condition_id)||{}).ar||''}`,
@@ -559,12 +566,14 @@ async function printLabels(list,title){list=list.filter(c=>c.no).sort((a,b)=>num
   try{await needQR()}catch(e){w.close();return alert(e.message)}
   const L=list.map(c=>{const s=get('schools',c.school_id)||{},r=get('rooms',c.room_name_id)||{};
     return `<div class="l"><div class="q">${qrSvg(qrText(c))}</div><div class="t"><img src="${NV_LOGO}" alt=""><b>${esc(assetLabel(c))}</b><span>${esc((get('types',c.type_id)||{}).ar||'')}</span><small>${esc(s.name||'')}</small><small>${esc([c.floor,r.ar,c.room_number].filter(Boolean).join(' · '))}</small></div></div>`}).join('');
+  /* NV13 — label size from «الإعدادات» (cm); the QR and the text scale with it */
+  const Z=labelSize(),W=Z.w*10,H=Z.h*10,qr=Math.max(10,Math.min(H-4,W*.48)),fs=Math.max(5,Math.min(11,H/4.2));
   w.document.open();w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ملصقات الأصول ${esc(title||'')}</title><style>
-  @page{size:A4;margin:8mm}body{margin:0;font-family:Cairo,Tahoma,sans-serif;color:#0f172a}
-  .g{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}.l{display:flex;gap:2mm;align-items:center;border:1px dashed #94a3b8;border-radius:2mm;padding:2mm;height:36mm;overflow:hidden;break-inside:avoid}
-  .q{width:30mm;height:30mm;flex:none}.q svg{width:100%;height:100%}.t{display:flex;flex-direction:column;gap:.6mm;min-width:0;font-size:8.5pt;line-height:1.25}
-  .t img{height:5mm;width:auto;align-self:flex-start}.t b{font:700 11pt monospace;direction:ltr;text-align:right}.t span{font-weight:700}.t small{color:#475569;font-size:7.5pt;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .bar{padding:10px;text-align:center;font-family:Tahoma}@media print{.bar{display:none}}</style></head><body><div class="bar">${list.length} ملصق · <button onclick="print()">طباعة</button></div><div class="g">${L}</div><script>setTimeout(()=>print(),400)<\/script></body></html>`);w.document.close()}
+  @page{size:${Z.one?`${W}mm ${H}mm`:'A4'};margin:${Z.one?0:'8mm'}}body{margin:0;font-family:Cairo,Tahoma,sans-serif;color:#0f172a}
+  .g{display:flex;flex-wrap:wrap;gap:${Z.one?0:'3mm'};align-content:flex-start}.l{box-sizing:border-box;width:${W}mm;height:${H}mm;display:flex;gap:1.5mm;align-items:center;border:${Z.one?'0':'1px dashed #94a3b8'};border-radius:1.5mm;padding:1.5mm;overflow:hidden;break-inside:avoid;${Z.one?'break-after:page;':''}}
+  .q{width:${qr}mm;height:${qr}mm;flex:none}.q svg{width:100%;height:100%}.t{display:flex;flex-direction:column;gap:.4mm;min-width:0;font-size:${fs*.8}pt;line-height:1.2}
+  .t img{height:${Math.max(2.5,H/7)}mm;width:auto;align-self:flex-start}.t b{font:700 ${fs}pt monospace;direction:ltr;text-align:right}.t span{font-weight:700}.t small{color:#475569;font-size:${fs*.7}pt;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar{padding:10px;text-align:center;font-family:Tahoma}@media print{.bar{display:none}}</style></head><body><div class="bar">${list.length} ملصق · ${Z.w} × ${Z.h} سم · <button onclick="print()">طباعة</button></div><div class="g">${L}</div><script>setTimeout(()=>print(),400)<\/script></body></html>`);w.document.close()}
 /* school report: one sheet in Arabic, one in English */
 function schoolReport(list,s){const sub=list.filter(c=>c.type_id);if(!sub.length)return alert('لا توجد أصول في هذه المدرسة.');
   const row=(c,l)=>{const e=get('employees',c.employee_id)||{},cat=get('categories',c.category_id)||{},ty=get('types',c.type_id)||{},co=get('conditions',c.condition_id)||{},r=get('rooms',c.room_name_id)||{};const n=x=>l==='ar'?(x.ar||x.en||''):(x.en||x.ar||'');
