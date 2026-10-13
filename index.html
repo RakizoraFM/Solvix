@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV15">
+<meta name="fm-version" content="NV16">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -220,7 +220,7 @@ body.sx-body{margin:0;background:#f4f7fb}
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV15',date:'2026-10-13'};
+const NV={version:'NV16',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -1181,46 +1181,6 @@ function vCollectionEdit(id){
 }
 
 /* ---------- schools/index.blade.php ---------- */
-function schoolQuery(p){const q=norm(p.get('search')||''),status=p.get('status'),city=p.get('city'),district=p.get('district');const sst=schoolStats();
-  let list=S.schools.filter(s=>{if(q&&!(norm(s.name).includes(q)||norm(s.ident).includes(q)||norm(s.moe).includes(q)))return false;
-    if(status){if(['completed','in_progress','not_started'].includes(status)){if(schoolState(s,sst.get(s.id))!==status)return false}else if(s.status!==status)return false}
-    if(city&&s.city!==city)return false;if(district&&s.district!==district)return false;return true});
-  list=sorted(list,{id:s=>num(dispId(s.id)),moe_no:s=>s.moe,school_identifier:s=>s.ident,name_ar:s=>s.name,city_ar:s=>s.city,district_ar:s=>s.district,status:s=>s.status,asset_collections_count:s=>(sst.get(s.id)||{}).any||0,created_at:s=>s.created_at},'name_ar','asc');
-  return {list,sst}}
-function vSchools(){
-  const p=qp();const {list,sst}=schoolQuery(p);const pg=paginate(list);const any=['search','status','city','district'].some(k=>p.get(k));
-  const cities=[...new Set(S.schools.map(s=>s.city).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));const dists=[...new Set(S.schools.map(s=>s.district).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
-  const latestEmp=id=>{let best=null;for(const c of S.collections)if(c.school_id===id&&(!best||(c.submitted_at||'')>(best.submitted_at||'')))best=c;return best&&best.employee_id};
-  adminShell('schools','المدارس',`<div class="card shadow-sm border-0 mb-4"><div class="card-header bg-white py-3"><div class="d-flex align-items-center justify-content-between"><div><h3 class="card-title fw-bold mb-0 text-dark"><i class="bi bi-building me-2 text-primary"></i>المدارس</h3></div>
-   <div class="d-flex gap-2"><button class="btn btn-light border btn-sm d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse"><i class="bi bi-funnel"></i></button><button type="button" id="export-btn" class="btn btn-success btn-sm d-flex align-items-center gap-1"><i class="bi bi-download"></i><span class="d-none d-sm-inline">تصدير Excel</span></button><a href="#admin/schools/create" class="btn btn-primary btn-sm d-flex align-items-center gap-1"><i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">إضافة مدرسة</span></a></div></div></div>
-  <div class="collapse d-md-block border-bottom bg-light-subtle" id="filterCollapse"><div class="card-body py-3"><form id="schools-form" class="row g-3">
-   <div class="col-12 col-md-4 col-lg-3"><label class="form-label small fw-bold text-muted mb-1">بحث</label><div class="input-group input-group-sm"><span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span><input type="text" name="search" class="form-control border-start-0" placeholder="الاسم، المعرّف، الرقم الوزاري..." value="${esc(p.get('search')||'')}"></div></div>
-   <div class="col-6 col-md-2"><label class="form-label small fw-bold text-muted mb-1">الحالة</label><select name="status" class="form-select form-select-sm shadow-none" data-autosubmit><option value="">كل الحالات</option>${[['completed','مكتملة'],['in_progress','قيد التنفيذ'],['not_started','لم تبدأ']].map(([v,l])=>`<option value="${v}" ${p.get('status')===v?'selected':''}>${l}</option>`).join('')}<hr>${[['active','نشطة'],['inactive','غير نشطة']].map(([v,l])=>`<option value="${v}" ${p.get('status')===v?'selected':''}>${l}</option>`).join('')}</select></div>
-   <div class="col-6 col-md-2"><label class="form-label small fw-bold text-muted mb-1">المحافظة</label><select name="city" class="form-select form-select-sm shadow-none" data-autosubmit><option value="">كل المحافظات</option>${cities.map(x=>`<option ${p.get('city')===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div>
-   <div class="col-6 col-md-2"><label class="form-label small fw-bold text-muted mb-1">الحي / المكتب</label><select name="district" class="form-select form-select-sm shadow-none" data-autosubmit><option value="">الكل</option>${dists.map(x=>`<option ${p.get('district')===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div>
-   <div class="col-6 col-md-2 col-lg-auto d-flex align-items-end gap-2"><button type="submit" class="btn btn-sm btn-dark px-3 w-100 w-md-auto">تصفية</button>${any?'<a href="#admin/schools" class="btn btn-sm btn-outline-danger px-3 w-100 w-md-auto" title="إعادة ضبط"><i class="bi bi-arrow-counterclockwise"></i></a>':''}</div></form></div></div>
-  ${bulkBarHTML(`<button type="button" class="btn btn-xs btn-danger d-flex align-items-center gap-1" data-bulk="delwork"><i class="bi bi-trash"></i> حذف الأعمال</button><button type="button" class="btn btn-xs btn-success d-flex align-items-center gap-1" data-bulk="complete"><i class="bi bi-check-circle"></i> إنهاء</button><button type="button" class="btn btn-xs btn-primary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#reassignModal"><i class="bi bi-person-gear"></i> نقل لمشرف آخر</button>`)}
-  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light"><tr><th style="width: 40px;" class="text-center ps-3"><input type="checkbox" id="select-all" class="form-check-input shadow-none"></th>
-   <th>${sortA('id','#')}</th><th>${sortA('moe_no','الرقم الوزاري')}</th><th>${sortA('school_identifier','المعرّف')}</th><th>${sortA('name_ar','اسم المدرسة','name_ar','asc')}</th><th>${sortA('city_ar','الموقع')}</th><th>الموظف</th><th>${sortA('status','الحالة')}</th><th>${sortA('asset_collections_count','السجلات')}</th><th>${sortA('created_at','تاريخ الإضافة')}</th><th class="text-end pe-3">إجراءات</th></tr></thead><tbody>
-   ${pg.items.map(s=>{const x=sst.get(s.id);const le=latestEmp(s.id);const rel=s.completed_by||le;const cb=s.completed_by&&get('employees',s.completed_by);return `<tr><td class="text-center ps-3"><input type="checkbox" value="${esc(s.id)}" class="form-check-input row-checkbox shadow-none"></td>
-    <td class="ps-3 text-muted">${esc(dispId(s.id))}</td><td class="fw-medium">${esc(s.moe||'--')}</td><td><code class="text-primary small">${esc(s.ident)}</code></td>
-    <td>${rel?`<a href="#admin/collections/view/${encodeURIComponent(rel)}/${encodeURIComponent(s.id)}" class="link-primary fw-bold">${esc(s.name)}</a>`:`<a href="#admin/collections?school_id=${encodeURIComponent(s.id)}" class="link-primary fw-bold">${esc(s.name)}</a>`}</td>
-    <td><div class="small"><span>${esc(s.city||'--')}</span><br><span class="text-muted">${esc(s.district||'--')}</span></div></td>
-    <td>${cb?`<span class="fw-medium">${esc(cb.name)}</span>`:le?`<span class="text-muted small">${esc(empName(le))}</span>`:'<span class="text-muted small">--</span>'}</td>
-    <td>${s.completed_at?'<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3">مكتملة</span>':x&&x.any?'<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle px-3">قيد التنفيذ</span>':'<span class="badge rounded-pill bg-secondary-subtle text-secondary border border-secondary-subtle px-3">لم تبدأ</span>'}</td>
-    <td><span class="badge bg-info-subtle text-info border border-info-subtle">${x?x.any:0}</span></td><td><div class="small text-muted"><div>${fmtYmd(s.created_at)}</div></div></td>
-    <td class="text-end pe-3">${iconBtn('#admin/schools/'+encodeURIComponent(s.id)+'/edit','bi-pencil text-warning')}</td></tr>`}).join('')||'<tr><td colspan="11" class="text-center py-5 text-muted">لا توجد مدارس مطابقة.</td></tr>'}
-  </tbody></table></div></div>${pg.footer}</div>${reassignModal('نقل المدارس','اختر مشرف الميدان الذي تُنقل إليه كل أعمال المدارس المحددة.')}`);
-  const form=$('#schools-form');const submitF=()=>{const fd=new FormData(form);const o={page:null};for(const k of ['search','status','city','district'])o[k]=fd.get(k)||null;location.hash=withQuery(o)};
-  form.onsubmit=e=>{e.preventDefault();submitF()};$$('[data-autosubmit]',form).forEach(s=>s.onchange=submitF);
-  const selected=bindBulk();
-  $$('[data-bulk]').forEach(b=>b.onclick=async()=>{const ids=selected();
-    if(b.dataset.bulk==='delwork'){if(!confirm('هل تريد حذف كل أعمال الجرد للمدارس المحددة؟'))return;const set=new Set(ids);await removeCollections(S.collections.filter(c=>set.has(c.school_id)));setAFlash('تم حذف أعمال المدارس المحددة.')}
-    else{if(!confirm('هل تريد اعتماد المدارس المحددة كمكتملة؟'))return;for(const id of ids){const s=get('schools',id);if(s)Object.assign(s,{completed_at:now(),status:'inactive'})}save('schools');setAFlash('تم اعتماد المدارس المحددة كمكتملة.')}vSchools()});
-  $('#reassign-form').onsubmit=e=>{e.preventDefault();const to=e.target.new_employee_id.value;if(!confirm('هل تريد نقل كل أعمال المدارس المحددة إلى مشرف الميدان المختار؟'))return;
-    const set=new Set(selected().filter(id=>!(get('schools',id)||{}).completed_at));for(const c of S.collections)if(set.has(c.school_id)){c.employee_id=to;c.updated_at=now()}save('collections');hideModal();setAFlash(`تم نقل أعمال ${set.size} مدرسة.`);vSchools()};
-  $('#export-btn').onclick=()=>writeXlsx([['Worksheet',[['ID','MOE Number','Identifier','Name (Arabic)','City','District','Site','Status','Asset Collections Count','Completed At','Description','Created At'],...list.map(s=>[num(dispId(s.id))||s.id,s.moe,s.ident,s.name,s.city,s.district,s.site,s.status,(sst.get(s.id)||{}).any||0,ymdhms(s.completed_at),s.description||'',ymdhms(s.created_at)])]]],'schools-'+stampDash()+'.xlsx');
-}
 
 /* ---------- generic create/edit form (schools, employees, categories, types, conditions, rooms) ---------- */
 function crudForm(active,title,fields,rec,onSave,cancelHref){
@@ -1237,35 +1197,8 @@ function vSchoolForm(id){const isNew=!id;const s=isNew?{status:'active'}:get('sc
     Object.assign(s,v);if(isNew){Object.assign(s,{id:nextId('schools','s'),completed_at:null,completed_by:null,created_at:now()});S.schools.push(s)}reindex();save('schools');setAFlash(isNew?'تمت إضافة المدرسة.':'تم تحديث المدرسة.');go('#admin/schools')},'#admin/schools')}
 
 /* ---------- employees ---------- */
-function vEmployees(){const p=qp();const q=norm(p.get('search')||'');const cnt=new Map();for(const c of S.collections)cnt.set(c.employee_id,(cnt.get(c.employee_id)||0)+1);
-  let list=S.employees.filter(e=>!q||norm(e.name).includes(q)||String(e.number).includes(q));list=sorted(list,{id:e=>num(dispId(e.id)),employee_number:e=>e.number,name:e=>e.name,asset_collections_count:e=>cnt.get(e.id)||0,created_at:e=>e.created_at},'name','asc');const pg=paginate(list);
-  adminShell('employees','المستخدمون',`${addUserCard()}<div id="staffBox"></div><div class="card shadow-sm border-0 mb-4"><div class="card-header bg-white py-3"><div class="d-flex align-items-center justify-content-between"><div><h3 class="card-title fw-bold mb-0 text-dark"><i class="bi bi-person-badge me-2 text-primary"></i>مشرفو الميدان <span class="badge text-bg-light border fw-normal">${S.employees.length}</span></h3><small class="text-muted">يدخلون تطبيق الجرد برقمهم الوظيفي</small></div>
-   <div class="d-flex gap-2"><form class="input-group input-group-sm d-none d-md-flex" style="width: 250px;" data-search><span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span><input type="text" name="search" class="form-control border-start-0 shadow-none" placeholder="ابحث عن موظف..." value="${esc(p.get('search')||'')}">${p.get('search')?'<a href="#admin/employees" class="btn btn-outline-danger border-start-0"><i class="bi bi-x-lg"></i></a>':''}</form>
-    <button class="btn btn-light border btn-sm d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#searchCollapse"><i class="bi bi-search"></i></button>${Cloud.on&&Cloud.role==='admin'?'<button type="button" id="genLogins" class="btn btn-success btn-sm d-flex align-items-center gap-1"><i class="bi bi-key"></i><span class="d-none d-sm-inline">إنشاء حسابات الدخول</span></button>':''}${Cloud.on&&Cloud.role==='reader'?'':'<button type="button" data-adduser class="btn btn-primary btn-sm d-flex align-items-center gap-1"><i class="bi bi-person-plus"></i><span class="d-none d-sm-inline">إضافة مستخدم</span></button>'}</div></div></div>
-  <div class="collapse d-md-none border-bottom bg-light-subtle" id="searchCollapse"><div class="card-body py-3"><form class="row g-2" data-search><div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span><input type="text" name="search" class="form-control border-start-0 shadow-none" placeholder="بحث..." value="${esc(p.get('search')||'')}"></div></div><div class="col-12 d-flex gap-2"><button type="submit" class="btn btn-sm btn-dark w-100">بحث</button>${p.get('search')?'<a href="#admin/employees" class="btn btn-sm btn-outline-danger w-100">إعادة ضبط</a>':''}</div></form></div></div>
-  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light"><tr><th class="ps-3">${sortA('id','#')}</th><th>${sortA('employee_number','الرقم الوظيفي')}</th><th>${sortA('name','الاسم','name','asc')}</th><th>الدور</th><th class="text-center">${sortA('asset_collections_count','السجلات')}</th><th>${sortA('created_at','تاريخ الإضافة')}</th>${Cloud.on?'<th class="text-center">حساب الدخول</th>':''}<th class="text-end pe-3">إجراءات</th></tr></thead><tbody>
-  ${pg.items.map(e=>`<tr><td class="ps-3 text-muted">${esc(dispId(e.id))}</td><td><code class="text-primary small">${esc(e.number)}</code></td><td><div class="d-flex align-items-center"><div class="avatar avatar-sm bg-info-subtle text-info rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="bi bi-person small"></i></div><span class="fw-medium">${esc(e.name)}</span></div></td><td><span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2">مشرف ميدان</span></td>
-   <td class="text-center"><span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle px-3">${cnt.get(e.id)||0}</span></td><td class="small text-muted">${fmtYmd(e.created_at)}</td>${Cloud.on?`<td class="text-center"><span data-login="${esc(e.id)}" class="text-muted small">…</span></td>`:''}
-   <td class="text-end pe-3"><div class="d-flex justify-content-end gap-2">${iconBtn('#admin/employees/'+encodeURIComponent(e.id)+'/edit','bi-pencil text-warning')}<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-del="${esc(e.id)}"><i class="bi bi-trash text-danger"></i></button></div></td></tr>`).join('')||`<tr><td colspan="${Cloud.on?8:7}" class="text-center py-5 text-muted">لا يوجد مشرفو ميدان.</td></tr>`}
-  </tbody></table></div></div>${pg.footer}</div>`);
-  $$('[data-search]').forEach(f=>f.onsubmit=e=>{e.preventDefault();location.hash=withQuery({search:new FormData(f).get('search')||null,page:null})});
-  if(Cloud.on)empLogins();bindAddUser();if(Cloud.on&&canUsers())loadStaff();
-  $$('[data-del]').forEach(b=>b.onclick=async()=>{if(!confirm('هل أنت متأكد؟'))return;const id=b.dataset.del;await removeCollections(S.collections.filter(c=>c.employee_id===id));S.employees=S.employees.filter(x=>x.id!==id);for(const s of S.schools)if(s.completed_by===id)s.completed_by=null;reindex();save('employees');save('schools');setAFlash('تم حذف مشرف الميدان.');vEmployees()});
-}
 /* technicians' sign-in (cloud): employee number + a password set here */
 const genPw=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return String(10000000+a[0]%90000000)};
-async function empLogins(){let map=new Map();try{const c=await Cloud.sb();map=new Map((Cloud.chk(await c.rpc('nv_emp_logins'))||[]).map(r=>[r.id,r.has_login]))}catch(e){}
-  $$('[data-login]').forEach(el=>{const id=el.dataset.login,has=map.get(id);el.className='';
-    el.innerHTML=`${has?'<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2"><i class="bi bi-check-circle me-1"></i>نعم</span>':'<span class="badge rounded-pill bg-secondary-subtle text-secondary border border-secondary-subtle px-2">لا</span>'}${Cloud.role==='admin'?` <button type="button" class="btn btn-xs btn-outline-primary" data-setpw="${esc(id)}" title="${has?'كلمة مرور جديدة':'إنشاء حساب دخول'}"><i class="bi bi-key"></i></button>`:''}`});
-  $$('[data-setpw]').forEach(b=>b.onclick=async()=>{const e=get('employees',b.dataset.setpw);if(!e)return;if(Cloud.pendingCount()){await Cloud.sync()}
-    const pw=prompt(`كلمة المرور لـ ${e.name} (${e.number}) — 8 أحرف على الأقل. اترك المقترحة أو اكتب غيرها:`,genPw());if(!pw)return;
-    try{const c=await Cloud.sb();Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:e.id,p_password:pw}));alert(`تم.\n\nالرقم الوظيفي: ${e.number}\nكلمة المرور: ${pw}\n\nيفتح مشرف الميدان رابط Solvix ويدخل بهما.`);empLogins()}catch(er){alert(er.message)}});
-  const g=$('#genLogins');if(g)g.onclick=async()=>{const missing=S.employees.filter(e=>!map.get(e.id));if(!missing.length)return alert('لكل الموظفين حسابات دخول بالفعل.');
-    if(!confirm(`إنشاء حسابات دخول لـ ${missing.length} مشرف ميدان ليس لهم حساب؟ سيُنزَّل ملف Excel بكلمات المرور — احفظه بأمان وأعطِ كل مشرف سطره فقط.`))return;
-    await Cloud.sync();const c=await Cloud.sb();const rows=[['الرقم الوظيفي','الاسم','كلمة المرور','الرابط']];let ok=0;g.disabled=true;
-    for(const e of missing){const pw=genPw();try{Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:e.id,p_password:pw}));rows.push([e.number,e.name,pw,location.origin+location.pathname]);ok++;g.innerHTML=`<span class="spinner-border spinner-border-sm"></span> ${ok}/${missing.length}`}catch(er){rows.push([e.number,e.name,'خطأ: '+er.message,''])}}
-    await writeXlsx([['حسابات الدخول',rows]],'solvix-logins-'+stampDash()+'.xlsx');setAFlash(`تم إنشاء ${ok} حساب دخول. كلمات المرور موجودة فقط في الملف الذي نزل.`);vEmployees()};
-}
 function vEmployeeForm(id){const isNew=!id;const e=isNew?{}:get('employees',id);if(!e){go('#admin/employees');return}
   crudForm(isNew?'employees.create':'employees.edit',isNew?'إضافة موظف':'تعديل موظف',[{k:'number',l:'الرقم الوظيفي',req:1},{k:'name',l:'الاسم',req:1}],e,v=>{
     if(S.employees.some(x=>String(x.number)===v.number&&x!==e))return ['number','هذا الرقم الوظيفي مستخدم لموظف آخر.'];
@@ -1365,15 +1298,7 @@ async function vData(){let est='';try{const e=await navigator.storage.estimate()
       const n=(pkg.data.collections||[]).length;if(!confirm(`رفع ${n} سجل (مع صورها) من نسخة هذا الجهاز إلى قاعدة البيانات؟ المدارس والموظفون والقوائم المطابقة تُستخدم كما هي.`))return;
       const r=await mergePackage(pkg);await Cloud.sync();setAFlash(`تم الرفع: ${r.coll} سجل جديد، ${r.upd} محدَّث، ${r.photos} صورة.`,'info');vData()}catch(e){alert(e.message)}}}
   if($('#rs'))$('#rs').onclick=async()=>{const f=await pickFile('.json');if(!f)return;let pkg;try{pkg=await readPackage(f)}catch(e){return alert(e.message)}if(!confirm('الاستعادة تستبدل كل البيانات على هذا الجهاز بمحتوى الملف. متابعة؟'))return;try{await restorePackage(pkg);setAFlash('تمت استعادة النسخة.');vData()}catch(e){alert(e.message)}};
-  $('#is').onclick=async()=>{const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;let rows;try{rows=await readXlsx(f)}catch(e){return alert(e.message)}
-    const pick=(r,names)=>{for(const n of names)if(n in r&&String(r[n]).trim()!=='')return String(r[n]).trim();return null};let add=0,upd=0,skip=0;
-    for(const r of rows){const ident=pick(r,['school_identifier','Identifier','معرّف المبنى']);if(!ident){skip++;continue}const v={name:pick(r,['Name (Arabic)','Arabic Name','name_ar','اسم المدرسة']),moe:pick(r,['MOE Number','MoE No','moe_no','الرقم الوزاري']),city:pick(r,['City','city_ar','المحافظة']),district:pick(r,['District','District Arabic','district_ar']),site:pick(r,['Site','site']),description:pick(r,['Description','description'])};
-      let s=S.schools.find(x=>x.ident===ident);if(s){for(const [k,val] of Object.entries(v))if(val!=null)s[k]=val;upd++}else{if(!v.name){skip++;continue}s={id:nextId('schools','s'),ident,moe:'',site:'',name:'',district:'',city:'',description:'',status:'active',completed_at:null,completed_by:null,created_at:now()};for(const [k,val] of Object.entries(v))if(val!=null)s[k]=val;S.schools.push(s);add++}}
-    reindex();save('schools');setAFlash(`استيراد المدارس: ${add} جديدة، ${upd} محدَّثة، ${skip} صف متجاهَل.`);vData()};
-  $('#ic').onclick=()=>importCollections();
-  $('#ie').onclick=async()=>{const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;let rows;try{rows=await readXlsx(f)}catch(e){return alert(e.message)}let add=0,upd=0;
-    for(const r of rows){const n=String(r['Employee Number']??r['employee_number']??r['الرقم الوظيفي']??'').trim(),nm=String(r['Name']??r['name']??r['الاسم']??'').trim();if(!n||!nm)continue;const e=S.employees.find(x=>String(x.number)===n);if(e){e.name=nm;upd++}else{S.employees.push({id:nextId('employees','e'),number:n,name:nm,created_at:now()});add++}}
-    reindex();save('employees');setAFlash(`استيراد الموظفين: ${add} جديد، ${upd} محدَّث.`);vData()};
+  $('#is').onclick=()=>importSchoolsFile(()=>vData());$('#ie').onclick=()=>importEmployeesFile(()=>vData());$('#ic').onclick=()=>importCollections();
   if($('#fa'))$('#fa').onsubmit=async e=>{e.preventDefault();const a=S.settings.admin_login;const p0=$('#a_p0').value;if(a.hash!==await hashPin(a.email+'|'+p0))return alert('كلمة المرور الحالية غير صحيحة.');const em=$('#a_em').value.trim().toLowerCase(),p1=$('#a_p1').value;if(p1.length<6)return alert('كلمة المرور الجديدة 6 أحرف على الأقل.');S.settings.admin_login={email:em,hash:await hashPin(em+'|'+p1)};await saveNow('settings');setAFlash('تم تحديث حساب المدير.');vData()};
   if($('#wipe'))$('#wipe').onclick=async()=>{if(!confirm('حذف كل سجلات الجرد والصور والتعديلات على هذا الجهاز وإعادة القوائم الأصلية؟ خذ نسخة احتياطية أولاً.'))return;const adm2=S.settings.admin_login;await IDB.clear('photos');urlCache.clear();seedData();S.settings.admin_login=adm2;reindex();await saveAll();clearSess();setAFlash('تمت إعادة ضبط كل البيانات.');vData()};
 }
@@ -1617,6 +1542,136 @@ async function catBulk(a){const ids=[...catState.sel].filter(id=>get('types',id)
   if(a==='del'){const used=new Set(S.collections.map(c=>c.type_id));const del=ids.filter(id=>!used.has(id));const keep=ids.length-del.length;
     if(!del.length)return alert('كل الأصول المحددة مستخدمة في سجلات جرد ولا يمكن حذفها.');if(!confirm(`حذف ${del.length} أصل من الدليل؟${keep?`\n(${keep} مستخدم في سجلات جرد ولن يُحذف)`:''}`))return;
     const set=new Set(del);S.types=S.types.filter(t=>!set.has(t.id));for(const id of del)catState.sel.delete(id);reindex();save('types');setAFlash(`تم حذف ${del.length} أصل من الدليل.`);return vCatalog()}}
+</script>
+<script id="nv-nv16">
+/* NV16 — one data-table component (sort on every column, a filter per column, search, selection kept across pages, bulk actions, Excel export / import),
+   used by «المدارس» and «المستخدمون ← مشرفو الميدان» */
+const NVT={};
+function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,dir:c.dir||'asc',f:{},sel:new Set(),page:1,per:50,hidden:new Set(c.cols.filter(k=>k.hide).map(k=>k.k))});const vis=c.cols.filter(k=>!st.hidden.has(k.k));const qs=(location.hash.split('?')[1])||'';if(c.init&&st.qs!==qs){st.qs=qs;for(const k in st.f)delete st.f[k];st.page=1;c.init(st)}
+  const ro=Cloud.on&&Cloud.role==='reader';const F=st.f;
+  const head=`<style>.nvt .table{--bs-table-striped-bg:rgba(37,99,235,.035)}.nvt thead th{position:sticky;top:0;z-index:2;background:#f8fafc;white-space:nowrap;font-size:.8rem;color:#334155}
+   .nvt thead tr.nvt-f th{top:37px;background:#fff;padding:.3rem .35rem}.nvt thead tr.nvt-f .form-control,.nvt thead tr.nvt-f .form-select{font-size:.74rem;padding:.2rem .35rem;width:100%;min-width:0}.nvt thead tr.nvt-f .form-select{padding-inline-start:1.4rem;background-position:left .3rem center}
+   .nvt-sort{cursor:pointer;user-select:none}.nvt-sort:hover{color:#2563eb}.nvt-sort i{opacity:.35}.nvt-sort.on i{opacity:1;color:#2563eb}.nvt tbody td{font-size:.86rem;vertical-align:middle}.nvt tbody tr.sel{--bs-table-bg:#eff6ff}
+   .nvt-wrap{max-height:68vh;overflow:auto}.nvt table{table-layout:fixed;width:100%;min-width:${c.minW||900}px}.nvt td{overflow-wrap:anywhere}
+   [data-bs-theme=dark] .nvt thead th{background:#1e293b;color:#cbd5e1}[data-bs-theme=dark] .nvt thead tr.nvt-f th{background:#0f172a}</style>`;
+  const html=`${head}<div class="card shadow-sm border-0 nvt mb-4" id="nvt-${c.key}"><div class="card-header bg-white py-3 d-flex flex-wrap align-items-center gap-2">
+   <h3 class="card-title fw-bold mb-0 me-auto"><i class="bi ${c.icon} me-2 text-primary"></i>${c.title} <span class="badge text-bg-light border fw-normal" data-nvt="count"></span>${c.sub?`<small class="text-muted d-block fw-normal mt-1" style="font-size:.78rem">${c.sub}</small>`:''}</h3>
+   <div class="input-group input-group-sm" style="width:230px"><span class="input-group-text bg-white"><i class="bi bi-search"></i></span><input class="form-control" data-nvt="q" placeholder="بحث في كل الأعمدة..." value="${esc(F.q||'')}"></div>
+   <button class="btn btn-sm btn-outline-secondary" data-nvt="clear"><i class="bi bi-funnel"></i> مسح الفلاتر</button>
+   <div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-layout-three-columns"></i> الأعمدة</button><div class="dropdown-menu p-2" style="min-width:200px">${c.cols.map(k=>`<label class="dropdown-item d-flex gap-2 rounded"><input type="checkbox" class="form-check-input" data-col="${k.k}" ${st.hidden.has(k.k)?'':'checked'}> ${k.l}</label>`).join('')}</div></div>
+   <button class="btn btn-sm btn-success" data-nvt="xl"><i class="bi bi-file-earmark-excel me-1"></i>تصدير Excel</button>
+   ${ro||!c.onImport?'':'<button class="btn btn-sm btn-outline-success" data-nvt="imp"><i class="bi bi-upload me-1"></i>استيراد Excel</button>'}${ro?'':(c.tools||'')}</div>
+  <div data-nvt="bulk" class="px-3 py-2 border-bottom d-none flex-wrap align-items-center gap-2" style="background:#eff6ff"><b class="text-primary small"><span data-nvt="seln">0</span> محدد</b>
+   <button class="btn btn-xs btn-success" data-nvb="__xl"><i class="bi bi-download"></i> تصدير المحدد</button>${ro?'':c.bulk.map(b=>`<button class="btn btn-xs ${b.cls||'btn-outline-secondary'}" data-nvb="${b.id}">${b.label}</button>`).join('')}
+   <button class="btn btn-xs btn-link" data-nvb="__none">إلغاء التحديد</button></div>
+  <div class="nvt-wrap"><table class="table table-hover table-striped mb-0"><thead><tr><th style="width:34px" class="text-center"><input type="checkbox" class="form-check-input" data-nvt="all" title="تحديد كل النتائج"></th>
+   ${vis.map(k=>`<th class="nvt-sort" data-sort="${k.k}" style="width:${k.w||'auto'}">${k.l} <i class="bi bi-arrow-down-up"></i></th>`).join('')}<th style="width:${c.actW||'90px'}"></th></tr>
+   <tr class="nvt-f"><th></th>${vis.map(k=>`<th>${k.filter==='select'?`<select class="form-select" data-f="${k.k}"></select>`:k.filter===false?'':`<input class="form-control" data-f="${k.k}" placeholder="تصفية...">`}</th>`).join('')}<th></th></tr></thead><tbody data-nvt="body"></tbody></table></div>
+  <div class="card-footer bg-white d-flex flex-wrap align-items-center gap-2"><span class="small text-muted" data-nvt="info"></span><select class="form-select form-select-sm ms-auto" data-nvt="per" style="width:auto">${[25,50,100,0].map(n=>`<option value="${n}" ${st.per===n?'selected':''}>${n?n+' صف':'الكل'}</option>`).join('')}</select><nav><ul class="pagination pagination-sm mb-0" data-nvt="pg"></ul></nav></div></div>`;
+  const val=(r,k)=>{const col=c.cols.find(x=>x.k===k);return col&&col.v?col.v(r):r[k]};
+  const rowsF=()=>{const all=c.rows();const has=(v,q)=>!q||norm(v).includes(norm(q));
+    const L=all.filter(r=>c.cols.every(k=>{const q=F[k.k];if(q==null||q==='')return true;const v=val(r,k.k);return k.filter==='select'?String(v??'')===q:has(v,q)})&&(!F.q||c.cols.some(k=>has(val(r,k.k),F.q))));
+    const k=st.sort,d=st.dir==='desc'?-1:1;const col=c.cols.find(x=>x.k===k)||{};return {all,rows:L.sort((a,b)=>cmp(col.sv?col.sv(a):val(a,k),col.sv?col.sv(b):val(b,k))*d)}};
+  function bind(root){const Q=s=>root.querySelector(s),QA=s=>[...root.querySelectorAll(s)];
+    QA('[data-f]').forEach(el=>{if(el.tagName==='INPUT')el.value=F[el.dataset.f]||'';el.oninput=el.onchange=()=>{F[el.dataset.f]=el.value;const col=c.cols.find(x=>x.k===el.dataset.f);if(col&&col.resets)col.resets.forEach(x=>F[x]='');st.page=1;draw()}});
+    Q('[data-nvt="q"]').oninput=e=>{F.q=e.target.value;st.page=1;draw()};Q('[data-nvt="clear"]').onclick=()=>{st.f={};Object.assign(F,{});for(const k in F)delete F[k];QA('[data-f]').forEach(el=>el.value='');Q('[data-nvt="q"]').value='';st.page=1;draw()};
+    QA('[data-sort]').forEach(th=>th.onclick=()=>{const k=th.dataset.sort;st.dir=st.sort===k&&st.dir==='asc'?'desc':'asc';st.sort=k;draw()});
+    QA('[data-col]').forEach(x=>x.onchange=()=>{x.checked?st.hidden.delete(x.dataset.col):st.hidden.add(x.dataset.col);delete F[x.dataset.col];if(!x.checked&&st.sort===x.dataset.col)st.sort=(c.cols.find(k=>!st.hidden.has(k.k))||c.cols[0]).k;route()});
+    Q('[data-nvt="per"]').onchange=e=>{st.per=+e.target.value;st.page=1;draw()};
+    Q('[data-nvt="all"]').onchange=e=>{rowsF().rows.forEach(r=>e.target.checked?st.sel.add(r.id):st.sel.delete(r.id));draw()};
+    Q('[data-nvt="xl"]').onclick=()=>c.exp(rowsF().rows,c.key);if(Q('[data-nvt="imp"]'))Q('[data-nvt="imp"]').onclick=()=>c.onImport();
+    QA('[data-nvb]').forEach(b=>b.onclick=async()=>{const ids=[...st.sel].filter(id=>c.rows().some(r=>r.id===id));
+      if(b.dataset.nvb==='__none'){st.sel.clear();return draw()}if(b.dataset.nvb==='__xl'){const set=new Set(ids);return c.exp(c.rows().filter(r=>set.has(r.id)),c.key+'-selected')}
+      const B=c.bulk.find(x=>x.id===b.dataset.nvb);if(B)await B.run(ids,st)})}
+  function opts(el,vals,cur,lbl){el.innerHTML=`<option value="">الكل</option>`+vals.map(v=>`<option value="${esc(v)}" ${String(v)===cur?'selected':''}>${esc(lbl?lbl(v):v)}</option>`).join('')}
+  function draw(){const root=document.getElementById('nvt-'+c.key);if(!root)return;const Q=s=>root.querySelector(s),QA=s=>[...root.querySelectorAll(s)];const {all,rows}=rowsF();
+    for(const k of vis.filter(x=>x.filter==='select')){const src=k.dep?all.filter(r=>k.dep.every(d=>!F[d]||String(val(r,d))===F[d])):all;opts(Q(`[data-f="${k.k}"]`),[...new Set(src.map(r=>val(r,k.k)))].filter(v=>v!==''&&v!=null).sort((a,b)=>cmp(a,b)),F[k.k]||'',k.lbl)}
+    QA('[data-sort]').forEach(th=>{const on=th.dataset.sort===st.sort;th.classList.toggle('on',on);th.querySelector('i').className='bi '+(on?(st.dir==='asc'?'bi-sort-up':'bi-sort-down'):'bi-arrow-down-up')});
+    const per=st.per||rows.length||1,last=Math.max(1,Math.ceil(rows.length/per));st.page=Math.min(st.page,last);const items=rows.slice((st.page-1)*per,st.page*per);
+    Q('[data-nvt="body"]').innerHTML=items.map(r=>`<tr class="${st.sel.has(r.id)?'sel':''} ${c.rowCls?c.rowCls(r):''}"><td class="text-center"><input type="checkbox" class="form-check-input" data-id="${esc(r.id)}" ${st.sel.has(r.id)?'checked':''}></td>${vis.map(k=>`<td class="${k.cls||''}">${k.html?k.html(r):esc(val(r,k.k)??'')}</td>`).join('')}<td class="text-end pe-2 text-nowrap">${ro?'':c.actions(r)}</td></tr>`).join('')||`<tr><td colspan="${vis.length+2}" class="text-center py-5 text-muted">لا توجد نتائج مطابقة.</td></tr>`;
+    QA('[data-nvt="body"] [data-id]').forEach(x=>x.onchange=()=>{x.checked?st.sel.add(x.dataset.id):st.sel.delete(x.dataset.id);x.closest('tr').classList.toggle('sel',x.checked);bulk()});
+    Q('[data-nvt="count"]').textContent=`${rows.length} من ${all.length}`;Q('[data-nvt="info"]').textContent=rows.length?`عرض ${(st.page-1)*per+1}–${(st.page-1)*per+items.length} من ${rows.length}`:'';
+    const P=(n,l,dis,act)=>`<li class="page-item ${dis?'disabled':''} ${act?'active':''}"><a class="page-link" href="javascript:void 0" data-pg="${n}">${l}</a></li>`;const pg=[];
+    if(last>1){pg.push(P(st.page-1,'&rsaquo;',st.page<=1));for(let i=1;i<=last;i++){if(i===1||i===last||Math.abs(i-st.page)<=2)pg.push(P(i,i,false,i===st.page));else if(Math.abs(i-st.page)===3)pg.push('<li class="page-item disabled"><span class="page-link">…</span></li>')}pg.push(P(st.page+1,'&lsaquo;',st.page>=last))}
+    Q('[data-nvt="pg"]').innerHTML=pg.join('');QA('[data-pg]').forEach(a=>a.onclick=()=>{st.page=+a.dataset.pg;draw()});
+    const ids=rows.map(r=>r.id),all1=Q('[data-nvt="all"]');all1.checked=ids.length>0&&ids.every(id=>st.sel.has(id));all1.indeterminate=!all1.checked&&ids.some(id=>st.sel.has(id));bulk();if(c.after)c.after(root)}
+  function bulk(){const root=document.getElementById('nvt-'+c.key);const n=[...st.sel].filter(id=>c.rows().some(r=>r.id===id)).length;const b=root.querySelector('[data-nvt="bulk"]');b.classList.toggle('d-none',!n);b.classList.toggle('d-flex',!!n);root.querySelector('[data-nvt="seln"]').textContent=n}
+  return {html,mount(){const root=document.getElementById('nvt-'+c.key);bind(root);draw()},draw,st}}
+
+/* ---------- «المدارس» ---------- */
+const SCH_ST={completed:'مكتملة',in_progress:'قيد التنفيذ',not_started:'لم تبدأ'};
+function vSchools(){const sst=schoolStats();const lastEmp=new Map();for(const c of S.collections){const x=lastEmp.get(c.school_id);if(!x||(c.submitted_at||'')>(x.submitted_at||''))lastEmp.set(c.school_id,c)}
+  const T=nvTable({key:'schools',title:'المدارس',icon:'bi-building',minW:1000,sort:'name',actW:'100px',
+    init:st=>{const s=qp().get('status');if(s&&SCH_ST[s])st.f.work=SCH_ST[s];else if(s==='active'||s==='inactive')st.f.status=s==='active'?'نشطة':'غير نشطة';const q=qp().get('search');if(q)st.f.q=q},
+    rows:()=>S.schools.map(s=>{const x=sst.get(s.id);const le=lastEmp.get(s.id);return {id:s.id,s,no:num(dispId(s.id))||0,moe:s.moe||'',ident:s.ident||'',name:s.name||'',city:s.city||'',district:s.district||'',site:s.site||'',
+      emp:s.completed_by?empName(s.completed_by):le?empName(le.employee_id):'',work:SCH_ST[schoolState(s,x)],status:s.status==='active'?'نشطة':'غير نشطة',recs:x?x.any:0,created:fmtYmd(s.created_at)}}),
+    cols:[{k:'no',l:'#',w:'60px',cls:'text-muted small',hide:1},{k:'moe',l:'الرقم الوزاري',w:'95px'},{k:'ident',l:'المعرّف',w:'150px',cls:'small',html:r=>`<code class="text-primary">${esc(r.ident)}</code>`},
+      {k:'name',l:'اسم المدرسة',html:r=>{const rel=r.s.completed_by||(lastEmp.get(r.id)||{}).employee_id;return `<a class="fw-bold link-primary" href="${rel?`#admin/collections/view/${encodeURIComponent(rel)}/${encodeURIComponent(r.id)}`:`#admin/collections?school_id=${encodeURIComponent(r.id)}`}">${esc(r.name)}</a>`}},
+      {k:'city',l:'المحافظة',w:'95px',filter:'select',resets:['district']},{k:'district',l:'الحي / المكتب',w:'105px',filter:'select',dep:['city']},{k:'site',l:'الموقع',w:'120px',hide:1},{k:'emp',l:'مشرف الميدان',w:'120px',filter:'select'},
+      {k:'work',l:'حالة الجرد',w:'96px',filter:'select',html:r=>`<span class="badge rounded-pill ${r.work==='مكتملة'?'bg-success-subtle text-success border border-success-subtle':r.work==='قيد التنفيذ'?'bg-info-subtle text-info border border-info-subtle':'bg-secondary-subtle text-secondary border border-secondary-subtle'}">${r.work}</span>`},
+      {k:'status',l:'الحالة',w:'82px',filter:'select'},{k:'recs',l:'السجلات',w:'72px',filter:false,cls:'text-center',html:r=>r.recs?`<span class="badge bg-info-subtle text-info border border-info-subtle">${r.recs}</span>`:'<span class="text-muted">—</span>'},{k:'created',l:'تاريخ الإضافة',w:'100px',cls:'small text-muted',hide:1}],
+    actions:r=>`${iconBtn('#admin/schools/'+encodeURIComponent(r.id)+'/edit','bi-pencil text-warning','تعديل')} <button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-delschool="${esc(r.id)}" title="حذف"><i class="bi bi-trash text-danger"></i></button>`,
+    tools:'<a href="#admin/schools/create" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-1"></i>إضافة مدرسة</a>',
+    exp:(rows,name)=>writeXlsx([['المدارس',[['ID','MOE Number','school_identifier','Name (Arabic)','City','District','Site','Status','Collection Status','Field Supervisor','Asset Collections Count','Completed At','Description','Created At'],...rows.map(r=>[r.no||r.id,r.moe,r.ident,r.name,r.city,r.district,r.site,r.s.status,r.work,r.emp,r.recs,ymdhms(r.s.completed_at),r.s.description||'',ymdhms(r.s.created_at)])]]],'schools-'+stampDash()+'.xlsx'),
+    onImport:()=>importSchoolsFile(()=>vSchools()),
+    bulk:[{id:'complete',label:'<i class="bi bi-check-circle"></i> اعتماد كمكتملة',cls:'btn-success',run:async ids=>{if(!confirm(`اعتماد ${ids.length} مدرسة كمكتملة؟`))return;for(const id of ids){const s=get('schools',id);if(s)Object.assign(s,{completed_at:s.completed_at||now(),status:'inactive'})}save('schools');setAFlash('تم اعتماد المدارس المحددة كمكتملة.');vSchools()}},
+      {id:'reassign',label:'<i class="bi bi-person-gear"></i> نقل لمشرف آخر',cls:'btn-primary',run:async ids=>{NVT.schools.reIds=ids;bootstrap.Modal.getOrCreateInstance($('#reassignModal')).show()}},
+      {id:'delwork',label:'<i class="bi bi-eraser"></i> حذف أعمال الجرد',cls:'btn-outline-danger',run:async ids=>{const set=new Set(ids);const n=S.collections.filter(c=>set.has(c.school_id)).length;if(!n)return alert('لا توجد أعمال جرد في المدارس المحددة.');if(!confirm(`حذف ${n} سجل جرد من ${ids.length} مدرسة؟ تبقى المدارس نفسها.`))return;await removeCollections(S.collections.filter(c=>set.has(c.school_id)));setAFlash('تم حذف أعمال المدارس المحددة.');vSchools()}},
+      {id:'del',label:'<i class="bi bi-trash"></i> حذف المدارس',cls:'btn-danger',run:async (ids,st)=>{await deleteSchools(ids);ids.forEach(id=>st.sel.delete(id));vSchools()}}]});
+  adminShell('schools','المدارس',T.html+reassignModal('نقل المدارس','اختر مشرف الميدان الذي تُنقل إليه كل أعمال المدارس المحددة.'));T.mount();
+  document.getElementById('nvt-schools').addEventListener('click',async e=>{const b=e.target.closest('[data-delschool]');if(b){await deleteSchools([b.dataset.delschool]);vSchools()}});
+  $('#reassign-form').onsubmit=e=>{e.preventDefault();const to=e.target.new_employee_id.value;const ids=NVT.schools.reIds||[];if(!confirm('هل تريد نقل كل أعمال المدارس المحددة إلى مشرف الميدان المختار؟'))return;
+    const set=new Set(ids.filter(id=>!(get('schools',id)||{}).completed_at));for(const c of S.collections)if(set.has(c.school_id)){c.employee_id=to;c.updated_at=now()}save('collections');hideModal();setAFlash(`تم نقل أعمال ${set.size} مدرسة.`);vSchools()}}
+async function deleteSchools(ids){const set=new Set(ids);const recs=S.collections.filter(c=>set.has(c.school_id));const typed=ids.length>20?prompt(`سيتم حذف ${ids.length} مدرسة نهائياً${recs.length?` مع ${recs.length} سجل جرد وصورها`:''}.\nللتأكيد اكتب: حذف`):(confirm(`حذف ${ids.length===1?'هذه المدرسة':ids.length+' مدرسة'} نهائياً${recs.length?` مع ${recs.length} سجل جرد وصورها`:''}؟`)?'حذف':'');
+  if(typed!=='حذف')return false;await removeCollections(recs);S.schools=S.schools.filter(s=>!set.has(s.id));reindex();save('schools');setAFlash(`تم حذف ${ids.length} مدرسة.`);return true}
+async function importSchoolsFile(done){const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;let rows;try{rows=await readXlsx(f)}catch(e){return alert(e.message)}
+  const pick=(r,names)=>{for(const n of names)if(n in r&&String(r[n]).trim()!=='')return String(r[n]).trim();return null};let add=0,upd=0,skip=0;const seen=new Set();
+  for(const r of rows){const ident=pick(r,['school_identifier','Identifier','المعرّف','معرّف المبنى']);if(!ident||seen.has(ident)){skip++;continue}seen.add(ident);
+    const v={name:pick(r,['Name (Arabic)','Arabic Name','name_ar','اسم المدرسة']),moe:pick(r,['MOE Number','MoE No','moe_no','الرقم الوزاري']),city:pick(r,['City','city_ar','المحافظة']),district:pick(r,['District','District Arabic','district_ar','الحي / المكتب']),site:pick(r,['Site','site','الموقع']),description:pick(r,['Description','description','الوصف'])};
+    const st=pick(r,['Status','الحالة']);if(st)v.status=/inactive|غير/i.test(st)?'inactive':'active';
+    let s=S.schools.find(x=>x.ident===ident);if(s){for(const [k,val] of Object.entries(v))if(val!=null)s[k]=val;upd++}else{if(!v.name){skip++;continue}s={id:nextId('schools','s'),ident,moe:'',site:'',name:'',district:'',city:'',description:'',status:'active',completed_at:null,completed_by:null,created_at:now()};for(const [k,val] of Object.entries(v))if(val!=null)s[k]=val;S.schools.push(s);add++}}
+  reindex();save('schools');setAFlash(`استيراد المدارس: ${add} جديدة، ${upd} محدَّثة، ${skip} صف متجاهَل (بدون معرّف أو مكرر).`);done()}
+
+/* ---------- «المستخدمون ← مشرفو الميدان» ---------- */
+let empLoginMap=null;
+async function loadEmpLogins(force){if(!Cloud.on)return;if(empLoginMap&&!force)return;try{const c=await Cloud.sb();empLoginMap=new Map((Cloud.chk(await c.rpc('nv_emp_logins'))||[]).map(r=>[r.id,r.has_login]))}catch(e){empLoginMap=new Map()}}
+function vEmployees(){const cnt=new Map();for(const c of S.collections)cnt.set(c.employee_id,(cnt.get(c.employee_id)||0)+1);const ed=Cloud.role==='admin'||!Cloud.on;
+  const T=nvTable({key:'employees',title:'مشرفو الميدان',icon:'bi-person-badge',sub:'يدخلون تطبيق الجرد برقمهم الوظيفي',sort:'name',minW:Cloud.on?860:760,actW:'120px',
+    init:st=>{const q=qp().get('search');if(q)st.f.q=q},
+    rows:()=>S.employees.map(e=>({id:e.id,e,no:num(dispId(e.id))||0,number:String(e.number),name:e.name,role:'مشرف ميدان',recs:cnt.get(e.id)||0,login:!Cloud.on?'':empLoginMap?(empLoginMap.get(e.id)?'نعم':'لا'):'…',created:fmtYmd(e.created_at)})),
+    cols:[{k:'no',l:'#',w:'60px',cls:'text-muted small'},{k:'number',l:'الرقم الوظيفي',w:'130px',html:r=>`<code class="text-primary">${esc(r.number)}</code>`},{k:'name',l:'الاسم',w:'30%',cls:'fw-medium'},
+      {k:'role',l:'الدور',w:'110px',filter:'select',html:()=>'<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">مشرف ميدان</span>'},
+      {k:'recs',l:'السجلات',w:'90px',cls:'text-center',filter:false,html:r=>r.recs?`<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle">${r.recs}</span>`:'<span class="text-muted">—</span>'},
+      ...(Cloud.on?[{k:'login',l:'حساب الدخول',w:'110px',filter:'select',html:r=>r.login==='نعم'?'<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>نعم</span>':r.login==='لا'?'<span class="badge rounded-pill bg-secondary-subtle text-secondary border">لا</span>':'…'}]:[]),
+      {k:'created',l:'تاريخ الإضافة',w:'110px',cls:'small text-muted'}],
+    actions:r=>`${Cloud.on&&ed?`<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-setpw="${esc(r.id)}" title="${r.login==='نعم'?'كلمة مرور جديدة':'إنشاء حساب دخول'}"><i class="bi bi-key text-primary"></i></button> `:''}${iconBtn('#admin/employees/'+encodeURIComponent(r.id)+'/edit','bi-pencil text-warning','تعديل')} <button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-delemp="${esc(r.id)}" title="حذف"><i class="bi bi-trash text-danger"></i></button>`,
+    tools:`<button type="button" data-adduser class="btn btn-sm btn-primary"><i class="bi bi-person-plus me-1"></i>إضافة مستخدم</button>`,
+    exp:(rows,name)=>writeXlsx([['مشرفو الميدان',[['Employee Number','Name','الدور','Asset Collections Count',...(Cloud.on?['حساب الدخول']:[]),'Created At'],...rows.map(r=>[r.number,r.name,r.role,r.recs,...(Cloud.on?[r.login]:[]),ymdhms(r.e.created_at)])]]],'field-supervisors-'+stampDash()+'.xlsx'),
+    onImport:()=>importEmployeesFile(()=>vEmployees()),
+    bulk:[...(Cloud.on&&ed?[{id:'logins',label:'<i class="bi bi-key"></i> إنشاء حسابات دخول',cls:'btn-success',run:async ids=>{await createLogins(ids.map(id=>get('employees',id)).filter(e=>e&&!(empLoginMap&&empLoginMap.get(e.id))))}}]:[]),
+      {id:'del',label:'<i class="bi bi-trash"></i> حذف',cls:'btn-danger',run:async (ids,st)=>{if(await deleteEmployees(ids)){ids.forEach(id=>st.sel.delete(id));vEmployees()}}}],
+    after:root=>{root.querySelectorAll('[data-setpw]').forEach(b=>b.onclick=()=>setEmpPw(b.dataset.setpw))}});
+  adminShell('employees','المستخدمون',`${addUserCard()}<div id="staffBox"></div>${T.html}`);T.mount();bindAddUser();if(Cloud.on&&canUsers())loadStaff();
+  if(Cloud.on&&!empLoginMap)loadEmpLogins().then(()=>T.draw());
+  const g=document.createElement('span');if(Cloud.on&&ed){const b=document.querySelector('#nvt-employees .card-header');b.insertAdjacentHTML('beforeend','<button type="button" id="genLogins" class="btn btn-sm btn-outline-success"><i class="bi bi-key me-1"></i>حسابات لكل من ليس له</button>');
+    $('#genLogins').onclick=async()=>{await loadEmpLogins(true);await createLogins(S.employees.filter(e=>!empLoginMap.get(e.id)))}}
+  document.getElementById('nvt-employees').addEventListener('click',async e=>{const b=e.target.closest('[data-delemp]');if(b&&await deleteEmployees([b.dataset.delemp]))vEmployees()})}
+async function setEmpPw(id){const e=get('employees',id);if(!e)return;if(Cloud.pendingCount())await Cloud.sync();
+  const pw=prompt(`كلمة المرور لـ ${e.name} (${e.number}) — 8 أحرف على الأقل. اترك المقترحة أو اكتب غيرها:`,genPw());if(!pw)return;
+  try{const c=await Cloud.sb();Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:e.id,p_password:pw}));alert(`تم.\n\nالرقم الوظيفي: ${e.number}\nكلمة المرور: ${pw}\n\nيفتح مشرف الميدان رابط Solvix ويدخل بهما.`);await loadEmpLogins(true);vEmployees()}catch(er){alert(er.message)}}
+async function createLogins(list){if(!list.length)return alert('لكل المحددين حسابات دخول بالفعل.');
+  if(!confirm(`إنشاء حسابات دخول لـ ${list.length} مشرف ميدان؟ سيُنزَّل ملف Excel بكلمات المرور — احفظه بأمان وأعطِ كل مشرف سطره فقط.`))return;
+  await Cloud.sync();const c=await Cloud.sb();const rows=[['الرقم الوظيفي','الاسم','كلمة المرور','الرابط']];let ok=0;toast('جارٍ إنشاء الحسابات…',4000);
+  for(const e of list){const pw=genPw();try{Cloud.chk(await c.rpc('nv_emp_set_login',{p_emp:e.id,p_password:pw}));rows.push([e.number,e.name,pw,location.origin+location.pathname]);ok++}catch(er){rows.push([e.number,e.name,'خطأ: '+er.message,''])}}
+  await writeXlsx([['حسابات الدخول',rows]],'solvix-logins-'+stampDash()+'.xlsx');setAFlash(`تم إنشاء ${ok} حساب دخول. كلمات المرور موجودة فقط في الملف الذي نزل.`);await loadEmpLogins(true);vEmployees()}
+async function deleteEmployees(ids){const set=new Set(ids);const recs=S.collections.filter(c=>set.has(c.employee_id));
+  const msg=`حذف ${ids.length===1?'مشرف الميدان «'+((get('employees',ids[0])||{}).name||'')+'»':ids.length+' مشرف ميدان'} نهائياً${recs.length?` مع ${recs.length} سجل جرد وصورها`:''}؟`;
+  const typed=ids.length>20?prompt(msg+'\nللتأكيد اكتب: حذف'):(confirm(msg)?'حذف':'');if(typed!=='حذف')return false;
+  await removeCollections(recs);S.employees=S.employees.filter(x=>!set.has(x.id));for(const s of S.schools)if(set.has(s.completed_by))s.completed_by=null;reindex();save('employees');save('schools');setAFlash(`تم حذف ${ids.length} مشرف ميدان.`);return true}
+async function importEmployeesFile(done){const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;let rows;try{rows=await readXlsx(f)}catch(e){return alert(e.message)}let add=0,upd=0,skip=0;const seen=new Set();
+  for(const r of rows){const n=String(r['Employee Number']??r['employee_number']??r['الرقم الوظيفي']??'').trim(),nm=String(r['Name']??r['name']??r['الاسم']??'').trim();if(!n||!nm||seen.has(n)){skip++;continue}seen.add(n);
+    const e=S.employees.find(x=>String(x.number)===n);if(e){e.name=nm;upd++}else{S.employees.push({id:nextId('employees','e'),number:n,name:nm,created_at:now()});add++}}
+  reindex();save('employees');setAFlash(`استيراد مشرفي الميدان: ${add} جديد، ${upd} محدَّث${skip?`، ${skip} صف متجاهَل`:''}.`);done()}
 </script>
 <script id="nv-boot">
 /* Hash router and start-up */

@@ -42,7 +42,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.click('a[title="عرض التفاصيل"] >> nth=0');await p.waitForSelector('.table-bordered');await p.waitForTimeout(800);await shot('14-show');
  await p.goBack();await p.waitForSelector('#xl');await p.click('a[title="تعديل"] >> nth=2');await p.waitForSelector('[name=brand]');await shot('15-edit');await p.fill('[name=brand]','Samsung');await p.click('button:has-text("حفظ التعديل")');await p.waitForSelector('.alert-success');
  await p.click('.app-sidebar a[href="#admin/log"]');await p.waitForSelector('table');ok((await p.$$('tbody tr')).length===2,'log rows');
- await p.goto(U+'#admin/schools?status=completed');await p.waitForSelector('#schools-form');await shot('16-schools');ok((await p.$$('tbody tr')).length===1,'completed filter');
+ await p.goto(U+'#admin/schools?status=completed');await p.waitForSelector('#nvt-schools tbody tr');await shot('16-schools');ok((await p.$$('#nvt-schools tbody tr')).length===1,'completed filter');
  await p.goto(U+'#admin/schools');await p.waitForSelector('.pagination');ok((await p.textContent('.card-footer')).includes('من 2170'),'pagination');
  await p.click('[data-nv-tree] >> nth=0');
  await p.goto(U+'#admin/employees');await p.waitForSelector('table');await shot('17-employees');
