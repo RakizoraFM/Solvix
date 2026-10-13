@@ -136,6 +136,7 @@ create table if not exists public.nv_collections(id text primary key, no bigint 
   serial text not null default '', agency text not null default '', warranty text not null default '', install_date text not null default '',
   asad_country text not null default '', lat numeric(10,8), lng numeric(11,8), asset_image text, parent_child text, tag text not null default '',
   submitted_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+alter table public.nv_collections add column if not exists asset_image2 text; -- NV25: second on-site photo (nameplate / serial)
 create index if not exists nv_collections_school on public.nv_collections(school_id);
 create index if not exists nv_collections_emp on public.nv_collections(employee_id);
 create table if not exists public.nv_log(id text primary key default gen_random_uuid()::text, at timestamptz not null default now(), by text not null,
@@ -152,7 +153,7 @@ begin
   if tg_op = 'UPDATE' and old.submitted_at is not null then
     o := to_jsonb(old); n := to_jsonb(new);
     for k in select unnest(array['category_id','type_id','condition_id','quantity','price','status','manufacturer','brand','model','capacity','serial','agency',
-               'warranty','install_date','asad_country','lat','lng','asset_image','parent_child','tag','notes','floor','room_number','room_name_id','employee_id','school_id','school_image']) loop
+               'warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','parent_child','tag','notes','floor','room_number','room_name_id','employee_id','school_id','school_image']) loop
       if (o->k) is distinct from (n->k) then ch := ch || jsonb_build_object(k, jsonb_build_object('old', o->k, 'new', n->k)); end if;
     end loop;
     if ch <> '{}' then

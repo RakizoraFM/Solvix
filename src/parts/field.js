@@ -167,7 +167,7 @@ function vLocation(){
   rs.onchange=upd;upd();
   $('#f').onsubmit=ev=>{ev.preventDefault();const old=Object.assign({},c);const was=!!c.submitted_at;
     c.floor=$('#floor-select').value;c.room_number=$('#room-number').value;c.room_name_id=rs.value;c.notes=$('#notes').value.trim();c.updated_at=now();
-    if(isClosedRoom(c.room_name_id)){Object.assign(c,{category_id:null,type_id:null,condition_id:null,quantity:0,price:null,status:null,asset_image:null});if(!c.submitted_at)c.submitted_at=now();
+    if(isClosedRoom(c.room_name_id)){Object.assign(c,{category_id:null,type_id:null,condition_id:null,quantity:0,price:null,status:null,asset_image:null,asset_image2:null});if(!c.submitted_at)c.submitted_at=now();
       if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,TRACK));save('collections');setFlash(t('Room marked as closed and finished.'));go('#success');return}
     if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,['floor','room_number','room_name_id','notes']));save('collections');setFlash(t('Location details saved successfully.'));go('#asset')};
 }
@@ -187,11 +187,9 @@ function vAsset(){
    <div data-lv>${L('a_l2',tx('المستوى الثاني','Level 2'),'',1)}<select id="a_l2" class="${INPUT}" disabled></select></div>
    <div data-lv>${L('a_l3',tx('المستوى الثالث','Level 3'),'',1)}<select id="a_l3" class="${INPUT}" disabled></select></div>
    <div>${L('a_type_id',t('Asset Type'),t('نوع الأصل'),1)}<select id="a_type_id" required class="${INPUT}" ${c.category_id?'':'disabled'}><option value="">${t('Select...')} / ${t('قائمة')}</option>${types.map(x=>`<option value="${esc(x.id)}" ${c.type_id===x.id?'selected':''}>${esc(x.ar)}${x.en?` (${esc(x.en)})`:''}</option>`).join('')}</select><div id="a_tinfo" class="mt-2 text-xs"></div></div>
-   <div><label class="block text-sm font-medium text-gray-700 mb-1">${t('Asset Image Source')} <span class="text-red-500">*</span></label>
-    <div class="flex gap-6 mb-3"><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="upload_method_asset" value="camera" checked class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"><span class="text-sm text-gray-700 font-medium">${t('Take Photo')}</span></label>
-     <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="upload_method_asset" value="gallery" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"><span class="text-sm text-gray-700 font-medium">${t('Upload from Gallery')}</span></label></div>
-    <div class="relative"><input type="file" id="aimg" accept="image/*" capture="environment" class="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" ${c.asset_image?'':'required'}></div>
-    ${c.asset_image?`<div class="mt-3 flex items-center gap-3 bg-green-50 p-2 rounded-xl border border-green-100">${img(c.asset_image,'h-12 w-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity','')}<p class="text-xs text-green-600 font-medium">${t('Current image:')} ${esc(c.asset_image)}.jpg</p></div>`:''}
+   <div><label class="block text-sm font-medium text-gray-700 mb-1">${tx('صور الأصل من موقعه','Asset photos on site')} <span class="text-red-500">*</span></label>
+    <p class="text-xs text-gray-500 mb-3">${tx('صورتان إلزاميتان تُلتقطان الآن بكاميرا الجوال أمام الأصل. لا تُقبل صور المعرض أو الصور القديمة، ويُطبع على كل صورة الوقت والمدرسة والغرفة والموقع.','Two required photos taken now with the phone camera in front of the asset. Gallery or old photos are refused; time, school, room and location are printed on each photo.')}</p>
+    <div class="nv-shots">${SHOTS.map((x,n)=>shotTile(n,c[x.k])).join('')}</div>
     <p id="e_img" class="text-red-500 text-xs mt-1"></p></div>
    <div class="pt-4 border-t border-gray-100"><div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <div>${L('a_quantity',t('Quantity'),t('العدد'),1)}<input type="number" id="a_quantity" required min="1" value="${esc(c.quantity??1)}" class="${INPUT}"></div>
@@ -233,7 +231,10 @@ function vAsset(){
   /* an existing record opens with its levels selected */
   showLv();if(ct&&ct.l2&&lv()){l2.innerHTML=opts(uniq(inCat().map(x=>x.l2)));l2.value=ct.l2;l2.disabled=false;l3.innerHTML=opts(uniq(inCat().filter(x=>x.l2===ct.l2).map(x=>x.l3)));l3.value=ct.l3;l3.disabled=false;fillT(inCat().filter(x=>x.l2===ct.l2&&x.l3===ct.l3));typ.value=ct.id;info()}
   else if(c.category_id&&lv()){cat.onchange()}
-  $$('[name=upload_method_asset]').forEach(r=>r.onchange=()=>{const i=$('#aimg');if(r.value==='camera')i.setAttribute('capture','environment');else i.removeAttribute('capture')});
+  /* NV25 — two photos taken now on site (camera only; a file older than PHOTO_FRESH_MIN minutes is refused) */
+  const pend=[null,null];$$('.nv-shot input').forEach(inp=>inp.onchange=()=>{const n=+inp.dataset.n,f=inp.files[0],tile=inp.closest('.nv-shot');$('#e_img').textContent='';if(!f)return;
+    if(!/^image\//.test(f.type||'image/')||Date.now()-f.lastModified>PHOTO_FRESH_MIN*6e4){inp.value='';pend[n]=null;tile.classList.add('bad');tile.classList.remove('ok');tile.querySelector('small').textContent=tx('مرفوضة: التقط الصورة الآن بالكاميرا','Refused: take the photo now with the camera');return}
+    pend[n]={f,at:f.lastModified};tile.classList.remove('bad');tile.classList.add('ok');tile.querySelector('.nv-shot-pv').innerHTML=`<img src="${URL.createObjectURL(f)}" alt="">`;tile.querySelector('small').textContent=tx('✓ تم الالتقاط — اضغط لإعادة الالتقاط','✓ Taken — tap to retake')});
   // map (Leaflet, same behaviour as the original: draggable marker, click to move, auto-detect when empty)
   let lat=c.lat,lng=c.lng,map,marker;const has=lat!=null&&lng!=null;
   const setLL=(a,b,move)=>{lat=+(+a).toFixed(8);lng=+(+b).toFixed(8);$('#lat-display').innerText=lat.toFixed(8);$('#lng-display').innerText=lng.toFixed(8);if(marker){marker.setLatLng([lat,lng]);if(move)map.setView([lat,lng],16)}};
@@ -247,11 +248,21 @@ function vAsset(){
     try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:num(g('price')),
         manufacturer:g('manufacturer'),brand:g('brand'),model:g('model'),capacity:g('capacity'),serial:g('serial'),agency:g('agency'),warranty:g('warranty'),install_date:g('install_date'),asad_country:g('asad_country'),
         lat:lat??null,lng:lng??null,parent_child:($('[name=parent_child]:checked')||{}).value,tag:g('tag'),notes:g('notes')};
-      const fl=$('#aimg').files[0];let oldImg=null;if(fl){oldImg=c.asset_image;vals.asset_image=await storePhoto(fl)}
+      const miss=SHOTS.map((x,n)=>!pend[n]&&!c[x.k]?x.t():null).filter(Boolean);if(miss.length){$('#e_img').textContent=tx('التقط الصور المطلوبة: ','Take the required photos: ')+miss.join('، ');$('#sb').disabled=false;$('.nv-shots').scrollIntoView({block:'center'});return}
+      const sc=get('schools',c.school_id)||{},rm=get('rooms',c.room_name_id)||{};const oldImg=[];
+      for(let n=0;n<SHOTS.length;n++){const P=pend[n];if(!P)continue;const k=SHOTS[n].k;
+        const lines=[`${ymdhms(new Date(P.at).toISOString())} · ${SHOTS[n].t()}`,[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')+(lat!=null?`  ·  ${(+lat).toFixed(5)}, ${(+lng).toFixed(5)}`:'')];
+        if(c[k])oldImg.push(c[k]);vals[k]=await storePhoto(P.f,lines)}
       const old=Object.assign({},c);const was=!!c.submitted_at;Object.assign(c,vals,{updated_at:now()});if(!c.submitted_at)c.submitted_at=now();
-      if(was)logChange(c,'emp:'+e.id,diff(old,c,TRACK));save('collections');if(oldImg)deletePhoto(oldImg);
+      if(was)logChange(c,'emp:'+e.id,diff(old,c,TRACK));save('collections');oldImg.forEach(deletePhoto);
       setFlash(t('Asset details saved successfully.'));go('#success')}catch(er){$('#ferr').textContent=er.message;$('#sb').disabled=false}};
 }
+
+/* NV25 — the two on-site photos of an asset */
+const PHOTO_FRESH_MIN=15;
+const SHOTS=[{k:'asset_image',t:()=>tx('الأصل كاملاً في مكانه','Whole asset in place')},{k:'asset_image2',t:()=>tx('لوحة البيانات / الرقم التسلسلي','Nameplate / serial number')}];
+const CAM='<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.66-.9l.82-1.2A2 2 0 0110.07 4h3.86a2 2 0 011.66.9l.82 1.2a2 2 0 001.66.9H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3.2"/></svg>';
+function shotTile(n,cur){return `<label class="nv-shot ${cur?'ok':''}" data-shot="${n}"><input type="file" id="aimg${n?'2':''}" data-n="${n}" accept="image/*" capture="environment"><div class="nv-shot-pv">${cur?img(cur,'',''):CAM}</div><b>${n+1}. ${SHOTS[n].t()}</b><small>${cur?tx('✓ موجودة — اضغط لإعادة الالتقاط','✓ Saved — tap to retake'):tx('اضغط لالتقاط الصورة','Tap to take the photo')}</small></label>`}
 
 /* success.blade.php */
 function vSuccess(){

@@ -14,7 +14,7 @@ const NV_ORDER=['categories','conditions','rooms','types','employees','schools',
 const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','email','created_at'],
   schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
-    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','parent_child','tag','submitted_at','created_at']};
+    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','parent_child','tag','submitted_at','created_at']};
 const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag']);
 const tsNorm=v=>{if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?v:d.toISOString()};
 const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),snap:{},uploaded:new Set(),dirty:new Set(),err:null,syncing:false,again:false,lastPull:0,tablesMissing:false,
@@ -60,7 +60,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
         if(t==='schools'&&this.role==='tech'){/* a technician only finishes a school, through the server function */
           for(const [r,row,js] of upd){const was=JSON.parse(snap[r.id]);if(row.completed_at&&!was.completed_at){this.chk(await c.rpc('nv_complete_school',{p_school:r.id}))}snap[r.id]=js}
           await this.persistSnap();continue}
-        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image)}
+        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image);await this.uploadPhoto(r.asset_image2)}
         for(let i=0;i<ins.length;i+=300){const part=ins.slice(i,i+300);const back=this.chk(await c.from(NV_T[t]).insert(part.map(x=>x[1])).select(t==='collections'?'id,no':'id'));
           for(const [r,,js] of part){snap[r.id]=js}if(t==='collections')for(const b of back||[]){const r=S.collections.find(x=>x.id===b.id);if(r)r.no=b.no}await this.persistSnap()}
         if(this.role==='admin'){for(let i=0;i<upd.length;i+=300){const part=upd.slice(i,i+300);this.chk(await c.from(NV_T[t]).upsert(part.map(x=>x[1]),{onConflict:'id'}));for(const [r,,js] of part)snap[r.id]=js;await this.persistSnap()}}

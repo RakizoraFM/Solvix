@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV24">
+<meta name="fm-version" content="NV25">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -21,6 +21,11 @@ body.nv-field{font-family:"Cairo",sans-serif;transition:background-color .3s eas
 body.nv-field.nv-en{font-family:"Inter",sans-serif}
 [x-cloak]{display:none!important}
 .cursor-zoom-in{cursor:zoom-in}.cursor-zoom-out{cursor:zoom-out}
+/* NV25 — two on-site photo tiles */
+.nv-shots{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.nv-shot{display:block;cursor:pointer;border:2px dashed #93c5fd;background:#eff6ff;border-radius:.9rem;padding:.5rem;text-align:center;position:relative}
+.nv-shot.ok{border:2px solid #86efac;background:#f0fdf4}.nv-shot.bad{border-color:#fca5a5;background:#fef2f2}.nv-shot input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.nv-shot-pv{height:8.5rem;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:.6rem;background:#fff;margin-bottom:.45rem;color:#2563eb}.nv-shot-pv img{width:100%;height:100%;object-fit:cover}
+.nv-shot b{display:block;font-size:.8rem;color:#1f2937}.nv-shot small{display:block;font-size:.72rem;color:#2563eb;margin-top:.1rem}.nv-shot.ok small{color:#15803d}
 #map,#location-map{height:300px;width:100%;border-radius:.75rem;border:1px solid #e5e7eb;z-index:1}
 </style>
 <style data-mode="admin" media="not all">
@@ -266,7 +271,7 @@ body.sx-body{margin:0;background:#f4f7fb}
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV24',date:'2026-10-13'};
+const NV={version:'NV25',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -354,8 +359,15 @@ async function loadState(cloud){
 const urlCache=new Map();
 async function photoURL(key){if(!key)return '';if(urlCache.has(key))return urlCache.get(key);let b=await IDB.get('photos',key).catch(()=>null);if(!b&&window.Cloud&&Cloud.on)b=await Cloud.fetchPhoto(key);if(!b)return '';const u=URL.createObjectURL(b);urlCache.set(key,u);return u}
 function resizeImage(file,max=1600,q=.82){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{let w=img.naturalWidth,h=img.naturalHeight;const r=Math.min(1,max/Math.max(w,h));w=Math.round(w*r);h=Math.round(h*r);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error('image')),'image/jpeg',q)};img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('الملف ليس صورة صالحة'))};img.src=u})}
-async function storePhoto(file){if(!file)return null;if(file.size>15*1024*1024)throw new Error('حجم الصورة أكبر من 15 م.ب');const b=await resizeImage(file);const k='p_'+uid();await IDB.put('photos',k,b);return k}
-async function deletePhoto(key){if(!key)return;if(S.collections.some(c=>c.school_image===key||c.asset_image===key))return;await IDB.del('photos',key).catch(()=>{});const u=urlCache.get(key);if(u){URL.revokeObjectURL(u);urlCache.delete(key)}}
+async function storePhoto(file,stamp){if(!file)return null;if(file.size>15*1024*1024)throw new Error('حجم الصورة أكبر من 15 م.ب');let b=await resizeImage(file);if(stamp)b=await stampPhoto(b,stamp);const k='p_'+uid();await IDB.put('photos',k,b);return k}
+/* NV25 — burn the evidence into the photo: a dark band at the bottom with the given lines (time, school, room, GPS) */
+async function stampPhoto(blob,lines){const u=URL.createObjectURL(blob);try{const im=await new Promise((r,j)=>{const i=new Image();i.onload=()=>r(i);i.onerror=j;i.src=u});
+  const w=im.naturalWidth,h=im.naturalHeight,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(im,0,0);
+  const fs=Math.max(13,Math.round(w/48)),lh=Math.round(fs*1.4),pad=Math.round(fs*.6),bh=lines.length*lh+pad*2;x.fillStyle='rgba(15,23,42,.66)';x.fillRect(0,h-bh,w,bh);
+  x.fillStyle='#fff';x.font=`700 ${fs}px Cairo, Tahoma, sans-serif`;x.direction='rtl';x.textAlign='right';x.textBaseline='top';lines.forEach((l,i)=>x.fillText(l,w-pad,h-bh+pad+i*lh,w-pad*2));
+  return await new Promise(r=>c.toBlob(b=>r(b||blob),'image/jpeg',.85))}catch(e){return blob}finally{URL.revokeObjectURL(u)}}
+const PHOTO_KEYS=['school_image','asset_image','asset_image2'];const photoKeys=c=>PHOTO_KEYS.map(k=>c[k]).filter(Boolean);
+async function deletePhoto(key){if(!key)return;if(S.collections.some(c=>c.school_image===key||c.asset_image===key||c.asset_image2===key))return;await IDB.del('photos',key).catch(()=>{});const u=urlCache.get(key);if(u){URL.revokeObjectURL(u);urlCache.delete(key)}}
 async function hydratePhotos(root=document){for(const el of $$('img[data-photo]',root)){const u=await photoURL(el.dataset.photo);if(u){el.src=u;if(!el.onclick)el.onclick=()=>(window.openPhoto||lightbox)(u)}}}
 function lightbox(u){window.open(u,'_blank')}
 
@@ -371,11 +383,11 @@ const submitted=c=>!!c.submitted_at;
 function schoolStats(){const m=new Map();for(const c of S.collections){let s=m.get(c.school_id);if(!s){s={any:0,sub:0,qty:0,last:null,emp:null};m.set(c.school_id,s)}s.any++;if(c.submitted_at){s.sub++;s.qty+=num(c.quantity);if(!s.last||c.submitted_at>s.last){s.last=c.submitted_at}}if(!s.emp||(c.updated_at||'')>(s.empAt||'')){s.emp=c.employee_id;s.empAt=c.updated_at||''}}return m}
 function schoolState(s,st){if(s.completed_at)return 'completed';if(st&&st.any)return 'in_progress';return 'not_started'}
 function logChange(rec,by,changes){if(window.Cloud&&Cloud.on)return;/* the server trigger logs in cloud mode */if(!changes||!Object.keys(changes).length)return;S.log.unshift({id:uid(),at:now(),by,coll:rec.id,school:rec.school_id,emp:rec.employee_id,changes});if(S.log.length>3000)S.log.length=3000;save('log')}
-const FIELD_LBL={category_id:'الفئة',type_id:'نوع الأصل',condition_id:'الحالة الفنية',quantity:'الكمية',price:'السعر',status:'التشغيل',manufacturer:'الشركة المصنعة',brand:'الماركة',model:'الموديل',capacity:'السعة',serial:'الرقم التسلسلي',agency:'الوكيل',warranty:'الضمان',install_date:'تاريخ التركيب',asad_country:'دولة الموقع (ASAD)',lat:'خط العرض',lng:'خط الطول',parent_child:'رئيسي / فرعي',tag:'رقم ASAD',notes:'ملاحظات',floor:'الدور',room_number:'رقم الغرفة',room_name_id:'اسم الغرفة',asset_image:'صورة الأصل',school_image:'صورة المدرسة',employee_id:'الموظف',school_id:'المدرسة'};
-function fieldText(k,v){if(v==null||v==='')return '—';switch(k){case 'category_id':return (get('categories',v)||{}).ar||v;case 'type_id':return (get('types',v)||{}).ar||v;case 'condition_id':return (get('conditions',v)||{}).ar||v;case 'room_name_id':return (get('rooms',v)||{}).ar||v;case 'employee_id':return empName(v);case 'school_id':return (get('schools',v)||{}).name||v;case 'asset_image':case 'school_image':return 'صورة';default:return String(v)}}
+const FIELD_LBL={category_id:'الفئة',type_id:'نوع الأصل',condition_id:'الحالة الفنية',quantity:'الكمية',price:'السعر',status:'التشغيل',manufacturer:'الشركة المصنعة',brand:'الماركة',model:'الموديل',capacity:'السعة',serial:'الرقم التسلسلي',agency:'الوكيل',warranty:'الضمان',install_date:'تاريخ التركيب',asad_country:'دولة الموقع (ASAD)',lat:'خط العرض',lng:'خط الطول',parent_child:'رئيسي / فرعي',tag:'رقم ASAD',notes:'ملاحظات',floor:'الدور',room_number:'رقم الغرفة',room_name_id:'اسم الغرفة',asset_image:'صورة الأصل',asset_image2:'صورة لوحة البيانات',school_image:'صورة المدرسة',employee_id:'الموظف',school_id:'المدرسة'};
+function fieldText(k,v){if(v==null||v==='')return '—';switch(k){case 'category_id':return (get('categories',v)||{}).ar||v;case 'type_id':return (get('types',v)||{}).ar||v;case 'condition_id':return (get('conditions',v)||{}).ar||v;case 'room_name_id':return (get('rooms',v)||{}).ar||v;case 'employee_id':return empName(v);case 'school_id':return (get('schools',v)||{}).name||v;case 'asset_image':case 'asset_image2':case 'school_image':return 'صورة';default:return String(v)}}
 function diff(oldR,newR,keys){const ch={};for(const k of keys){const a=oldR[k]==null?'':String(oldR[k]),b=newR[k]==null?'':String(newR[k]);if(a!==b)ch[k]={old:oldR[k]??null,new:newR[k]??null}}return ch}
-const TRACK=['category_id','type_id','condition_id','quantity','price','status','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','parent_child','tag','notes','floor','room_number','room_name_id'];
-function blankAsset(){return {category_id:null,type_id:null,condition_id:null,quantity:1,price:null,status:null,manufacturer:'',brand:'',model:'',capacity:'',serial:'',agency:'',warranty:'',install_date:'',asad_country:'',lat:null,lng:null,asset_image:null,parent_child:null,tag:'',notes:'',submitted_at:null}}
+const TRACK=['category_id','type_id','condition_id','quantity','price','status','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','parent_child','tag','notes','floor','room_number','room_name_id'];
+function blankAsset(){return {category_id:null,type_id:null,condition_id:null,quantity:1,price:null,status:null,manufacturer:'',brand:'',model:'',capacity:'',serial:'',agency:'',warranty:'',install_date:'',asad_country:'',lat:null,lng:null,asset_image:null,asset_image2:null,parent_child:null,tag:'',notes:'',submitted_at:null}}
 function nextNo(){S.settings.seq=Math.max(num(S.settings.seq),...S.collections.map(c=>num(c.no)))+1;save('settings');return S.settings.seq}
 function newCollection(emp,school,schoolImage,loc){const t=now();return Object.assign({id:uid(),no:nextNo(),employee_id:emp,school_id:school,school_image:schoolImage,floor:null,room_number:null,room_name_id:null,created_at:t,updated_at:t},blankAsset(),loc||{})}
 
@@ -400,12 +412,12 @@ const EXPORT_COLS=[['ID',(c)=>c.no||''],['Employee',(c,e)=>e.name||''],['Employe
   ['Category',c=>(get('categories',c.category_id)||{}).ar||''],['Asset Type',(c,e,s,t)=>t.ar||''],['Level 2',(c,e,s,t)=>t.l2||''],['Level 3',(c,e,s,t)=>t.l3||''],['Asset Code',(c,e,s,t)=>t.code||''],['Critical',(c,e,s,t)=>c.type_id?(t.critical?'حرج':'غير حرج'):''],
   ['Condition',c=>(get('conditions',c.condition_id)||{}).ar||''],['Quantity',c=>num(c.quantity)],['Price',c=>c.price??''],['Manufacturer',c=>c.manufacturer||''],['Brand',c=>c.brand||''],['Model',c=>c.model||''],['Capacity',c=>c.capacity||''],
   ['Serial Number',c=>c.serial||''],['Agency',c=>c.agency||''],['Warranty',c=>c.warranty||''],['Installation Date',c=>c.install_date||''],['ASAD Country',c=>c.asad_country||''],['ASAD Tag #',c=>c.tag||''],['Parent/Child',c=>c.parent_child||''],
-  ['Notes',c=>c.notes||''],['School Image URL',c=>c.school_image?c.school_image+'.jpg':''],['Location Diagram URL',()=>''],['Asset Image URL',c=>c.asset_image?c.asset_image+'.jpg':''],['Submitted At',c=>ymdhms(c.submitted_at)],['Created At',c=>ymdhms(c.created_at)],['Label Number',c=>assetLabel(c)]];
+  ['Notes',c=>c.notes||''],['School Image URL',c=>c.school_image?c.school_image+'.jpg':''],['Location Diagram URL',()=>''],['Asset Image URL',c=>c.asset_image?c.asset_image+'.jpg':''],['Asset Image 2 URL',c=>c.asset_image2?c.asset_image2+'.jpg':''],['Submitted At',c=>ymdhms(c.submitted_at)],['Created At',c=>ymdhms(c.created_at)],['Label Number',c=>assetLabel(c)]];
 const EXPORT_HEAD=EXPORT_COLS.map(x=>x[0]);
 const ymdhms=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
 function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{},t=get('types',c.type_id)||{};return EXPORT_COLS.map(x=>x[1](c,e,s,t))}
 async function exportCollections(list,name){list=list.slice().sort((a,b)=>(b.created_at||'')<(a.created_at||'')?-1:1);await writeXlsx([['Worksheet',[EXPORT_HEAD,...list.map(exportRow)]]],name||('collections-'+stamp()+'.xlsx'))}
-async function exportPhotosZip(list){try{await needZip()}catch(e){zipP=null;return toast(e.message,4000)}const zip=new JSZip();const seen=new Set();let n=0;for(const c of list){for(const k of [c.school_image,c.asset_image]){if(!k||seen.has(k))continue;seen.add(k);const b=await IDB.get('photos',k).catch(()=>null);if(b){zip.file(k+'.jpg',b);n++}}}if(!n)return toast('لا توجد صور');toast('جارٍ تجهيز '+n+' صورة…');download(await zip.generateAsync({type:'blob'}),'solvix-photos-'+stamp()+'.zip')}
+async function exportPhotosZip(list){try{await needZip()}catch(e){zipP=null;return toast(e.message,4000)}const zip=new JSZip();const seen=new Set();let n=0;for(const c of list){for(const k of photoKeys(c)){if(!k||seen.has(k))continue;seen.add(k);const b=await IDB.get('photos',k).catch(()=>null);if(b){zip.file(k+'.jpg',b);n++}}}if(!n)return toast('لا توجد صور');toast('جارٍ تجهيز '+n+' صورة…');download(await zip.generateAsync({type:'blob'}),'solvix-photos-'+stamp()+'.zip')}
 
 /* ---------- backup / merge ---------- */
 const blobToData=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)});
@@ -413,7 +425,7 @@ const dataToBlob=async d=>(await fetch(d)).blob();
 async function buildPackage(opts){const o=opts||{};const pkg={app:'novaro',v:1,at:now(),kind:o.kind||'full',by:o.by||null,data:{}};
   if(o.kind==='employee'){const mine=S.collections.filter(c=>c.employee_id===o.by);const sch=new Set(mine.map(c=>c.school_id));pkg.data.collections=mine;pkg.data.schools=S.schools.filter(s=>sch.has(s.id));pkg.data.employees=S.employees.filter(e=>e.id===o.by);pkg.data.log=S.log.filter(l=>l.emp===o.by)}
   else{for(const t of TABLES)pkg.data[t]=t==='settings'?Object.assign({},S.settings,{admin_login:undefined}):S[t]}
-  if(o.photos!==false){pkg.photos={};const keys=new Set();for(const c of pkg.data.collections){c.school_image&&keys.add(c.school_image);c.asset_image&&keys.add(c.asset_image)}for(const k of keys){const b=await IDB.get('photos',k).catch(()=>null);if(b)pkg.photos[k]=await blobToData(b)}}
+  if(o.photos!==false){pkg.photos={};const keys=new Set();for(const c of pkg.data.collections)photoKeys(c).forEach(k=>keys.add(k));for(const k of keys){const b=await IDB.get('photos',k).catch(()=>null);if(b)pkg.photos[k]=await blobToData(b)}}
   return pkg}
 async function exportPackage(opts){toast('جارٍ تجهيز الملف…');const pkg=await buildPackage(opts);const name=(opts&&opts.kind==='employee'?'solvix-'+((get('employees',opts.by)||{}).number||'emp')+'-':'solvix-backup-')+stamp()+'.json';download(new Blob([JSON.stringify(pkg)],{type:'application/json'}),name)}
 async function readPackage(file){const pkg=JSON.parse(await file.text());if(!pkg||pkg.app!=='novaro'||!pkg.data)throw new Error('الملف ليس نسخة من نوفارو');return pkg}
@@ -461,7 +473,7 @@ const NV_ORDER=['categories','conditions','rooms','types','employees','schools',
 const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','email','created_at'],
   schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
-    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','parent_child','tag','submitted_at','created_at']};
+    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','parent_child','tag','submitted_at','created_at']};
 const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag']);
 const tsNorm=v=>{if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?v:d.toISOString()};
 const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),snap:{},uploaded:new Set(),dirty:new Set(),err:null,syncing:false,again:false,lastPull:0,tablesMissing:false,
@@ -507,7 +519,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
         if(t==='schools'&&this.role==='tech'){/* a technician only finishes a school, through the server function */
           for(const [r,row,js] of upd){const was=JSON.parse(snap[r.id]);if(row.completed_at&&!was.completed_at){this.chk(await c.rpc('nv_complete_school',{p_school:r.id}))}snap[r.id]=js}
           await this.persistSnap();continue}
-        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image)}
+        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image);await this.uploadPhoto(r.asset_image2)}
         for(let i=0;i<ins.length;i+=300){const part=ins.slice(i,i+300);const back=this.chk(await c.from(NV_T[t]).insert(part.map(x=>x[1])).select(t==='collections'?'id,no':'id'));
           for(const [r,,js] of part){snap[r.id]=js}if(t==='collections')for(const b of back||[]){const r=S.collections.find(x=>x.id===b.id);if(r)r.no=b.no}await this.persistSnap()}
         if(this.role==='admin'){for(let i=0;i<upd.length;i+=300){const part=upd.slice(i,i+300);this.chk(await c.from(NV_T[t]).upsert(part.map(x=>x[1]),{onConflict:'id'}));for(const [r,,js] of part)snap[r.id]=js;await this.persistSnap()}}
@@ -713,7 +725,7 @@ function vLocation(){
   rs.onchange=upd;upd();
   $('#f').onsubmit=ev=>{ev.preventDefault();const old=Object.assign({},c);const was=!!c.submitted_at;
     c.floor=$('#floor-select').value;c.room_number=$('#room-number').value;c.room_name_id=rs.value;c.notes=$('#notes').value.trim();c.updated_at=now();
-    if(isClosedRoom(c.room_name_id)){Object.assign(c,{category_id:null,type_id:null,condition_id:null,quantity:0,price:null,status:null,asset_image:null});if(!c.submitted_at)c.submitted_at=now();
+    if(isClosedRoom(c.room_name_id)){Object.assign(c,{category_id:null,type_id:null,condition_id:null,quantity:0,price:null,status:null,asset_image:null,asset_image2:null});if(!c.submitted_at)c.submitted_at=now();
       if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,TRACK));save('collections');setFlash(t('Room marked as closed and finished.'));go('#success');return}
     if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,['floor','room_number','room_name_id','notes']));save('collections');setFlash(t('Location details saved successfully.'));go('#asset')};
 }
@@ -733,11 +745,9 @@ function vAsset(){
    <div data-lv>${L('a_l2',tx('المستوى الثاني','Level 2'),'',1)}<select id="a_l2" class="${INPUT}" disabled></select></div>
    <div data-lv>${L('a_l3',tx('المستوى الثالث','Level 3'),'',1)}<select id="a_l3" class="${INPUT}" disabled></select></div>
    <div>${L('a_type_id',t('Asset Type'),t('نوع الأصل'),1)}<select id="a_type_id" required class="${INPUT}" ${c.category_id?'':'disabled'}><option value="">${t('Select...')} / ${t('قائمة')}</option>${types.map(x=>`<option value="${esc(x.id)}" ${c.type_id===x.id?'selected':''}>${esc(x.ar)}${x.en?` (${esc(x.en)})`:''}</option>`).join('')}</select><div id="a_tinfo" class="mt-2 text-xs"></div></div>
-   <div><label class="block text-sm font-medium text-gray-700 mb-1">${t('Asset Image Source')} <span class="text-red-500">*</span></label>
-    <div class="flex gap-6 mb-3"><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="upload_method_asset" value="camera" checked class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"><span class="text-sm text-gray-700 font-medium">${t('Take Photo')}</span></label>
-     <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="upload_method_asset" value="gallery" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"><span class="text-sm text-gray-700 font-medium">${t('Upload from Gallery')}</span></label></div>
-    <div class="relative"><input type="file" id="aimg" accept="image/*" capture="environment" class="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" ${c.asset_image?'':'required'}></div>
-    ${c.asset_image?`<div class="mt-3 flex items-center gap-3 bg-green-50 p-2 rounded-xl border border-green-100">${img(c.asset_image,'h-12 w-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity','')}<p class="text-xs text-green-600 font-medium">${t('Current image:')} ${esc(c.asset_image)}.jpg</p></div>`:''}
+   <div><label class="block text-sm font-medium text-gray-700 mb-1">${tx('صور الأصل من موقعه','Asset photos on site')} <span class="text-red-500">*</span></label>
+    <p class="text-xs text-gray-500 mb-3">${tx('صورتان إلزاميتان تُلتقطان الآن بكاميرا الجوال أمام الأصل. لا تُقبل صور المعرض أو الصور القديمة، ويُطبع على كل صورة الوقت والمدرسة والغرفة والموقع.','Two required photos taken now with the phone camera in front of the asset. Gallery or old photos are refused; time, school, room and location are printed on each photo.')}</p>
+    <div class="nv-shots">${SHOTS.map((x,n)=>shotTile(n,c[x.k])).join('')}</div>
     <p id="e_img" class="text-red-500 text-xs mt-1"></p></div>
    <div class="pt-4 border-t border-gray-100"><div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <div>${L('a_quantity',t('Quantity'),t('العدد'),1)}<input type="number" id="a_quantity" required min="1" value="${esc(c.quantity??1)}" class="${INPUT}"></div>
@@ -779,7 +789,10 @@ function vAsset(){
   /* an existing record opens with its levels selected */
   showLv();if(ct&&ct.l2&&lv()){l2.innerHTML=opts(uniq(inCat().map(x=>x.l2)));l2.value=ct.l2;l2.disabled=false;l3.innerHTML=opts(uniq(inCat().filter(x=>x.l2===ct.l2).map(x=>x.l3)));l3.value=ct.l3;l3.disabled=false;fillT(inCat().filter(x=>x.l2===ct.l2&&x.l3===ct.l3));typ.value=ct.id;info()}
   else if(c.category_id&&lv()){cat.onchange()}
-  $$('[name=upload_method_asset]').forEach(r=>r.onchange=()=>{const i=$('#aimg');if(r.value==='camera')i.setAttribute('capture','environment');else i.removeAttribute('capture')});
+  /* NV25 — two photos taken now on site (camera only; a file older than PHOTO_FRESH_MIN minutes is refused) */
+  const pend=[null,null];$$('.nv-shot input').forEach(inp=>inp.onchange=()=>{const n=+inp.dataset.n,f=inp.files[0],tile=inp.closest('.nv-shot');$('#e_img').textContent='';if(!f)return;
+    if(!/^image\//.test(f.type||'image/')||Date.now()-f.lastModified>PHOTO_FRESH_MIN*6e4){inp.value='';pend[n]=null;tile.classList.add('bad');tile.classList.remove('ok');tile.querySelector('small').textContent=tx('مرفوضة: التقط الصورة الآن بالكاميرا','Refused: take the photo now with the camera');return}
+    pend[n]={f,at:f.lastModified};tile.classList.remove('bad');tile.classList.add('ok');tile.querySelector('.nv-shot-pv').innerHTML=`<img src="${URL.createObjectURL(f)}" alt="">`;tile.querySelector('small').textContent=tx('✓ تم الالتقاط — اضغط لإعادة الالتقاط','✓ Taken — tap to retake')});
   // map (Leaflet, same behaviour as the original: draggable marker, click to move, auto-detect when empty)
   let lat=c.lat,lng=c.lng,map,marker;const has=lat!=null&&lng!=null;
   const setLL=(a,b,move)=>{lat=+(+a).toFixed(8);lng=+(+b).toFixed(8);$('#lat-display').innerText=lat.toFixed(8);$('#lng-display').innerText=lng.toFixed(8);if(marker){marker.setLatLng([lat,lng]);if(move)map.setView([lat,lng],16)}};
@@ -793,11 +806,21 @@ function vAsset(){
     try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:num(g('price')),
         manufacturer:g('manufacturer'),brand:g('brand'),model:g('model'),capacity:g('capacity'),serial:g('serial'),agency:g('agency'),warranty:g('warranty'),install_date:g('install_date'),asad_country:g('asad_country'),
         lat:lat??null,lng:lng??null,parent_child:($('[name=parent_child]:checked')||{}).value,tag:g('tag'),notes:g('notes')};
-      const fl=$('#aimg').files[0];let oldImg=null;if(fl){oldImg=c.asset_image;vals.asset_image=await storePhoto(fl)}
+      const miss=SHOTS.map((x,n)=>!pend[n]&&!c[x.k]?x.t():null).filter(Boolean);if(miss.length){$('#e_img').textContent=tx('التقط الصور المطلوبة: ','Take the required photos: ')+miss.join('، ');$('#sb').disabled=false;$('.nv-shots').scrollIntoView({block:'center'});return}
+      const sc=get('schools',c.school_id)||{},rm=get('rooms',c.room_name_id)||{};const oldImg=[];
+      for(let n=0;n<SHOTS.length;n++){const P=pend[n];if(!P)continue;const k=SHOTS[n].k;
+        const lines=[`${ymdhms(new Date(P.at).toISOString())} · ${SHOTS[n].t()}`,[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')+(lat!=null?`  ·  ${(+lat).toFixed(5)}, ${(+lng).toFixed(5)}`:'')];
+        if(c[k])oldImg.push(c[k]);vals[k]=await storePhoto(P.f,lines)}
       const old=Object.assign({},c);const was=!!c.submitted_at;Object.assign(c,vals,{updated_at:now()});if(!c.submitted_at)c.submitted_at=now();
-      if(was)logChange(c,'emp:'+e.id,diff(old,c,TRACK));save('collections');if(oldImg)deletePhoto(oldImg);
+      if(was)logChange(c,'emp:'+e.id,diff(old,c,TRACK));save('collections');oldImg.forEach(deletePhoto);
       setFlash(t('Asset details saved successfully.'));go('#success')}catch(er){$('#ferr').textContent=er.message;$('#sb').disabled=false}};
 }
+
+/* NV25 — the two on-site photos of an asset */
+const PHOTO_FRESH_MIN=15;
+const SHOTS=[{k:'asset_image',t:()=>tx('الأصل كاملاً في مكانه','Whole asset in place')},{k:'asset_image2',t:()=>tx('لوحة البيانات / الرقم التسلسلي','Nameplate / serial number')}];
+const CAM='<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.66-.9l.82-1.2A2 2 0 0110.07 4h3.86a2 2 0 011.66.9l.82 1.2a2 2 0 001.66.9H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3.2"/></svg>';
+function shotTile(n,cur){return `<label class="nv-shot ${cur?'ok':''}" data-shot="${n}"><input type="file" id="aimg${n?'2':''}" data-n="${n}" accept="image/*" capture="environment"><div class="nv-shot-pv">${cur?img(cur,'',''):CAM}</div><b>${n+1}. ${SHOTS[n].t()}</b><small>${cur?tx('✓ موجودة — اضغط لإعادة الالتقاط','✓ Saved — tap to retake'):tx('اضغط لالتقاط الصورة','Tap to take the photo')}</small></label>`}
 
 /* success.blade.php */
 function vSuccess(){
@@ -1109,7 +1132,7 @@ function bindBulk(){const all=$('#select-all'),bar=$('#bulk-actions-bar');const 
   if(all)all.onchange=()=>{$$('.row-checkbox').forEach(c=>c.checked=all.checked);upd()};$$('.row-checkbox').forEach(c=>c.onchange=upd);$('#desel').onclick=()=>{$$('.row-checkbox').forEach(c=>c.checked=false);if(all)all.checked=false;bar.classList.add('d-none')};
   return ()=>$$('.row-checkbox:checked').map(c=>c.value)}
 function hideModal(){const m=$('#reassignModal');if(m&&window.bootstrap)bootstrap.Modal.getOrCreateInstance(m).hide();$$('.modal-backdrop').forEach(b=>b.remove());document.body.classList.remove('modal-open');document.body.style.removeProperty('overflow');document.body.style.removeProperty('padding-right')}
-async function removeCollections(list){const set=new Set(list);S.collections=S.collections.filter(c=>!set.has(c));for(const c of list){await deletePhoto(c.asset_image);await deletePhoto(c.school_image)}save('collections')}
+async function removeCollections(list){const set=new Set(list);S.collections=S.collections.filter(c=>!set.has(c));for(const c of list)for(const k of photoKeys(c))await deletePhoto(k);save('collections')}
 function vCollections(){
   const p=qp();const filtered=collectionFilter(S.collections,p);const m=new Map();
   for(const c of filtered){const k=c.employee_id+'_'+c.school_id;let g=m.get(k);if(!g){g={k,emp:c.employee_id,school:c.school_id,count:0,last:null};m.set(k,g)}if(c.submitted_at){g.count+=num(c.quantity);if(!g.last||c.submitted_at>g.last)g.last=c.submitted_at}}
@@ -1197,7 +1220,7 @@ function vCollectionShow(id){
    ${row('خط العرض',esc(c.lat??'--'))}${row('خط الطول',esc(c.lng??'--'))}${row('ملاحظات',esc(c.notes||'--'))}
    ${row('الحالة',c.submitted_at?`<span class="badge text-bg-success">مُرسل</span><small class="text-muted ms-2">${fmtYmd(c.submitted_at)}</small>`:'<span class="badge text-bg-warning">معلّق</span>')}${row('تاريخ الإنشاء',fmtYmd(c.created_at))}</table></div></div></div>
   <div class="col-md-6"><div class="card"><div class="card-header"><h3 class="card-title">صورة المدرسة</h3></div><div class="card-body text-center">${c.school_image?`<img data-photo="${esc(c.school_image)}" alt="صورة المدرسة" class="img-fluid rounded shadow-sm cursor-pointer" style="max-height: 300px; cursor: zoom-in;">`:'<p class="text-muted">لا توجد صورة.</p>'}</div></div>
-   <div class="card mt-3"><div class="card-header"><h3 class="card-title">صورة الأصل</h3></div><div class="card-body text-center">${c.asset_image?`<img data-photo="${esc(c.asset_image)}" alt="صورة الأصل" class="img-fluid rounded shadow-sm cursor-pointer" style="max-height: 300px; cursor: zoom-in;">`:'<p class="text-muted">لا توجد صورة للأصل.</p>'}</div></div>
+   <div class="card mt-3"><div class="card-header"><h3 class="card-title">صور الأصل من موقعه</h3></div><div class="card-body"><div class="row g-2 text-center">${[['asset_image','الأصل كاملاً في مكانه'],['asset_image2','لوحة البيانات / الرقم التسلسلي']].map(([k,l])=>`<div class="col-6"><div class="small fw-bold text-muted mb-1">${l}</div>${c[k]?`<img data-photo="${esc(c[k])}" alt="${l}" class="img-fluid rounded shadow-sm" style="max-height:260px;cursor:zoom-in">`:'<div class="border rounded py-5 small text-muted">لا توجد صورة</div>'}</div>`).join('')}</div></div></div>
    <div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center"><h3 class="card-title">ملصق الأصل</h3>${c.type_id?'<button type="button" class="btn btn-sm btn-dark ms-auto" id="lbl1"><i class="bi bi-printer me-1"></i>طباعة</button>':''}</div><div class="card-body d-flex align-items-center gap-3"><div id="qr1" style="width:120px;height:120px"></div><div><div class="small text-muted">رقم الملصق</div><div class="fs-4 fw-bold font-monospace">${esc(assetLabel(c)||'—')}</div></div></div></div>
    <div class="card mt-3"><div class="card-header"><h3 class="card-title">خريطة موقع الأصل</h3></div><div class="card-body p-2">${hasLL?'<div id="location-map"></div>':'<p class="text-muted text-center py-4">لا توجد بيانات موقع.</p>'}</div></div></div></div>
   <div class="card"><div class="card-header"><h3 class="card-title">تفاصيل الأصل</h3>${(()=>{const ty=get('types',c.type_id);return ty&&ty.code?`<div class="small mt-1">${esc(typeLevels(ty))} · <span class="font-monospace" dir="ltr">${esc(ty.code)}</span> · ${ty.critical?'<span class="badge text-bg-danger">حرج</span>':'<span class="badge text-bg-light border">غير حرج</span>'}</div>`:''})()}</div><div class="card-body table-responsive p-0"><table class="table table-striped"><thead><tr>${['المستوى الأول','وصف الأصل','الكمية','السعر','الشركة المصنعة','الماركة','الموديل','السعة','الرقم التسلسلي','رقم ASAD','الحالة الفنية','الإرسال','تاريخ الإرسال'].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
@@ -1409,7 +1432,7 @@ function readOfflineDb(){return new Promise((res,rej)=>{const r=indexedDB.open('
     const get=(st,k)=>new Promise(ok=>{const q=db.transaction(st).objectStore(st).get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null)});
     const data={};for(const t of ['schools','employees','categories','types','conditions','rooms','collections','log'])data[t]=await get('kv',t)||[];
     if(!data.collections.length){db.close();return res(null)}
-    const photos={};for(const c of data.collections)for(const k of [c.school_image,c.asset_image]){if(k&&!photos[k]){const b=await get('photos',k);if(b)photos[k]=await blobToData(b)}}
+    const photos={};for(const c of data.collections)for(const k of photoKeys(c)){if(k&&!photos[k]){const b=await get('photos',k);if(b)photos[k]=await blobToData(b)}}
     db.close();res({app:'novaro',v:1,kind:'full',data,photos})}})}
 </script>
 <script id="nv-admin-users">
@@ -1786,13 +1809,13 @@ async function buildFullXlsx(list,title,progress){await Promise.all([needExcelJS
   ws.columns.forEach((col,i)=>{col.width=H[i]==='Label Number'?16:Math.min(34,Math.max(12,String(H[i]).length+4))});ws.autoFilter={from:'A1',to:{row:1,column:H.length}};
   /* sheet 2: photo + QR + asset number */
   const wp=wb.addWorksheet('صور الأصول',{views:[{rightToLeft:true,state:'frozen',ySplit:1}]});
-  wp.columns=[{header:'رقم الأصل',width:18},{header:'صورة الأصل',width:26},{header:'رمز QR',width:18},{header:'وصف الأصل',width:30},{header:'كود الأصل',width:16},{header:'المدرسة',width:30},{header:'الموقع',width:28}];
+  wp.columns=[{header:'رقم الأصل',width:18},{header:'صورة الأصل',width:26},{header:'لوحة البيانات',width:26},{header:'رمز QR',width:18},{header:'وصف الأصل',width:30},{header:'كود الأصل',width:16},{header:'المدرسة',width:30},{header:'الموقع',width:28}];
   wp.getRow(1).eachCell(c=>Object.assign(c,hd));wp.getRow(1).height=26;
   let i=0;for(const c of list){i++;if(progress)progress(i,list.length);const ty=get('types',c.type_id)||{},s=get('schools',c.school_id)||{},rm=get('rooms',c.room_name_id)||{};
-    const row=wp.addRow([assetLabel(c),'','',ty.ar||'',ty.code||'',s.name||'',[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')]);row.height=96;
+    const row=wp.addRow([assetLabel(c),'','','',ty.ar||'',ty.code||'',s.name||'',[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')]);row.height=96;
     row.eachCell(x=>{x.alignment={vertical:'middle',horizontal:'center',wrapText:true}});row.getCell(1).font={bold:true,size:12};
-    const ph=await photoThumb(c.asset_image);if(ph){const id=wb.addImage({base64:ph.b64,extension:'jpeg'});const k=Math.min(170/ph.w,120/ph.h);wp.addImage(id,{tl:{col:1.05,row:row.number-1+.05},ext:{width:Math.round(ph.w*k),height:Math.round(ph.h*k)},editAs:'oneCell'})}else row.getCell(2).value='لا توجد صورة';
-    if(c.no){const q=wb.addImage({base64:qrPng(qrText(c)),extension:'png'});wp.addImage(q,{tl:{col:2.1,row:row.number-1+.08},ext:{width:112,height:112},editAs:'oneCell'})}}
+    for(const [k,col] of [['asset_image',1],['asset_image2',2]]){const ph=await photoThumb(c[k]);if(ph){const id=wb.addImage({base64:ph.b64,extension:'jpeg'});const z=Math.min(170/ph.w,120/ph.h);wp.addImage(id,{tl:{col:col+.05,row:row.number-1+.05},ext:{width:Math.round(ph.w*z),height:Math.round(ph.h*z)},editAs:'oneCell'})}else row.getCell(col+1).value='لا توجد صورة'}
+    if(c.no){const q=wb.addImage({base64:qrPng(qrText(c)),extension:'png'});wp.addImage(q,{tl:{col:3.1,row:row.number-1+.08},ext:{width:112,height:112},editAs:'oneCell'})}}
   const buf=await wb.xlsx.writeBuffer();return new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
 async function exportFull(list,name){const sub=list.filter(c=>c.type_id);if(!sub.length)return alert('لا توجد أصول للتصدير.');
   if(sub.length>800&&!confirm(`سيُجهَّز ملف فيه ${sub.length} أصل بالصور — قد يستغرق عدة دقائق ويكون حجمه كبيراً. متابعة؟`))return;

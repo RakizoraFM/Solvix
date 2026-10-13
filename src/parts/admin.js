@@ -134,7 +134,7 @@ function bindBulk(){const all=$('#select-all'),bar=$('#bulk-actions-bar');const 
   if(all)all.onchange=()=>{$$('.row-checkbox').forEach(c=>c.checked=all.checked);upd()};$$('.row-checkbox').forEach(c=>c.onchange=upd);$('#desel').onclick=()=>{$$('.row-checkbox').forEach(c=>c.checked=false);if(all)all.checked=false;bar.classList.add('d-none')};
   return ()=>$$('.row-checkbox:checked').map(c=>c.value)}
 function hideModal(){const m=$('#reassignModal');if(m&&window.bootstrap)bootstrap.Modal.getOrCreateInstance(m).hide();$$('.modal-backdrop').forEach(b=>b.remove());document.body.classList.remove('modal-open');document.body.style.removeProperty('overflow');document.body.style.removeProperty('padding-right')}
-async function removeCollections(list){const set=new Set(list);S.collections=S.collections.filter(c=>!set.has(c));for(const c of list){await deletePhoto(c.asset_image);await deletePhoto(c.school_image)}save('collections')}
+async function removeCollections(list){const set=new Set(list);S.collections=S.collections.filter(c=>!set.has(c));for(const c of list)for(const k of photoKeys(c))await deletePhoto(k);save('collections')}
 function vCollections(){
   const p=qp();const filtered=collectionFilter(S.collections,p);const m=new Map();
   for(const c of filtered){const k=c.employee_id+'_'+c.school_id;let g=m.get(k);if(!g){g={k,emp:c.employee_id,school:c.school_id,count:0,last:null};m.set(k,g)}if(c.submitted_at){g.count+=num(c.quantity);if(!g.last||c.submitted_at>g.last)g.last=c.submitted_at}}
@@ -222,7 +222,7 @@ function vCollectionShow(id){
    ${row('خط العرض',esc(c.lat??'--'))}${row('خط الطول',esc(c.lng??'--'))}${row('ملاحظات',esc(c.notes||'--'))}
    ${row('الحالة',c.submitted_at?`<span class="badge text-bg-success">مُرسل</span><small class="text-muted ms-2">${fmtYmd(c.submitted_at)}</small>`:'<span class="badge text-bg-warning">معلّق</span>')}${row('تاريخ الإنشاء',fmtYmd(c.created_at))}</table></div></div></div>
   <div class="col-md-6"><div class="card"><div class="card-header"><h3 class="card-title">صورة المدرسة</h3></div><div class="card-body text-center">${c.school_image?`<img data-photo="${esc(c.school_image)}" alt="صورة المدرسة" class="img-fluid rounded shadow-sm cursor-pointer" style="max-height: 300px; cursor: zoom-in;">`:'<p class="text-muted">لا توجد صورة.</p>'}</div></div>
-   <div class="card mt-3"><div class="card-header"><h3 class="card-title">صورة الأصل</h3></div><div class="card-body text-center">${c.asset_image?`<img data-photo="${esc(c.asset_image)}" alt="صورة الأصل" class="img-fluid rounded shadow-sm cursor-pointer" style="max-height: 300px; cursor: zoom-in;">`:'<p class="text-muted">لا توجد صورة للأصل.</p>'}</div></div>
+   <div class="card mt-3"><div class="card-header"><h3 class="card-title">صور الأصل من موقعه</h3></div><div class="card-body"><div class="row g-2 text-center">${[['asset_image','الأصل كاملاً في مكانه'],['asset_image2','لوحة البيانات / الرقم التسلسلي']].map(([k,l])=>`<div class="col-6"><div class="small fw-bold text-muted mb-1">${l}</div>${c[k]?`<img data-photo="${esc(c[k])}" alt="${l}" class="img-fluid rounded shadow-sm" style="max-height:260px;cursor:zoom-in">`:'<div class="border rounded py-5 small text-muted">لا توجد صورة</div>'}</div>`).join('')}</div></div></div>
    <div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center"><h3 class="card-title">ملصق الأصل</h3>${c.type_id?'<button type="button" class="btn btn-sm btn-dark ms-auto" id="lbl1"><i class="bi bi-printer me-1"></i>طباعة</button>':''}</div><div class="card-body d-flex align-items-center gap-3"><div id="qr1" style="width:120px;height:120px"></div><div><div class="small text-muted">رقم الملصق</div><div class="fs-4 fw-bold font-monospace">${esc(assetLabel(c)||'—')}</div></div></div></div>
    <div class="card mt-3"><div class="card-header"><h3 class="card-title">خريطة موقع الأصل</h3></div><div class="card-body p-2">${hasLL?'<div id="location-map"></div>':'<p class="text-muted text-center py-4">لا توجد بيانات موقع.</p>'}</div></div></div></div>
   <div class="card"><div class="card-header"><h3 class="card-title">تفاصيل الأصل</h3>${(()=>{const ty=get('types',c.type_id);return ty&&ty.code?`<div class="small mt-1">${esc(typeLevels(ty))} · <span class="font-monospace" dir="ltr">${esc(ty.code)}</span> · ${ty.critical?'<span class="badge text-bg-danger">حرج</span>':'<span class="badge text-bg-light border">غير حرج</span>'}</div>`:''})()}</div><div class="card-body table-responsive p-0"><table class="table table-striped"><thead><tr>${['المستوى الأول','وصف الأصل','الكمية','السعر','الشركة المصنعة','الماركة','الموديل','السعة','الرقم التسلسلي','رقم ASAD','الحالة الفنية','الإرسال','تاريخ الإرسال'].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
@@ -434,7 +434,7 @@ function readOfflineDb(){return new Promise((res,rej)=>{const r=indexedDB.open('
     const get=(st,k)=>new Promise(ok=>{const q=db.transaction(st).objectStore(st).get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null)});
     const data={};for(const t of ['schools','employees','categories','types','conditions','rooms','collections','log'])data[t]=await get('kv',t)||[];
     if(!data.collections.length){db.close();return res(null)}
-    const photos={};for(const c of data.collections)for(const k of [c.school_image,c.asset_image]){if(k&&!photos[k]){const b=await get('photos',k);if(b)photos[k]=await blobToData(b)}}
+    const photos={};for(const c of data.collections)for(const k of photoKeys(c)){if(k&&!photos[k]){const b=await get('photos',k);if(b)photos[k]=await blobToData(b)}}
     db.close();res({app:'novaro',v:1,kind:'full',data,photos})}})}
 </script>
 <script id="nv-admin-users">
@@ -811,13 +811,13 @@ async function buildFullXlsx(list,title,progress){await Promise.all([needExcelJS
   ws.columns.forEach((col,i)=>{col.width=H[i]==='Label Number'?16:Math.min(34,Math.max(12,String(H[i]).length+4))});ws.autoFilter={from:'A1',to:{row:1,column:H.length}};
   /* sheet 2: photo + QR + asset number */
   const wp=wb.addWorksheet('صور الأصول',{views:[{rightToLeft:true,state:'frozen',ySplit:1}]});
-  wp.columns=[{header:'رقم الأصل',width:18},{header:'صورة الأصل',width:26},{header:'رمز QR',width:18},{header:'وصف الأصل',width:30},{header:'كود الأصل',width:16},{header:'المدرسة',width:30},{header:'الموقع',width:28}];
+  wp.columns=[{header:'رقم الأصل',width:18},{header:'صورة الأصل',width:26},{header:'لوحة البيانات',width:26},{header:'رمز QR',width:18},{header:'وصف الأصل',width:30},{header:'كود الأصل',width:16},{header:'المدرسة',width:30},{header:'الموقع',width:28}];
   wp.getRow(1).eachCell(c=>Object.assign(c,hd));wp.getRow(1).height=26;
   let i=0;for(const c of list){i++;if(progress)progress(i,list.length);const ty=get('types',c.type_id)||{},s=get('schools',c.school_id)||{},rm=get('rooms',c.room_name_id)||{};
-    const row=wp.addRow([assetLabel(c),'','',ty.ar||'',ty.code||'',s.name||'',[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')]);row.height=96;
+    const row=wp.addRow([assetLabel(c),'','','',ty.ar||'',ty.code||'',s.name||'',[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')]);row.height=96;
     row.eachCell(x=>{x.alignment={vertical:'middle',horizontal:'center',wrapText:true}});row.getCell(1).font={bold:true,size:12};
-    const ph=await photoThumb(c.asset_image);if(ph){const id=wb.addImage({base64:ph.b64,extension:'jpeg'});const k=Math.min(170/ph.w,120/ph.h);wp.addImage(id,{tl:{col:1.05,row:row.number-1+.05},ext:{width:Math.round(ph.w*k),height:Math.round(ph.h*k)},editAs:'oneCell'})}else row.getCell(2).value='لا توجد صورة';
-    if(c.no){const q=wb.addImage({base64:qrPng(qrText(c)),extension:'png'});wp.addImage(q,{tl:{col:2.1,row:row.number-1+.08},ext:{width:112,height:112},editAs:'oneCell'})}}
+    for(const [k,col] of [['asset_image',1],['asset_image2',2]]){const ph=await photoThumb(c[k]);if(ph){const id=wb.addImage({base64:ph.b64,extension:'jpeg'});const z=Math.min(170/ph.w,120/ph.h);wp.addImage(id,{tl:{col:col+.05,row:row.number-1+.05},ext:{width:Math.round(ph.w*z),height:Math.round(ph.h*z)},editAs:'oneCell'})}else row.getCell(col+1).value='لا توجد صورة'}
+    if(c.no){const q=wb.addImage({base64:qrPng(qrText(c)),extension:'png'});wp.addImage(q,{tl:{col:3.1,row:row.number-1+.08},ext:{width:112,height:112},editAs:'oneCell'})}}
   const buf=await wb.xlsx.writeBuffer();return new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
 async function exportFull(list,name){const sub=list.filter(c=>c.type_id);if(!sub.length)return alert('لا توجد أصول للتصدير.');
   if(sub.length>800&&!confirm(`سيُجهَّز ملف فيه ${sub.length} أصل بالصور — قد يستغرق عدة دقائق ويكون حجمه كبيراً. متابعة؟`))return;
