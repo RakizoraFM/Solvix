@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV20">
+<meta name="fm-version" content="NV21">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -220,7 +220,7 @@ body.sx-body{margin:0;background:#f4f7fb}
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV20',date:'2026-10-13'};
+const NV={version:'NV21',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -1299,16 +1299,25 @@ function vSettings(){if(!canUsers())return go('#admin/asset-types');
    <div class="col-12 col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="lbl_one" ${labelSize().one?'checked':''}><label class="form-check-label" for="lbl_one">ملصق واحد في كل صفحة (طابعة ملصقات)</label></div></div></div>
   <div class="row g-2 mt-1"><div class="col-12 col-md-6"><label class="form-label small" for="lbl_logo">شعار الملصق (يظهر بجانب رمز QR)</label><input type="file" id="lbl_logo" class="form-control form-control-sm" accept="image/png,image/jpeg,image/svg+xml,image/webp"><button type="button" class="btn btn-link btn-sm px-0 text-danger" id="lbl_nologo" ${labelSize().logo?'':'hidden'}>إزالة الشعار</button></div>
    <div class="col-6 col-md-3"><label class="form-label small" for="lbl_ar">النص العربي أسفل الملصق</label><input id="lbl_ar" class="form-control form-control-sm" maxlength="60" value="${esc(labelSize().ar)}"></div><div class="col-6 col-md-3"><label class="form-label small" for="lbl_en">النص الإنجليزي</label><input id="lbl_en" class="form-control form-control-sm" maxlength="60" dir="ltr" value="${esc(labelSize().en)}"></div></div>
+  <div class="mt-3"><div class="d-flex flex-wrap align-items-center gap-2 mb-1"><b class="small">البيانات التي تظهر عند مسح رمز QR</b><button type="button" class="btn btn-xs btn-outline-secondary" data-qrset="all">الكل</button><button type="button" class="btn btn-xs btn-outline-secondary" data-qrset="basic">الأساسية فقط</button><button type="button" class="btn btn-xs btn-outline-secondary" data-qrset="loc">الموقع فقط</button></div>
+   <div class="row g-1">${QR_FIELDS.map(f=>`<div class="col-6 col-md-4 col-lg-3"><label class="form-check small mb-0"><input class="form-check-input" type="checkbox" data-qrf="${f[0]}" ${(labelSize().qr||QR_FIELDS.map(x=>x[0])).includes(f[0])?'checked':''}> ${f[1]}${f[2]==='loc'?' <span class="badge text-bg-light border">موقع</span>':''}</label></div>`).join('')}</div>
+   <div id="qr_meter" class="alert py-2 px-3 mt-2 mb-0 small"></div></div>
   <style id="lbl_css"></style><div class="mt-3"><span class="small text-muted d-block mb-1">معاينة بالمقاس الحقيقي (أصل تجريبي):</span><div id="lbl_prev" style="display:inline-block;border:1px dashed #94a3b8;border-radius:2mm"></div></div>
   </div><div class="card-footer"><button type="submit" class="btn btn-primary">حفظ</button></div></form></div></div></div>`);
-  let lblLogo=labelSize().logo;const Zf=()=>({w:+$('#lbl_w').value||6.3,h:+$('#lbl_h').value||3.6,one:$('#lbl_one').checked,logo:lblLogo,ar:$('#lbl_ar').value,en:$('#lbl_en').value});
+  let lblLogo=labelSize().logo;const qrKeys=()=>$$('[data-qrf]').filter(x=>x.checked).map(x=>x.dataset.qrf);const Zf=()=>({w:+$('#lbl_w').value||6.3,h:+$('#lbl_h').value||3.6,one:$('#lbl_one').checked,logo:lblLogo,ar:$('#lbl_ar').value,en:$('#lbl_en').value,qr:qrKeys()});
   const sample=S.collections.find(c=>c.no&&c.type_id)||{no:84,school_id:(S.schools[0]||{}).id,floor:'الأرضي',room_name_id:(S.rooms[0]||{}).id,room_number:'3',type_id:(S.types.find(t=>t.code)||S.types[0]||{}).id,category_id:(S.types.find(t=>t.code)||S.types[0]||{}).cat,quantity:1};
-  const pv=()=>{const Z=Zf();$('#lbl_css').textContent=labelCSS(Z);needQR().then(()=>{$('#lbl_prev').innerHTML=labelHTML(sample,Z)}).catch(()=>{})};['lbl_w','lbl_h','lbl_ar','lbl_en'].forEach(id=>$('#'+id).oninput=pv);pv();
+  /* the density check uses a FULL record (every field filled), so the warning covers the longest label */
+  const full=Object.assign({},sample,{no:sample.no||94,floor:sample.floor||'الأول',room_number:sample.room_number||'12',quantity:2,price:4500,manufacturer:'Carrier',brand:'Carrier',model:'53KHCT-24',capacity:'24000 BTU',serial:'SN8812AX19',tag:'ASAD-77812',asad_country:'السعودية',agency:'الوكيل المعتمد',warranty:'سنتان',install_date:'2024-05-01',parent_child:'Parent',notes:'',submitted_at:now(),condition_id:(S.conditions[0]||{}).id});
+  const meter=Z=>{const d=qrDensity(qrText(full,Z.qr),Z),m=$('#qr_meter');m.className='alert py-2 px-3 mt-2 mb-0 small alert-'+(d.lvl==='ok'?'success':d.lvl==='warn'?'warning':'danger');
+    m.innerHTML=`${d.lvl==='ok'?'✅ الرمز واضح وسهل المسح.':d.lvl==='warn'?'⚠️ بيانات كثيرة: الرمز كثيف — جرّب مسح ملصق مطبوع قبل الطباعة الكاملة، أو قلّل البيانات، أو كبّر الملصق.':'⛔ بيانات كثيرة جداً لهذا المقاس: غالباً لن يُقرأ الرمز بالجوال. قلّل البيانات أو كبّر الملصق.'}<br><span class="text-muted">حتى ${d.chars} حرفاً · ${d.mods}×${d.mods} مربعاً · عرض المربع عند الطباعة ≈ ${d.mm.toFixed(2)} مم (المريح ≥ 0.30 مم) · رمز QR ≈ ${labelDims(Z).qr.toFixed(0)} مم</span>`;return d};
+  const pv=()=>{const Z=Zf();$('#lbl_css').textContent=labelCSS(Z);needQR().then(()=>{$('#lbl_prev').innerHTML=labelHTML(sample,Z);meter(Z)}).catch(()=>{})};['lbl_w','lbl_h','lbl_ar','lbl_en'].forEach(id=>$('#'+id).oninput=pv);$$('[data-qrf]').forEach(x=>x.onchange=pv);
+  $$('[data-qrset]').forEach(b=>b.onclick=()=>{const v=b.dataset.qrset;$$('[data-qrf]').forEach(x=>{x.checked=v==='all'||(v==='basic'?QR_BASIC.includes(x.dataset.qrf):QR_FIELDS.find(f=>f[0]===x.dataset.qrf)[2]==='loc')});pv()});pv();
   $('#lbl_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{lblLogo=await logoPng(f,420);$('#lbl_nologo').hidden=false;pv()}catch(er){alert(er.message)}};
   $('#lbl_nologo').onclick=()=>{lblLogo='';$('#lbl_logo').value='';$('#lbl_nologo').hidden=true;pv()};
   let logo=null;$('#application_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{logo=await blobToData(await resizeImage(f,600,.9));$('#logo-preview').src=logo}catch(er){alert(er.message)}};
   $('#f').onsubmit=async e=>{e.preventDefault();const n=$('#application_name').value.trim();if(!n)return;S.settings.app_name=n;S.settings.admin_email=$('#admin_email').value.trim();if(logo)S.settings.logo=logo;
-    const lw=+$('#lbl_w').value,lh=+$('#lbl_h').value;if(!(lw>=3&&lw<=20&&lh>=2&&lh<=20)){alert('مقاس الملصق: العرض من 3 إلى 20 سم، والارتفاع من 2 إلى 20 سم.');return}S.settings.label={w:Math.round(lw*10)/10,h:Math.round(lh*10)/10,one:$('#lbl_one').checked,logo:lblLogo||'',ar:$('#lbl_ar').value.trim(),en:$('#lbl_en').value.trim()};await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
+    const lw=+$('#lbl_w').value,lh=+$('#lbl_h').value;if(!(lw>=3&&lw<=20&&lh>=2&&lh<=20)){alert('مقاس الملصق: العرض من 3 إلى 20 سم، والارتفاع من 2 إلى 20 سم.');return}const qk=qrKeys();if(!qk.length){alert('اختر بياناً واحداً على الأقل لرمز QR.');return}if(window.qrcode){const d=qrDensity(qrText(full,qk),{w:lw,h:lh});if(d.lvl==='bad'&&!confirm(`تنبيه: البيانات المختارة كثيرة جداً لملصق ${lw} × ${lh} سم (عرض المربع ≈ ${d.mm.toFixed(2)} مم)، وقد لا يُقرأ الرمز بالجوال.\nهل تريد الحفظ رغم ذلك؟`))return}
+    S.settings.label={w:Math.round(lw*10)/10,h:Math.round(lh*10)/10,one:$('#lbl_one').checked,logo:lblLogo||'',ar:$('#lbl_ar').value.trim(),en:$('#lbl_en').value.trim(),qr:qk};await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
 }
 
 /* ---------- extra: data & backup, admin account (replaces the server and the database) ---------- */
@@ -1427,15 +1436,16 @@ async function loadStaff(){const box=$('#staffBox');if(!box)return;let list=[],e
 let qrP=null;
 /* NV20 — label design from «الإعدادات»: size (cm), logo, the two «do not remove» texts */
 const LBL_AR='يرجى عدم إزالة الملصق',LBL_EN='Please do not remove';
-const labelSize=()=>{const l=S.settings.label||{};return {w:Number(l.w)||6.3,h:Number(l.h)||3.6,one:!!l.one,logo:l.logo||'',ar:l.ar!=null?l.ar:LBL_AR,en:l.en!=null?l.en:LBL_EN}};
-function labelCSS(Z){const W=Z.w*10,H=Z.h*10,pad=Math.max(1.2,H*.05),fh=Math.max(3.2,H*.16),ta=H-2*pad-fh,fn=Math.max(5,Math.min(9,H*.2)),qr=Math.max(8,Math.min(ta-fn*.5,W*.44)),ff=Math.max(4.5,Math.min(8,H*.16));
+const labelSize=()=>{const l=S.settings.label||{};return {w:Number(l.w)||6.3,h:Number(l.h)||3.6,one:!!l.one,logo:l.logo||'',ar:l.ar!=null?l.ar:LBL_AR,en:l.en!=null?l.en:LBL_EN,qr:Array.isArray(l.qr)?l.qr:null}};
+function labelDims(Z){const W=Z.w*10,H=Z.h*10,pad=Math.max(1.2,H*.05),fh=Math.max(3.2,H*.16),ta=H-2*pad-fh,fn=Math.max(5,Math.min(9,H*.2));return {W,H,pad,fh,ta,fn,qr:Math.max(8,Math.min(ta-fn*.5,W*.44)),ff:Math.max(4.5,Math.min(8,H*.16))}}
+function labelCSS(Z){const {W,H,pad,fh,ta,fn,qr,ff}=labelDims(Z);
   return `.lb{box-sizing:border-box;width:${W}mm;height:${H}mm;padding:${pad}mm ${pad*1.3}mm;display:flex;flex-direction:column;background:#fff;color:#111;border-radius:2mm;overflow:hidden;font-family:Tahoma,Arial,sans-serif;break-inside:avoid}
   .lb .tp{flex:1;display:flex;align-items:center;gap:${pad}mm;min-height:0}.lb .lg{flex:1;display:flex;align-items:center;justify-content:center;height:100%;min-width:0}.lb .lg img{max-width:100%;max-height:${ta*.85}mm;object-fit:contain}
   .lb .lg .nm{font-weight:700;font-size:${ff*1.1}pt;text-align:center;line-height:1.3}.lb .qc{flex:none;display:flex;flex-direction:column;align-items:center;gap:.3mm}.lb .qr{width:${qr}mm;height:${qr}mm}.lb .qr svg{width:100%;height:100%;display:block}
   .lb .no{font:700 ${fn}pt/1.1 Arial,monospace;direction:ltr;letter-spacing:.2px}.lb .ft{height:${fh}mm;flex:none;border-top:.35mm solid #111;display:flex;align-items:center;justify-content:space-between;gap:2mm;font-size:${ff}pt;font-weight:700;white-space:nowrap;overflow:hidden}
   .lb .ft .en{direction:ltr}`}
 function labelHTML(c,Z){const s=get('schools',c.school_id)||{};
-  return `<div class="lb"><div class="tp"><div class="lg">${Z.logo?`<img src="${Z.logo}" alt="">`:`<div class="nm">${esc(s.name||appName())}</div>`}</div><div class="qc"><div class="qr">${qrSvg(qrText(c))}</div><div class="no">${esc(assetLabel(c))}</div></div></div>${Z.ar||Z.en?`<div class="ft"><span class="ar">${esc(Z.ar)}</span><span class="en">${esc(Z.en)}</span></div>`:''}</div>`}
+  return `<div class="lb"><div class="tp"><div class="lg">${Z.logo?`<img src="${Z.logo}" alt="">`:`<div class="nm">${esc(s.name||appName())}</div>`}</div><div class="qc"><div class="qr">${qrSvg(qrText(c,Z.qr))}</div><div class="no">${esc(assetLabel(c))}</div></div></div>${Z.ar||Z.en?`<div class="ft"><span class="ar">${esc(Z.ar)}</span><span class="en">${esc(Z.en)}</span></div>`:''}</div>`}
 /* a logo keeps its transparency: PNG, at most `max` px */
 function logoPng(file,max){return new Promise((res,rej)=>{if(file.size>4*1048576)return rej(new Error('حجم الشعار أكبر من 4 م.ب'));const u=URL.createObjectURL(file),img=new Image();
   img.onload=()=>{const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const cv=document.createElement('canvas');cv.width=Math.round(img.naturalWidth*k)||max;cv.height=Math.round(img.naturalHeight*k)||max;cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);URL.revokeObjectURL(u);res(cv.toDataURL('image/png'))};
@@ -1443,11 +1453,20 @@ function logoPng(file,max){return new Promise((res,rej)=>{if(file.size>4*1048576
 const needQR=()=>qrP||(qrP=window.qrcode?Promise.resolve():loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js').catch(e=>{qrP=null;throw e}));
 function qrSvg(text){qrcode.stringToBytes=qrcode.stringToBytesFuncs['UTF-8'];const q=qrcode(0,text.length>220?'L':'M');q.addData(text,'Byte');q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})}
 /* NV20 — scanning a label shows WHERE the asset is first (building, floor, room), then the full asset data */
-function qrText(c){const s=get('schools',c.school_id)||{},r=get('rooms',c.room_name_id)||{},t=get('types',c.type_id)||{},k=get('categories',c.category_id)||{},v=(l,x)=>x!=null&&x!==''?`${l}: ${x}`:'';
-  return ['📍 موقع الأصل',v('المبنى',s.name?`${s.name}${s.moe?' ('+s.moe+')':''}`:''),v('الطابق',c.floor),v('الغرفة',r.ar?`${r.ar}${c.room_number?' (رقم '+c.room_number+')':''}`:c.room_number),
-    '— بيانات الأصل —',v('رقم الأصل',assetLabel(c)),v('الوصف',t.ar),v('الكود',t.code?t.code+(t.critical?' (حرج)':' (غير حرج)'):''),v('التصنيف',[k.ar,t.l2,t.l3].filter(Boolean).join(' › ')),
-    v('الحالة الفنية',(get('conditions',c.condition_id)||{}).ar),v('الكمية',c.type_id?num(c.quantity):''),v('السعر',c.price),v('الشركة المصنعة',c.manufacturer),v('الماركة',c.brand),v('الموديل',c.model),v('السعة',c.capacity),
-    v('الرقم التسلسلي',c.serial),v('رقم ASAD',c.tag),v('دولة الموقع',c.asad_country),v('الوكيل',c.agency),v('الضمان',c.warranty),v('تاريخ التركيب',c.install_date),v('رئيسي / فرعي',c.parent_child==='Parent'?'رئيسي':c.parent_child==='Child'?'فرعي':c.parent_child),v('ملاحظات',c.notes),v('تاريخ الجرد',c.submitted_at?fmtYmd(c.submitted_at):'')].filter(Boolean).join('\n')}
+/* NV21 — the QR fields are chosen in «الإعدادات» (S.settings.label.qr = keys, default all); location first, then the asset data */
+const QR_FIELDS=[['b','المبنى','loc',(c,x)=>x.s.name?`${x.s.name}${x.s.moe?' ('+x.s.moe+')':''}`:''],['f','الطابق','loc',c=>c.floor],['r','الغرفة','loc',(c,x)=>x.r.ar?`${x.r.ar}${c.room_number?' (رقم '+c.room_number+')':''}`:c.room_number],
+  ['no','رقم الأصل','a',c=>assetLabel(c)],['d','الوصف','a',(c,x)=>x.t.ar],['code','الكود والتصنيف','a',(c,x)=>x.t.code?x.t.code+(x.t.critical?' (حرج)':' (غير حرج)'):''],['lv','المستويات','a',(c,x)=>[x.k.ar,x.t.l2,x.t.l3].filter(Boolean).join(' › ')],
+  ['cond','الحالة الفنية','a',c=>(get('conditions',c.condition_id)||{}).ar],['q','الكمية','a',c=>c.type_id?num(c.quantity):''],['p','السعر','a',c=>c.price],['mf','الشركة المصنعة','a',c=>c.manufacturer],['br','الماركة','a',c=>c.brand],['md','الموديل','a',c=>c.model],
+  ['cap','السعة','a',c=>c.capacity],['sn','الرقم التسلسلي','a',c=>c.serial],['tag','رقم ASAD','a',c=>c.tag],['cty','دولة الموقع','a',c=>c.asad_country],['ag','الوكيل','a',c=>c.agency],['wr','الضمان','a',c=>c.warranty],['in','تاريخ التركيب','a',c=>c.install_date],
+  ['pc','رئيسي / فرعي','a',c=>c.parent_child==='Parent'?'رئيسي':c.parent_child==='Child'?'فرعي':c.parent_child],['nt','ملاحظات','a',c=>c.notes],['dt','تاريخ الجرد','a',c=>c.submitted_at?fmtYmd(c.submitted_at):'']];
+const QR_BASIC=['b','f','r','no','d','code'];
+function qrText(c,keys){keys=keys||labelSize().qr||QR_FIELDS.map(f=>f[0]);const x={s:get('schools',c.school_id)||{},r:get('rooms',c.room_name_id)||{},t:get('types',c.type_id)||{},k:get('categories',c.category_id)||{}};const on=new Set(keys);
+  const line=f=>{const v=f[3](c,x);return on.has(f[0])&&v!=null&&v!==''?`${f[1]==='الكود والتصنيف'?'الكود':f[1]}: ${v}`:''};
+  const loc=QR_FIELDS.filter(f=>f[2]==='loc').map(line).filter(Boolean),as=QR_FIELDS.filter(f=>f[2]==='a').map(line).filter(Boolean);
+  return [...(loc.length?['📍 موقع الأصل',...loc]:[]),...(as.length?[loc.length?'— بيانات الأصل —':'',...as]:[])].filter(Boolean).join('\n')||assetLabel(c)}
+/* density: modules of the QR and the printed size of one module on this label */
+function qrDensity(text,Z){qrcode.stringToBytes=qrcode.stringToBytesFuncs['UTF-8'];const q=qrcode(0,text.length>220?'L':'M');q.addData(text,'Byte');q.make();const n=q.getModuleCount()+4;const mm=labelDims(Z).qr/n;
+  return {chars:text.length,mods:q.getModuleCount(),mm,lvl:mm>=.30?'ok':mm>=.24?'warn':'bad'}}
 async function printLabels(list,title){list=list.filter(c=>c.no).sort((a,b)=>num(a.no)-num(b.no));if(!list.length)return alert('لا توجد أصول مُرسلة لطباعة ملصقاتها.');
   const w=window.open('','_blank');if(!w)return alert('اسمح للموقع بفتح النوافذ المنبثقة لطباعة الملصقات.');w.document.write('<p style="font-family:Tahoma;padding:20px">…</p>');
   try{await needQR()}catch(e){w.close();return alert(e.message)}

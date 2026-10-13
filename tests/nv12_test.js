@@ -32,7 +32,13 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.goto(U+'#admin/settings');await p.waitForSelector('#lbl_prev .lb .qr svg',{timeout:20000});await p.setInputFiles('#lbl_logo',B+'/a.png');await p.waitForSelector('#lbl_prev .lg img');
  ok((await p.textContent('#lbl_prev .ft')).includes('يرجى عدم إزالة الملصق')&&(await p.textContent('#lbl_prev .ft')).includes('Please do not remove'),'preview: logo + footer texts');
  await p.screenshot({path:B+'/shots/44-label-settings.png'});await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');ok(await p.evaluate(()=>S.settings.label.logo.startsWith('data:image/png')),'label logo saved (PNG)');
- const qt=await p.evaluate(c0=>qrText(S.collections.find(x=>x.id===c0)),ids.c0);ok(/^📍 موقع الأصل\nالمبنى: .+\nالطابق: .+\nالغرفة: .+\(رقم 3\)\n— بيانات الأصل —\nرقم الأصل: 101\d{8}/.test(qt),'QR text: location first, then the asset');
+ const qt=await p.evaluate(c0=>qrText(S.collections.find(x=>x.id===c0)),ids.c0);
+ // NV21: choose the QR fields; the density meter warns
+ await p.goto(U+'#admin/settings');await p.waitForSelector('#qr_meter.alert-success,#qr_meter.alert-warning,#qr_meter.alert-danger',{timeout:20000});await p.fill('#lbl_w','4');await p.fill('#lbl_h','2.5');await p.click('[data-qrset="all"]');
+ await p.waitForSelector('#qr_meter.alert-danger');ok(true,'all fields on 4 × 2.5 cm → red warning');
+ await p.click('[data-qrset="basic"]');await p.fill('#lbl_w','6.3');await p.fill('#lbl_h','3.6');await p.waitForSelector('#qr_meter.alert-success');ok(true,'basic fields on 6.3 × 3.6 cm → clear');
+ await p.screenshot({path:B+'/shots/45-qr-fields.png',fullPage:true});await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
+ const qb=await p.evaluate(c0=>qrText(S.collections.find(x=>x.id===c0)),ids.c0);ok(qb.includes('المبنى:')&&qb.includes('الكود:')&&!qb.includes('الكمية')&&!qb.includes('الحالة الفنية'),'saved: QR has only the chosen fields');ok(/^📍 موقع الأصل\nالمبنى: .+\nالطابق: .+\nالغرفة: .+\(رقم 3\)\n— بيانات الأصل —\nرقم الأصل: 101\d{8}/.test(qt),'QR text: location first, then the asset');
  await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#lbl');
  const [pop2]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop2.waitForSelector('.lb .qr svg',{timeout:20000});
  const box=await pop2.$eval('.lb',e=>{const r=e.getBoundingClientRect();return [Math.round(r.width/37.8*10)/10,Math.round(r.height/37.8*10)/10]});ok(box[0]===5&&box[1]===3,'label printed 5 × 3 cm ('+box+')');ok(!!(await pop2.$('.lb .lg img'))&&(await pop2.textContent('.lb .ft')).includes('Please do not remove'),'printed label: logo + footer');await pop2.screenshot({path:B+'/shots/43-labels-5x3.png'});await pop2.close();
