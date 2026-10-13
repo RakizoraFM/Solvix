@@ -71,7 +71,7 @@ function adminShell(active,title,content){
     ${navTree('bi-building','المدارس',A('schools')||A('schools.create')||A('schools.edit'),[navItem('#admin/schools','bi-list','كل المدارس',A('schools')),navItem('#admin/schools/create','bi-plus-circle','إضافة مدرسة',A('schools.create'))])}
     ${navItem('#admin/employees','bi-people','المستخدمون',active.startsWith('employees')||A('users'))}
     <li class="nav-header">النظام</li>
-    ${navItem(canUsers()?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||!!LK[active.split('.')[0]])}
+    ${navItem(canUsers()?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||A('label')||!!LK[active.split('.')[0]])}
     ${navItem('#admin/data','bi-database','البيانات والنسخ',A('data'))}
     ${navItem('#admin/log','bi-journal-text','سجل التعديلات',A('log'))}
     <li class="nav-item"><a href="javascript:void 0" class="nav-link" data-nv-logout><i class="nav-icon bi bi-box-arrow-right"></i><p>تسجيل الخروج</p></a></li>
@@ -94,8 +94,8 @@ document.addEventListener('click',e=>{
   const nl=e.target.closest('.app-sidebar a.nav-link[href^="#"]');if(nl&&window.innerWidth<992)document.body.classList.remove('sidebar-open');
 });
 /* NV10 — the reference lists live under «الإعدادات» as tabs */
-function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&!LK[k])return '';
-  const T=[...(canUsers()?[['settings','bi-sliders','الإعدادات العامة']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],['asset-conditions','bi-shield-check','حالات الأصول']];
+function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&!LK[k])return '';
+  const T=[...(canUsers()?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],['asset-conditions','bi-shield-check','حالات الأصول']];
   return `<ul class="nav nav-pills nv-set-tabs flex-nowrap overflow-auto gap-1 mb-3 pb-1">${T.map(([id,ic,l])=>`<li class="nav-item"><a class="nav-link text-nowrap ${k===id?'active':''}" href="#admin/${id}"><i class="bi ${ic} me-1"></i>${l}</a></li>`).join('')}</ul>`}
 const iconBtn=(href,icon,title)=>`<a href="${href}" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle"${title?` title="${title}"`:''}><i class="bi ${icon}"></i></a>`;
 
@@ -365,7 +365,15 @@ function vSettings(){if(!canUsers())return go('#admin/asset-types');
   <div class="mb-3"><label for="admin_email" class="form-label">بريد المستلمين ${Cloud.on?'<button type="button" class="btn btn-xs btn-outline-primary ms-2" onclick="testMail()"><i class="bi bi-envelope-check"></i> إرسال رسالة تجريبية</button>':''}</label><input type="text" id="admin_email" class="form-control" value="${esc(S.settings.admin_email||'')}" maxlength="500"><div class="form-text text-muted">عند إنهاء مشرف الميدان لمدرسة يُرسل ملف Excel الكامل (البيانات + صور الأصول و QR) إلى هذه العناوين وإلى بريد المشرف نفسه. افصل بين العناوين بفاصلة (مثال: admin@example.com, manager@example.com). يتطلب نشر دالة البريد solvix-mail في Supabase.</div></div>
   <div class="mb-3"><label for="application_logo" class="form-label">شعار التطبيق</label><input type="file" id="application_logo" class="form-control" accept="image/png,image/jpeg,image/jpg,image/gif,image/svg+xml,image/webp">
    <div class="mt-2"><p class="text-muted small mb-1">الشعار الحالي:</p><img src="${esc(logoURL())}" alt="شعار التطبيق" class="img-thumbnail" style="max-height: 80px; max-width: 200px;" id="logo-preview"></div></div>
-  <hr><h6 class="fw-bold mb-1"><i class="bi bi-qr-code me-1"></i>مقاس ملصق الأصل</h6><p class="form-text mt-0">بالسنتيمتر. تُرتَّب الملصقات على صفحة A4 بقدر ما تتسع، أو اختر «ملصق واحد في كل صفحة» لطابعة الملصقات.</p>
+  </div><div class="card-footer"><button type="submit" class="btn btn-primary">حفظ</button></div></form></div></div></div>`);
+  let logo=null;$('#application_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{logo=await blobToData(await resizeImage(f,600,.9));$('#logo-preview').src=logo}catch(er){alert(er.message)}};
+  $('#f').onsubmit=async e=>{e.preventDefault();const n=$('#application_name').value.trim();if(!n)return;S.settings.app_name=n;S.settings.admin_email=$('#admin_email').value.trim();if(logo)S.settings.logo=logo;
+    await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
+}
+/* NV22 — label settings in their own tab «إعدادات الملصق» (#admin/label) */
+function vLabelSettings(){if(!canUsers())return go('#admin/asset-types');
+  adminShell('label','إعدادات الملصق',`<div class="card shadow-sm border-0"><div class="card-header"><h3 class="card-title"><i class="bi bi-qr-code me-1"></i>إعدادات ملصق الأصل</h3></div><form id="f"><div class="card-body">
+  <h6 class="fw-bold mb-1"><i class="bi bi-rulers me-1"></i>مقاس الملصق</h6><p class="form-text mt-0">بالسنتيمتر. تُرتَّب الملصقات على صفحة A4 بقدر ما تتسع، أو اختر «ملصق واحد في كل صفحة» لطابعة الملصقات.</p>
   <div class="row g-2 align-items-end"><div class="col-6 col-md-3"><label class="form-label small" for="lbl_w">العرض (سم)</label><input type="number" id="lbl_w" class="form-control" min="3" max="20" step="0.1" value="${esc(labelSize().w)}"></div><div class="col-6 col-md-3"><label class="form-label small" for="lbl_h">الارتفاع (سم)</label><input type="number" id="lbl_h" class="form-control" min="2" max="20" step="0.1" value="${esc(labelSize().h)}"></div>
    <div class="col-12 col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="lbl_one" ${labelSize().one?'checked':''}><label class="form-check-label" for="lbl_one">ملصق واحد في كل صفحة (طابعة ملصقات)</label></div></div></div>
   <div class="row g-2 mt-1"><div class="col-12 col-md-6"><label class="form-label small" for="lbl_logo">شعار الملصق (يظهر بجانب رمز QR)</label><input type="file" id="lbl_logo" class="form-control form-control-sm" accept="image/png,image/jpeg,image/svg+xml,image/webp"><button type="button" class="btn btn-link btn-sm px-0 text-danger" id="lbl_nologo" ${labelSize().logo?'':'hidden'}>إزالة الشعار</button></div>
@@ -374,7 +382,7 @@ function vSettings(){if(!canUsers())return go('#admin/asset-types');
    <div class="row g-1">${QR_FIELDS.map(f=>`<div class="col-6 col-md-4 col-lg-3"><label class="form-check small mb-0"><input class="form-check-input" type="checkbox" data-qrf="${f[0]}" ${(labelSize().qr||QR_FIELDS.map(x=>x[0])).includes(f[0])?'checked':''}> ${f[1]}${f[2]==='loc'?' <span class="badge text-bg-light border">موقع</span>':''}</label></div>`).join('')}</div>
    <div id="qr_meter" class="alert py-2 px-3 mt-2 mb-0 small"></div></div>
   <style id="lbl_css"></style><div class="mt-3"><span class="small text-muted d-block mb-1">معاينة بالمقاس الحقيقي (أصل تجريبي):</span><div id="lbl_prev" style="display:inline-block;border:1px dashed #94a3b8;border-radius:2mm"></div></div>
-  </div><div class="card-footer"><button type="submit" class="btn btn-primary">حفظ</button></div></form></div></div></div>`);
+  </div><div class="card-footer"><button type="submit" class="btn btn-primary">حفظ</button></div></form></div>`);
   let lblLogo=labelSize().logo;const qrKeys=()=>$$('[data-qrf]').filter(x=>x.checked).map(x=>x.dataset.qrf);const Zf=()=>({w:+$('#lbl_w').value||6.3,h:+$('#lbl_h').value||3.6,one:$('#lbl_one').checked,logo:lblLogo,ar:$('#lbl_ar').value,en:$('#lbl_en').value,qr:qrKeys()});
   const sample=S.collections.find(c=>c.no&&c.type_id)||{no:84,school_id:(S.schools[0]||{}).id,floor:'الأرضي',room_name_id:(S.rooms[0]||{}).id,room_number:'3',type_id:(S.types.find(t=>t.code)||S.types[0]||{}).id,category_id:(S.types.find(t=>t.code)||S.types[0]||{}).cat,quantity:1};
   /* the density check uses a FULL record (every field filled), so the warning covers the longest label */
@@ -385,10 +393,9 @@ function vSettings(){if(!canUsers())return go('#admin/asset-types');
   $$('[data-qrset]').forEach(b=>b.onclick=()=>{const v=b.dataset.qrset;$$('[data-qrf]').forEach(x=>{x.checked=v==='all'||(v==='basic'?QR_BASIC.includes(x.dataset.qrf):QR_FIELDS.find(f=>f[0]===x.dataset.qrf)[2]==='loc')});pv()});pv();
   $('#lbl_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{lblLogo=await logoPng(f,420);$('#lbl_nologo').hidden=false;pv()}catch(er){alert(er.message)}};
   $('#lbl_nologo').onclick=()=>{lblLogo='';$('#lbl_logo').value='';$('#lbl_nologo').hidden=true;pv()};
-  let logo=null;$('#application_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{logo=await blobToData(await resizeImage(f,600,.9));$('#logo-preview').src=logo}catch(er){alert(er.message)}};
-  $('#f').onsubmit=async e=>{e.preventDefault();const n=$('#application_name').value.trim();if(!n)return;S.settings.app_name=n;S.settings.admin_email=$('#admin_email').value.trim();if(logo)S.settings.logo=logo;
+  $('#f').onsubmit=async e=>{e.preventDefault();
     const lw=+$('#lbl_w').value,lh=+$('#lbl_h').value;if(!(lw>=3&&lw<=20&&lh>=2&&lh<=20)){alert('مقاس الملصق: العرض من 3 إلى 20 سم، والارتفاع من 2 إلى 20 سم.');return}const qk=qrKeys();if(!qk.length){alert('اختر بياناً واحداً على الأقل لرمز QR.');return}if(window.qrcode){const d=qrDensity(qrText(full,qk),{w:lw,h:lh});if(d.lvl==='bad'&&!confirm(`تنبيه: البيانات المختارة كثيرة جداً لملصق ${lw} × ${lh} سم (عرض المربع ≈ ${d.mm.toFixed(2)} مم)، وقد لا يُقرأ الرمز بالجوال.\nهل تريد الحفظ رغم ذلك؟`))return}
-    S.settings.label={w:Math.round(lw*10)/10,h:Math.round(lh*10)/10,one:$('#lbl_one').checked,logo:lblLogo||'',ar:$('#lbl_ar').value.trim(),en:$('#lbl_en').value.trim(),qr:qk};await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
+    S.settings.label={w:Math.round(lw*10)/10,h:Math.round(lh*10)/10,one:$('#lbl_one').checked,logo:lblLogo||'',ar:$('#lbl_ar').value.trim(),en:$('#lbl_en').value.trim(),qr:qk};await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vLabelSettings()}}setAFlash('تم حفظ إعدادات الملصق.');vLabelSettings()};
 }
 
 /* ---------- extra: data & backup, admin account (replaces the server and the database) ---------- */

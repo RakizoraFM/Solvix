@@ -26,15 +26,17 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  const [pop]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop.waitForSelector('.lb .qr svg',{timeout:20000});
  ok((await pop.$$('.lb')).length===3,'3 labels with QR');await pop.screenshot({path:B+'/shots/41-labels.png'});await pop.close();
  // NV13: label size from the settings (cm)
- await p.goto(U+'#admin/settings');await p.waitForSelector('#lbl_w');await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.check('#lbl_one');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
+ // NV22: label settings have their own tab
+ await p.goto(U+'#admin/settings');await p.waitForSelector('#application_name');ok(!(await p.$('#lbl_w'))&&!!(await p.$('.nv-set-tabs a[href="#admin/label"]')),'label settings: own tab, not in general settings');
+ await p.goto(U+'#admin/label');await p.waitForSelector('#lbl_w');await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.check('#lbl_one');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
  ok(await p.evaluate(()=>{const l=S.settings.label;return l.w===5&&l.h===3&&l.one===true}),'label size saved');
  // NV20: label logo + «do not remove» texts + live preview; the QR starts with the location
- await p.goto(U+'#admin/settings');await p.waitForSelector('#lbl_prev .lb .qr svg',{timeout:20000});await p.setInputFiles('#lbl_logo',B+'/a.png');await p.waitForSelector('#lbl_prev .lg img');
+ await p.goto(U+'#admin/label');await p.waitForSelector('#lbl_prev .lb .qr svg',{timeout:20000});await p.setInputFiles('#lbl_logo',B+'/a.png');await p.waitForSelector('#lbl_prev .lg img');
  ok((await p.textContent('#lbl_prev .ft')).includes('يرجى عدم إزالة الملصق')&&(await p.textContent('#lbl_prev .ft')).includes('Please do not remove'),'preview: logo + footer texts');
  await p.screenshot({path:B+'/shots/44-label-settings.png'});await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');ok(await p.evaluate(()=>S.settings.label.logo.startsWith('data:image/png')),'label logo saved (PNG)');
  const qt=await p.evaluate(c0=>qrText(S.collections.find(x=>x.id===c0)),ids.c0);
  // NV21: choose the QR fields; the density meter warns
- await p.goto(U+'#admin/settings');await p.waitForSelector('#qr_meter.alert-success,#qr_meter.alert-warning,#qr_meter.alert-danger',{timeout:20000});await p.fill('#lbl_w','4');await p.fill('#lbl_h','2.5');await p.click('[data-qrset="all"]');
+ await p.goto(U+'#admin/label');await p.waitForSelector('#qr_meter.alert-success,#qr_meter.alert-warning,#qr_meter.alert-danger',{timeout:20000});await p.fill('#lbl_w','4');await p.fill('#lbl_h','2.5');await p.click('[data-qrset="all"]');
  await p.waitForSelector('#qr_meter.alert-danger');ok(true,'all fields on 4 × 2.5 cm → red warning');
  await p.click('[data-qrset="basic"]');await p.fill('#lbl_w','6.3');await p.fill('#lbl_h','3.6');await p.waitForSelector('#qr_meter.alert-success');ok(true,'basic fields on 6.3 × 3.6 cm → clear');
  await p.screenshot({path:B+'/shots/45-qr-fields.png',fullPage:true});await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');

@@ -10,7 +10,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  const st=await p.evaluate(()=>[S.categories.length,S.types.length,S.types.filter(t=>t.critical).length,S.types.every(t=>t.code&&t.l2&&t.l3)]);ok(st.join()==='13,279,99,true','seeded catalog 13 / 279 / 99 critical ('+st+')');
  // settings tabs: one «دليل الأصول»
  await p.goto(U+'#admin/asset-types');await p.waitForSelector('.nv-set-tabs');const tabs=await p.$$eval('.nv-set-tabs a',a=>a.map(x=>x.textContent.trim()).join('|'));
- ok(tabs.includes('دليل الأصول')&&!tabs.includes('فئات الأصول')&&!tabs.includes('أنواع الأصول'),'tabs: '+tabs);
+ ok(tabs.includes('إعدادات الملصق')&&tabs.includes('دليل الأصول')&&!tabs.includes('فئات الأصول')&&!tabs.includes('أنواع الأصول'),'tabs: '+tabs);
  await p.goto(U+'#admin/asset-categories');await p.waitForFunction(()=>location.hash==='#admin/asset-types');ok(true,'old categories page opens the catalog');
  // NV15: the catalog table — filters per column, sort, selection, export
  await p.goto(U+'#admin/asset-types');await p.waitForSelector('#nvcBody tr');ok((await p.textContent('#nvcCount')).startsWith('279 من 279'),'catalog table: '+(await p.textContent('#nvcCount')));
