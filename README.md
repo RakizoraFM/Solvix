@@ -32,3 +32,11 @@ Solvix (نوفارو سابقاً) تطبيق لجرد أصول المدارس �
 
 ## استعادة كلمة المرور (NV17)
 في Supabase ← Authentication ← **URL Configuration**: اجعل Site URL = `https://rakizorafm.github.io/Solvix/` وأضفه في Redirect URLs.
+
+## بيانات تجريبية لتجربة المنصة
+1. بعد تشغيل `solvix_setup.sql` و«تحميل القوائم الجاهزة»، شغّل `solvix_demo.sql` في SQL Editor.
+2. الحسابات (كلمة المرور لكلها `Solvix@2026`):
+   - `owner@solvix-demo.test` مالك المشروع · `manager@solvix-demo.test` مدير المشروع · `coordinator@solvix-demo.test` منسق المشروع
+   - `field1@solvix-demo.test` · `field2@solvix-demo.test` · `field3@solvix-demo.test` مشرفو ميدان
+3. 6 مدارس «DEMO-SCH-01…06» (3 مكتملة، 1 قيد الجرد، 1 لم تبدأ، 1 غير نشطة) و39 سجل جرد من دليل الأصول.
+4. للحذف بعد التجربة: `solvix_demo_reset.sql` (لا يمس البيانات الحقيقية).
