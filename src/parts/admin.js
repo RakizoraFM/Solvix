@@ -63,20 +63,15 @@ function adminShell(active,title,content){
     ${navItem('#admin/collections','bi-collection','أعمال الجرد',A('collections'))}
     ${navTree('bi-building','المدارس',A('schools')||A('schools.create')||A('schools.edit'),[navItem('#admin/schools','bi-list','كل المدارس',A('schools')),navItem('#admin/schools/create','bi-plus-circle','إضافة مدرسة',A('schools.create'))])}
     ${navTree('bi-people','الموظفون',A('employees')||A('employees.create')||A('employees.edit'),[navItem('#admin/employees','bi-list','كل الموظفين',A('employees')),navItem('#admin/employees/create','bi-plus-circle','إضافة موظف',A('employees.create'))])}
-    <li class="nav-header">القوائم المرجعية</li>
-    ${navTree('bi-box-seam','فئات الأصول',A('asset-categories')||A('asset-categories.create')||A('asset-categories.edit'),[navItem('#admin/asset-categories','bi-list','كل الفئات',A('asset-categories')),navItem('#admin/asset-categories/create','bi-plus-circle','إضافة فئة',A('asset-categories.create'))])}
-    ${navTree('bi-box-seam','أنواع الأصول',A('asset-types')||A('asset-types.create')||A('asset-types.edit'),[navItem('#admin/asset-types','bi-list','كل الأنواع',A('asset-types')),navItem('#admin/asset-types/create','bi-plus-circle','إضافة نوع',A('asset-types.create'))])}
-    ${navTree('bi-door-open','أسماء الغرف',active.startsWith('room-names'),[navItem('#admin/room-names','bi-list','كل أسماء الغرف',A('room-names')),navItem('#admin/room-names/create','bi-plus-circle','إضافة اسم غرفة',A('room-names.create'))])}
-    ${navItem('#admin/asset-conditions','bi-circle','حالات الأصول',A('asset-conditions'))}
     <li class="nav-header">النظام</li>
-    ${navItem('#admin/settings','bi-gear','الإعدادات',A('settings'))}
+    ${navItem('#admin/settings','bi-gear','الإعدادات',A('settings')||!!LK[active.split('.')[0]])}
     ${navItem('#admin/data','bi-database','البيانات والنسخ',A('data'))}
     ${navItem('#admin/log','bi-journal-text','سجل التعديلات',A('log'))}
     ${Cloud.on&&Cloud.role==='admin'?navItem('#admin/users','bi-person-lock','المستخدمون',A('users')):''}
     <li class="nav-item"><a href="javascript:void 0" class="nav-link" data-nv-logout><i class="nav-icon bi bi-box-arrow-right"></i><p>تسجيل الخروج</p></a></li>
    </ul></nav></div></aside>
   <main class="app-main"><div class="app-content-header"><div class="container-fluid"><div class="row"><div class="col-sm-6"><h3 class="mb-0">${esc(title)}</h3></div></div></div></div>
-   <div class="app-content"><div class="container-fluid">${fl?`<div class="alert alert-${fl.k} alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>${esc(fl.m)}</div>`:''}${content}</div></div></main>
+   <div class="app-content"><div class="container-fluid">${settingsTabs(active)}${fl?`<div class="alert alert-${fl.k} alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>${esc(fl.m)}</div>`:''}${content}</div></div></main>
   <footer class="app-footer"><div class="float-end d-none d-sm-inline">RakizoraFM • إدارة المرافق والأصول الذكية</div><strong>&copy; ${new Date().getFullYear()} ${esc(appName())}.</strong> جميع الحقوق محفوظة.</footer>
   </div><div class="sidebar-overlay"></div>`;
   hydratePhotos(app());Cloud.badge();
@@ -92,6 +87,10 @@ document.addEventListener('click',e=>{
   const lo=e.target.closest('[data-nv-logout]');if(lo){e.preventDefault();if(Cloud.on){Cloud.signOut().then(()=>go('#admin/login'))}else{setAdmin(false);go('#admin/login')}return}
   const nl=e.target.closest('.app-sidebar a.nav-link[href^="#"]');if(nl&&window.innerWidth<992)document.body.classList.remove('sidebar-open');
 });
+/* NV10 — the reference lists live under «الإعدادات» as tabs */
+function settingsTabs(active){const k=active.split('.')[0];if(k!=='settings'&&!LK[k])return '';
+  const T=[['settings','bi-sliders','الإعدادات العامة'],['asset-categories','bi-tags','فئات الأصول'],['asset-types','bi-box-seam','أنواع الأصول'],['room-names','bi-door-open','أسماء الغرف'],['asset-conditions','bi-shield-check','حالات الأصول']];
+  return `<ul class="nav nav-pills nv-set-tabs flex-nowrap overflow-auto gap-1 mb-3 pb-1">${T.map(([id,ic,l])=>`<li class="nav-item"><a class="nav-link text-nowrap ${k===id?'active':''}" href="#admin/${id}"><i class="bi ${ic} me-1"></i>${l}</a></li>`).join('')}</ul>`}
 const iconBtn=(href,icon,title)=>`<a href="${href}" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle"${title?` title="${title}"`:''}><i class="bi ${icon}"></i></a>`;
 
 /* ---------- auth/login.blade.php ---------- */
