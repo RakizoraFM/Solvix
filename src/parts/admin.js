@@ -395,7 +395,7 @@ const LK={
    fields:()=>[{k:'ar',l:'الاسم بالعربية',req:1},{k:'en',l:'الاسم بالإنجليزية'}],cols:[['ar','الاسم بالعربية'],['en','الاسم بالإنجليزية']],uniq:x=>x.ar},
  'room-names':{t:'rooms',one:'اسم الغرفة',p:'r',title:'أسماء الغرف',icon:'bi-door-open',add:'إضافة اسم غرفة',create:'إضافة اسم غرفة',edit:'تعديل اسم غرفة',ph:'اسم الغرفة...',empty:'لا توجد أسماء غرف.',
    fields:()=>[{k:'en',l:'الاسم بالإنجليزية',req:1},{k:'ar',l:'الاسم بالعربية',req:1}],cols:[['ar','الاسم بالعربية'],['en','الاسم بالإنجليزية']],uniq:x=>x.en+'|'+x.ar}};
-function vLookup(key){if(key==='asset-categories')return go('#admin/asset-types');const L=LK[key];const p=qp();const q=norm(p.get('search')||''),cat=p.get('category_id');
+function vLookup(key){if(key==='asset-categories')return go('#admin/asset-types');if(key==='asset-types')return vCatalog();const L=LK[key];const p=qp();const q=norm(p.get('search')||''),cat=p.get('category_id');
   let list=S[L.t].filter(x=>(!q||norm(x.ar).includes(q)||norm(x.en).includes(q)||String(x.code||'').includes(q)||norm(x.l2).includes(q)||norm(x.l3).includes(q))&&(!cat||x.cat===cat)&&(p.get('crit')!=='1'||x.critical));
   const tc=id=>S.types.filter(t=>t.cat===id).length;
   list=sorted(list,{id:x=>num(dispId(x.id)),name_ar:x=>x.ar,name_en:x=>x.en,asset_category_id:x=>(get('categories',x.cat)||{}).ar,types_count:x=>tc(x.id),code:x=>x.code||'',levels:x=>(x.l2||'')+'|'+(x.l3||''),critical:x=>x.critical?0:1},'name_ar','asc');const pg=paginate(list);
@@ -658,4 +658,75 @@ document.addEventListener('click',async e=>{
   if(e.target.closest('#catFile')){const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;try{await needXLSX();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
     const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''}).slice(1).filter(r=>r.some(x=>String(x).trim()));
     if(!confirm(`استيراد ${rows.length} صف من «${f.name}» إلى دليل الأصول؟ الأصل الموجود بنفس الكود يُحدَّث.`))return;applyCatalog(rows,'تم استيراد الدليل')}catch(er){alert(er.message)}}});
+</script>
+<script id="nv-nv15">
+/* NV15 — «دليل الأصول» as a full data table: every column sortable, a filter per column, row selection with bulk actions, Excel export / import */
+const CAT_COLS=[['code','الكود'],['l1','المستوى الأول'],['l2','المستوى الثاني'],['l3','المستوى الثالث'],['ar','وصف الأصل الموحد'],['en','الاسم بالإنجليزية'],['critical','التصنيف'],['used','الاستخدام']];
+const catState={sort:'code',dir:'asc',f:{},sel:new Set(),page:1,per:50};
+function catRows(){const used=new Map();for(const c of S.collections)used.set(c.type_id,(used.get(c.type_id)||0)+num(c.quantity||1));
+  return S.types.map(t=>({t,id:t.id,code:t.code||'',l1:(get('categories',t.cat)||{}).ar||'',l2:t.l2||'',l3:t.l3||'',ar:t.ar||'',en:t.en||'',critical:t.critical?1:0,used:used.get(t.id)||0}))}
+function catFiltered(){const F=catState.f;const has=(v,q)=>!q||norm(v).includes(norm(q));
+  let L=catRows().filter(r=>has(r.code,F.code)&&(!F.l1||r.l1===F.l1)&&(!F.l2||r.l2===F.l2)&&(!F.l3||r.l3===F.l3)&&has(r.ar,F.ar)&&has(r.en,F.en)&&(F.critical==null||F.critical===''||String(r.critical)===F.critical)&&(F.used==null||F.used===''||(F.used==='1'?r.used>0:r.used===0))&&(!F.q||[r.code,r.l1,r.l2,r.l3,r.ar,r.en].some(v=>norm(v).includes(norm(F.q)))));
+  const k=catState.sort,d=catState.dir==='desc'?-1:1;return L.sort((a,b)=>cmp(a[k],b[k])*d||cmp(a.code,b.code))}
+function vCatalog(){const ro=Cloud.on&&Cloud.role==='reader';
+  adminShell('asset-types','دليل الأصول',`<style>
+   .nvc-card .table{--bs-table-striped-bg:rgba(37,99,235,.035)}.nvc-card thead th{position:sticky;top:0;z-index:2;background:#f8fafc;white-space:nowrap;font-size:.8rem;color:#334155;border-bottom-width:1px}
+   .nvc-card thead tr.nvc-f th{top:38px;background:#fff;padding:.35rem .4rem}.nvc-card thead tr.nvc-f .form-control,.nvc-card thead tr.nvc-f .form-select{font-size:.74rem;padding:.2rem .35rem;min-width:0;width:100%}.nvc-card thead tr.nvc-f .form-select{padding-inline-start:1.4rem;background-position:left .3rem center}
+   .nvc-card table{table-layout:fixed;width:100%;min-width:980px}.nvc-card td,.nvc-card th{overflow-wrap:anywhere}.nvc-card .nvc-chip{white-space:normal;text-align:start;line-height:1.3}
+   .nvc-sort{cursor:pointer;user-select:none}.nvc-sort:hover{color:#2563eb}.nvc-sort i{opacity:.35}.nvc-sort.on i{opacity:1;color:#2563eb}
+   .nvc-card tbody td{font-size:.86rem;vertical-align:middle}.nvc-card tbody tr.crit td:first-child{box-shadow:inset -3px 0 0 #dc2626}.nvc-card tbody tr.sel{--bs-table-bg:#eff6ff}
+   .nvc-wrap{max-height:68vh;overflow:auto}.nvc-chip{font-size:.72rem}
+   [data-bs-theme=dark] .nvc-card thead th{background:#1e293b;color:#cbd5e1}[data-bs-theme=dark] .nvc-card thead tr.nvc-f th{background:#0f172a}</style>
+  <div class="card shadow-sm border-0 nvc-card"><div class="card-header bg-white py-3 d-flex flex-wrap align-items-center gap-2">
+   <h3 class="card-title fw-bold mb-0 me-auto"><i class="bi bi-diagram-3 me-2 text-primary"></i>دليل الأصول <span class="badge text-bg-light border fw-normal" id="nvcCount"></span></h3>
+   <div class="input-group input-group-sm" style="width:240px"><span class="input-group-text bg-white"><i class="bi bi-search"></i></span><input class="form-control" id="nvcQ" placeholder="بحث في كل الأعمدة..." value="${esc(catState.f.q||'')}"></div>
+   <button class="btn btn-sm btn-outline-secondary" id="nvcClear" title="مسح كل الفلاتر"><i class="bi bi-funnel"></i> مسح الفلاتر</button>
+   <button class="btn btn-sm btn-success" id="nvcXl"><i class="bi bi-file-earmark-excel me-1"></i>تصدير Excel</button>
+   ${ro?'':`<button class="btn btn-sm btn-outline-success" id="catFile"><i class="bi bi-upload me-1"></i>استيراد Excel</button><button class="btn btn-sm btn-outline-primary" id="catSeed"><i class="bi bi-patch-check me-1"></i>اعتماد الدليل المدمج</button><a href="#admin/asset-types/create" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-1"></i>إضافة أصل</a>`}</div>
+  <div id="nvcBulk" class="px-3 py-2 border-bottom d-none flex-wrap align-items-center gap-2" style="background:#eff6ff"><b class="text-primary small"><span id="nvcSelN">0</span> محدد</b>
+   <button class="btn btn-xs btn-success" data-nvc="xl"><i class="bi bi-download"></i> تصدير المحدد</button>${ro?'':`<button class="btn btn-xs btn-danger" data-nvc="crit">تعيين «حرج»</button><button class="btn btn-xs btn-outline-secondary" data-nvc="ncrit">تعيين «غير حرج»</button><button class="btn btn-xs btn-outline-danger" data-nvc="del"><i class="bi bi-trash"></i> حذف غير المستخدم</button>`}
+   <button class="btn btn-xs btn-link" data-nvc="none">إلغاء التحديد</button></div>
+  <div class="nvc-wrap"><table class="table table-hover table-striped mb-0"><thead><tr><th style="width:34px" class="text-center"><input type="checkbox" class="form-check-input" id="nvcAll" title="تحديد كل النتائج"></th>
+   ${CAT_COLS.map(([k,l])=>`<th class="nvc-sort" data-sort="${k}" style="width:${{code:'124px',l1:'14%',l2:'12%',l3:'12%',ar:'17%',en:'12%',critical:'92px',used:'80px'}[k]}">${l} <i class="bi bi-arrow-down-up"></i></th>`).join('')}<th class="text-end pe-2" style="width:52px"></th></tr>
+   <tr class="nvc-f"><th></th>${CAT_COLS.map(([k])=>`<th>${['l1','l2','l3'].includes(k)?`<select class="form-select" data-f="${k}"></select>`:k==='critical'?`<select class="form-select" data-f="critical"><option value="">الكل</option><option value="1">حرج</option><option value="0">غير حرج</option></select>`:k==='used'?`<select class="form-select" data-f="used"><option value="">الكل</option><option value="1">مستخدم</option><option value="0">غير مستخدم</option></select>`:`<input class="form-control" data-f="${k}" placeholder="تصفية...">`}</th>`).join('')}<th></th></tr></thead><tbody id="nvcBody"></tbody></table></div>
+  <div class="card-footer bg-white d-flex flex-wrap align-items-center gap-2"><span class="small text-muted" id="nvcInfo"></span><select class="form-select form-select-sm ms-auto" id="nvcPer" style="width:auto">${[25,50,100,0].map(n=>`<option value="${n}" ${catState.per===n?'selected':''}>${n?n+' صف':'الكل'}</option>`).join('')}</select><nav><ul class="pagination pagination-sm mb-0" id="nvcPg"></ul></nav></div></div>`);
+  const F=catState.f;
+  $$('[data-f]').forEach(el=>{if(el.tagName==='INPUT')el.value=F[el.dataset.f]||'';el.oninput=el.onchange=()=>{F[el.dataset.f]=el.value;if(el.dataset.f==='l1'){F.l2='';F.l3=''}if(el.dataset.f==='l2')F.l3='';catState.page=1;draw()}});
+  $('#nvcQ').oninput=e=>{F.q=e.target.value;catState.page=1;draw()};$('#nvcClear').onclick=()=>{catState.f={};catState.page=1;vCatalog()};
+  $$('[data-sort]').forEach(th=>th.onclick=()=>{const k=th.dataset.sort;catState.dir=catState.sort===k&&catState.dir==='asc'?'desc':'asc';catState.sort=k;draw()});
+  $('#nvcPer').onchange=e=>{catState.per=+e.target.value;catState.page=1;draw()};
+  $('#nvcAll').onchange=e=>{const ids=catFiltered().map(r=>r.id);ids.forEach(id=>e.target.checked?catState.sel.add(id):catState.sel.delete(id));draw()};
+  $('#nvcXl').onclick=()=>catExport(catFiltered(),'asset-catalog');
+  $$('[data-nvc]').forEach(b=>b.onclick=()=>catBulk(b.dataset.nvc));
+  draw();
+  function opts(el,vals,cur){el.innerHTML=`<option value="">الكل</option>`+vals.map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('')}
+  function draw(){const all=catRows(),rows=catFiltered();const u=a=>[...new Set(a)].filter(Boolean).sort((x,y)=>x.localeCompare(y,'ar'));
+    opts($('[data-f="l1"]'),u(all.map(r=>r.l1)),F.l1);opts($('[data-f="l2"]'),u(all.filter(r=>!F.l1||r.l1===F.l1).map(r=>r.l2)),F.l2);opts($('[data-f="l3"]'),u(all.filter(r=>(!F.l1||r.l1===F.l1)&&(!F.l2||r.l2===F.l2)).map(r=>r.l3)),F.l3);
+    $$('[data-f="critical"],[data-f="used"]').forEach(s=>s.value=F[s.dataset.f]||'');
+    $$('[data-sort]').forEach(th=>{const on=th.dataset.sort===catState.sort;th.classList.toggle('on',on);th.querySelector('i').className='bi '+(on?(catState.dir==='asc'?'bi-sort-up':'bi-sort-down'):'bi-arrow-down-up')});
+    const per=catState.per||rows.length||1,last=Math.max(1,Math.ceil(rows.length/per));catState.page=Math.min(catState.page,last);const items=rows.slice((catState.page-1)*per,catState.page*per);
+    const hi=(v,k)=>{const q=F[k]||F.q;if(!q||!v)return esc(v||'');const i=norm(v).indexOf(norm(q));return i<0||norm(v).length!==v.length?esc(v):esc(v.slice(0,i))+'<mark class="p-0">'+esc(v.slice(i,i+q.length))+'</mark>'+esc(v.slice(i+q.length))};
+    $('#nvcBody').innerHTML=items.map(r=>`<tr class="${r.critical?'crit':''} ${catState.sel.has(r.id)?'sel':''}"><td class="text-center"><input type="checkbox" class="form-check-input" data-id="${esc(r.id)}" ${catState.sel.has(r.id)?'checked':''}></td>
+     <td class="font-monospace small text-nowrap" dir="ltr" style="overflow-wrap:normal">${hi(r.code,'code')||'<span class="text-muted">—</span>'}</td><td><span class="badge bg-primary-subtle text-primary border border-primary-subtle nvc-chip">${esc(r.l1)}</span></td><td class="small">${esc(r.l2)}</td><td class="small">${esc(r.l3)}</td>
+     <td class="fw-semibold">${hi(r.ar,'ar')}</td><td class="small text-muted" dir="ltr">${hi(r.en,'en')}</td><td>${r.critical?'<span class="badge text-bg-danger">⚠️ حرج</span>':'<span class="badge text-bg-light border">غير حرج</span>'}</td>
+     <td class="text-center">${r.used?`<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle">${r.used}</span>`:'<span class="text-muted small">—</span>'}</td>
+     <td class="text-end pe-3 text-nowrap">${ro?'':iconBtn(`#admin/asset-types/${encodeURIComponent(r.id)}/edit`,'bi-pencil text-warning','تعديل')}</td></tr>`).join('')||`<tr><td colspan="${CAT_COLS.length+2}" class="text-center py-5 text-muted">لا توجد نتائج مطابقة للفلاتر.</td></tr>`;
+    $$('#nvcBody [data-id]').forEach(c=>c.onchange=()=>{c.checked?catState.sel.add(c.dataset.id):catState.sel.delete(c.dataset.id);c.closest('tr').classList.toggle('sel',c.checked);bulk()});
+    $('#nvcCount').textContent=`${rows.length} من ${all.length} · ${rows.filter(r=>r.critical).length} حرج`;
+    $('#nvcInfo').textContent=rows.length?`عرض ${(catState.page-1)*per+1}–${(catState.page-1)*per+items.length} من ${rows.length}`:'';
+    const pg=[];const P=(n,l,dis,act)=>`<li class="page-item ${dis?'disabled':''} ${act?'active':''}"><a class="page-link" href="javascript:void 0" data-pg="${n}">${l}</a></li>`;
+    if(last>1){pg.push(P(catState.page-1,'&rsaquo;',catState.page<=1));for(let i=1;i<=last;i++){if(i===1||i===last||Math.abs(i-catState.page)<=2)pg.push(P(i,i,false,i===catState.page));else if(Math.abs(i-catState.page)===3)pg.push('<li class="page-item disabled"><span class="page-link">…</span></li>')}pg.push(P(catState.page+1,'&lsaquo;',catState.page>=last))}
+    $('#nvcPg').innerHTML=pg.join('');$$('#nvcPg [data-pg]').forEach(a=>a.onclick=()=>{catState.page=+a.dataset.pg;draw()});
+    const ids=rows.map(r=>r.id);$('#nvcAll').checked=ids.length>0&&ids.every(id=>catState.sel.has(id));$('#nvcAll').indeterminate=!$('#nvcAll').checked&&ids.some(id=>catState.sel.has(id));bulk()}
+  function bulk(){const n=[...catState.sel].filter(id=>get('types',id)).length;$('#nvcBulk').classList.toggle('d-none',!n);$('#nvcBulk').classList.toggle('d-flex',!!n);$('#nvcSelN').textContent=n}
+  window.__nvcDraw=draw}
+/* Excel: the same 6 columns as the approved file (+ English name), so an exported file can be edited and imported back */
+function catExport(rows,name){writeXlsx([['دليل الأصول',[['المستوى الأول','المستوى الثاني','المستوى الثالث','وصف الأصل الموحد','كود الأصل كله','حرج / غير حرج','الاسم بالإنجليزية','الاستخدام'],...rows.map(r=>[r.l1,r.l2,r.l3,r.ar,r.code,r.critical?'حرج':'غير حرج',r.en,r.used])]]],name+'-'+stampDash()+'.xlsx')}
+async function catBulk(a){const ids=[...catState.sel].filter(id=>get('types',id));
+  if(a==='none'){catState.sel.clear();return vCatalog()}
+  if(a==='xl'){const set=new Set(ids);return catExport(catRows().filter(r=>set.has(r.id)),'asset-catalog-selected')}
+  if(a==='crit'||a==='ncrit'){if(!confirm(`تعيين ${ids.length} أصل «${a==='crit'?'حرج':'غير حرج'}»؟`))return;for(const id of ids)get('types',id).critical=a==='crit';save('types');setAFlash(`تم تحديث تصنيف ${ids.length} أصل.`);return vCatalog()}
+  if(a==='del'){const used=new Set(S.collections.map(c=>c.type_id));const del=ids.filter(id=>!used.has(id));const keep=ids.length-del.length;
+    if(!del.length)return alert('كل الأصول المحددة مستخدمة في سجلات جرد ولا يمكن حذفها.');if(!confirm(`حذف ${del.length} أصل من الدليل؟${keep?`\n(${keep} مستخدم في سجلات جرد ولن يُحذف)`:''}`))return;
+    const set=new Set(del);S.types=S.types.filter(t=>!set.has(t.id));for(const id of del)catState.sel.delete(id);reindex();save('types');setAFlash(`تم حذف ${del.length} أصل من الدليل.`);return vCatalog()}}
 </script>

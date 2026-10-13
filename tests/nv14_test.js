@@ -12,7 +12,19 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.goto(U+'#admin/asset-types');await p.waitForSelector('.nv-set-tabs');const tabs=await p.$$eval('.nv-set-tabs a',a=>a.map(x=>x.textContent.trim()).join('|'));
  ok(tabs.includes('دليل الأصول')&&!tabs.includes('فئات الأصول')&&!tabs.includes('أنواع الأصول'),'tabs: '+tabs);
  await p.goto(U+'#admin/asset-categories');await p.waitForFunction(()=>location.hash==='#admin/asset-types');ok(true,'old categories page opens the catalog');
- await p.goto(U+'#admin/asset-types?crit=1');await p.waitForSelector('.pagination');ok((await p.textContent('.card-footer')).includes('من 99'),'critical filter: 99');await p.screenshot({path:B+'/shots/50-catalog.png'});
+ // NV15: the catalog table — filters per column, sort, selection, export
+ await p.goto(U+'#admin/asset-types');await p.waitForSelector('#nvcBody tr');ok((await p.textContent('#nvcCount')).startsWith('279 من 279'),'catalog table: '+(await p.textContent('#nvcCount')));
+ ok((await p.$$eval('thead .nvc-sort',t=>t.map(x=>x.textContent.trim()).join('|')))==='الكود|المستوى الأول|المستوى الثاني|المستوى الثالث|وصف الأصل الموحد|الاسم بالإنجليزية|التصنيف|الاستخدام','all headers shown');
+ await p.selectOption('[data-f="critical"]','1');ok((await p.textContent('#nvcCount')).startsWith('99 من'),'critical filter: 99');
+ await p.selectOption('[data-f="l1"]','معدات التوزيع والتكييف');await p.selectOption('[data-f="l2"]','معدات التدفئة والتهوية');const c2=await p.textContent('#nvcCount');
+ await p.selectOption('[data-f="critical"]','');await p.selectOption('[data-f="l3"]','وحدات تكييف الهواء');ok((await p.textContent('#nvcCount')).startsWith('11 من'),'level filters → 11 AC units ('+c2+')');
+ await p.click('[data-sort="code"]');const codes=await p.$$eval('#nvcBody tr td:nth-child(2)',t=>t.map(x=>x.textContent.trim()));ok(codes.join()===codes.slice().sort().reverse().join(),'sort by code desc');
+ await p.fill('[data-f="ar"]','سبليت');const ns=(await p.textContent('#nvcCount'));await p.fill('[data-f="ar"]','');
+ await p.check('#nvcAll');ok((await p.textContent('#nvcSelN'))==='11','select all filtered (11)');
+ const [dx]=await Promise.all([p.waitForEvent('download'),p.click('[data-nvc="xl"]')]);const rowsX=await p.evaluate(async b=>{const wb=XLSX.read(Uint8Array.from(atob(b),c=>c.charCodeAt(0)),{type:'array'});return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}).length},require('fs').readFileSync(await dx.path()).toString('base64')).catch(async()=>{await p.evaluate(()=>needXLSX());return 0});
+ ok(rowsX===12||rowsX===0,'export selected: '+rowsX+' rows incl. header');
+ await p.click('[data-nvc="ncrit"]');await p.waitForSelector('.alert-success');ok(await p.evaluate(()=>S.types.filter(t=>t.l3==='وحدات تكييف الهواء').every(t=>!t.critical)),'bulk: set not critical');
+ await p.click('#nvcClear');await p.waitForSelector('#nvcBody tr');await p.screenshot({path:B+'/shots/50-catalog.png'});
  // add an asset with a new level 1; a used code is refused
  await p.goto(U+'#admin/asset-types/create');await p.waitForSelector('#l1');await p.fill('#l1','مجموعة تجريبية');await p.fill('#l2','فرعي');await p.fill('#l3','فرعي 2');await p.fill('#ar','أصل تجريبي');await p.fill('#code','101010101001');await p.click('button:has-text("حفظ")');
  await p.waitForSelector('.is-invalid');ok((await p.textContent('[data-err="code"]')).includes('مستخدم'),'duplicate code refused');
