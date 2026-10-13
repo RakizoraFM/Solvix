@@ -18,7 +18,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.waitForSelector('#floor-select');await p.selectOption('#floor-select','الأرضي');await p.selectOption('#room-number','1');
  const cls=await p.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value);await p.selectOption('#room-name',cls);await shot('05-location');
  await p.click('#submit-btn');await p.waitForSelector('#a_category_id');
- const fill=async q=>{const cat=await p.$eval('#a_category_id',s=>s.options[2].value);await p.selectOption('#a_category_id',cat);await p.selectOption('#a_type_id',{index:1});await p.setInputFiles('#aimg',B+'/b.png');
+ const fill=async q=>{const cat=await p.$eval('#a_category_id',s=>s.options[2].value);await p.selectOption('#a_category_id',cat);await p.selectOption('#a_l2',{index:1});await p.selectOption('#a_l3',{index:1});await p.selectOption('#a_type_id',{index:1});await p.setInputFiles('#aimg',B+'/b.png');
    await p.fill('#a_quantity',String(q));await p.fill('#a_price','150.5');await p.selectOption('#a_condition_id',{index:2});await p.selectOption('#a_status','Works');await p.check('[name=parent_child][value=Parent]');await p.fill('#a_brand','LG');await p.fill('#a_serial','SN-<b>x</b>')};
  await p.click('#sb');ok(await p.$eval('#f',f=>!f.checkValidity()),'asset native validation');
  await fill(3);await p.waitForTimeout(800);await shot('06-asset');await p.click('#sb');await p.waitForSelector('#screen-success');await shot('07-success');

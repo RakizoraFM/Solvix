@@ -13,7 +13,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await a.fill('#em','admin@x.com');await a.fill('#pw','wrong');await a.click('button[type=submit]');await a.waitForSelector('.sx-err');ok(true,'wrong password refused');
  await a.fill('#pw','adminpass');await a.click('button[type=submit]');await a.waitForSelector('#initCloud');ok(true,'empty-cloud banner');
  await a.click('#initCloud');await a.waitForSelector('.alert-success',{timeout:60000});
- ok(M.db.nv_schools.length===2170&&M.db.nv_types.length===159&&M.db.nv_employees.length===142,`lists in cloud ${M.db.nv_schools.length}/${M.db.nv_types.length}/${M.db.nv_employees.length}`);
+ ok(M.db.nv_schools.length===2170&&M.db.nv_types.length===279&&M.db.nv_types.every(t=>t.code&&t.l2&&t.l3)&&M.db.nv_employees.length===142,`lists in cloud ${M.db.nv_schools.length}/${M.db.nv_types.length}/${M.db.nv_employees.length}`);
  await a.goto(U+'#admin/employees?search=22912');await a.waitForSelector('[data-setpw]');await a.click('[data-setpw]');await a.waitForTimeout(800);
  const pw=(dlg.match(/كلمة المرور: (\S+)/)||[])[1];ok(!!pw&&M.db.nv_employees.find(e=>e.number==='22912').user_id,'technician login created '+pw);
  // second technician gets a login straight in the mock
@@ -26,7 +26,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await t.click('text=تأكيد البيانات');await t.fill('#q','الضياء');await t.waitForSelector('#res li');await t.click('#res li >> nth=0');await t.setInputFiles('#school-image',B+'/a.png');await t.click('#next');
  await t.waitForSelector('#floor-select');await t.selectOption('#floor-select','الأرضي');await t.selectOption('#room-number','1');
  await t.selectOption('#room-name',await t.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await t.click('#submit-btn');await t.waitForSelector('#a_category_id');
- const fill=async q=>{await t.selectOption('#a_category_id',await t.$eval('#a_category_id',s=>s.options[2].value));await t.selectOption('#a_type_id',{index:1});await t.setInputFiles('#aimg',B+'/b.png');
+ const fill=async q=>{await t.selectOption('#a_category_id',await t.$eval('#a_category_id',s=>s.options[2].value));await t.selectOption('#a_l2',{index:1});await t.selectOption('#a_l3',{index:1});await t.selectOption('#a_type_id',{index:1});await t.setInputFiles('#aimg',B+'/b.png');
    await t.fill('#a_quantity',String(q));await t.fill('#a_price','99');await t.selectOption('#a_condition_id',{index:1});await t.selectOption('#a_status','Works');await t.check('[name=parent_child][value=Child]');await t.fill('#a_brand','LG')};
  await fill(3);await t.click('#sb');await t.waitForSelector('#same');await t.waitForTimeout(1500);
  const c1=M.db.nv_collections.filter(c=>c.submitted_at);ok(c1.length===1&&c1[0].quantity===3&&c1[0].no===1,'record in cloud: '+c1.length);

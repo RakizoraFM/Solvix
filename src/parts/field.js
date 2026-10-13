@@ -176,15 +176,17 @@ function vLocation(){
 function vAsset(){
   if(!needEmp())return;const c=curColl();if(!c){go('#school');return}if(!c.floor||!c.room_name_id){go('#location');return}
   const e=curEmp();const f0=takeFlash();
-  const cats=S.categories.slice().sort((a,b)=>a.ar.localeCompare(b.ar,'ar'));const types=S.types.filter(x=>x.cat===c.category_id).sort((a,b)=>a.ar.localeCompare(b.ar,'ar'));
+  const FT=isCatalog()?S.types.filter(x=>x.code):S.types;const cats=S.categories.filter(k=>FT.some(x=>x.cat===k.id)).sort((a,b)=>a.ar.localeCompare(b.ar,'ar'));const types=FT.filter(x=>x.cat===c.category_id).sort((a,b)=>a.ar.localeCompare(b.ar,'ar'));const ct=get('types',c.type_id);
   const v=k=>esc(c[k]??'');const L=(id,a,b,req)=>`<label for="${id}" class="block text-sm font-medium text-gray-700 mb-1">${a}${b?' / '+b:''}${req?' <span class="text-red-500">*</span>':''}</label>`;
   const txt=(k,lbl)=>`<div>${L('a_'+k,t(lbl))}<input type="text" id="a_${k}" value="${v(k)}" class="${INPUT}"></div>`;
   const done=S.collections.filter(x=>x.school_id===c.school_id&&x.employee_id===e.id&&x.submitted_at).sort((a,b)=>a.submitted_at<b.submitted_at?1:-1);
   fieldLayout(`<div class="flex flex-col gap-8 w-full max-w-4xl mx-auto px-4 pb-12"><section id="screen-asset-details" class="w-full"><div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
   <h2 class="text-2xl font-bold text-center mb-6">${t('Asset Details')}</h2><p class="text-gray-500 text-center mb-8">${t('Please enter the asset details')}</p>${statusBox(f0&&f0.t)}
   <form id="f" class="space-y-6">
-   <div>${L('a_category_id',t('Asset Category'),t('فئة الأصل'),1)}<select id="a_category_id" required class="${INPUT}"><option value="">${t('Select...')} / ${t('قائمة')}</option>${cats.map(x=>`<option value="${esc(x.id)}" ${c.category_id===x.id?'selected':''}>${esc(x.ar)} (${esc(x.en)})</option>`).join('')}</select></div>
-   <div>${L('a_type_id',t('Asset Type'),t('نوع الأصل'),1)}<select id="a_type_id" required class="${INPUT}" ${c.category_id?'':'disabled'}><option value="">${t('Select...')} / ${t('قائمة')}</option>${types.map(x=>`<option value="${esc(x.id)}" ${c.type_id===x.id?'selected':''}>${esc(x.ar)} (${esc(x.en)})</option>`).join('')}</select></div>
+   <div>${L('a_category_id',t('Asset Category'),t('فئة الأصل'),1)}<select id="a_category_id" required class="${INPUT}"><option value="">${t('Select...')} / ${t('قائمة')}</option>${cats.map(x=>`<option value="${esc(x.id)}" ${c.category_id===x.id?'selected':''}>${esc(x.ar)}${x.en?` (${esc(x.en)})`:''}</option>`).join('')}</select></div>
+   <div data-lv>${L('a_l2',tx('المستوى الثاني','Level 2'),'',1)}<select id="a_l2" class="${INPUT}" disabled></select></div>
+   <div data-lv>${L('a_l3',tx('المستوى الثالث','Level 3'),'',1)}<select id="a_l3" class="${INPUT}" disabled></select></div>
+   <div>${L('a_type_id',t('Asset Type'),t('نوع الأصل'),1)}<select id="a_type_id" required class="${INPUT}" ${c.category_id?'':'disabled'}><option value="">${t('Select...')} / ${t('قائمة')}</option>${types.map(x=>`<option value="${esc(x.id)}" ${c.type_id===x.id?'selected':''}>${esc(x.ar)}${x.en?` (${esc(x.en)})`:''}</option>`).join('')}</select><div id="a_tinfo" class="mt-2 text-xs"></div></div>
    <div><label class="block text-sm font-medium text-gray-700 mb-1">${t('Asset Image Source')} <span class="text-red-500">*</span></label>
     <div class="flex gap-6 mb-3"><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="upload_method_asset" value="camera" checked class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"><span class="text-sm text-gray-700 font-medium">${t('Take Photo')}</span></label>
      <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="upload_method_asset" value="gallery" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"><span class="text-sm text-gray-700 font-medium">${t('Upload from Gallery')}</span></label></div>
@@ -218,7 +220,20 @@ function vAsset(){
     <td class="px-4 py-3"><span class="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full text-xs font-bold">${num(a.quantity)}</span></td><td class="px-4 py-3 text-right text-xs text-gray-500">${ymd(a.submitted_at)} ${hiA(a.submitted_at)}</td></tr>`).join('')}
    </tbody></table></div></div></section>`:''}</div>`);
   const cat=$('#a_category_id'),typ=$('#a_type_id');
-  cat.onchange=()=>{const ts=S.types.filter(x=>x.cat===cat.value).sort((a,b)=>a.ar.localeCompare(b.ar,'ar'));typ.innerHTML=`<option value="">${t('Select...')} / ${t('قائمة')}</option>`+ts.map(x=>`<option value="${esc(x.id)}">${esc(x.ar)} (${esc(x.en)})</option>`).join('');typ.disabled=!cat.value};
+  /* NV14 — level 1 → level 2 → level 3 → asset (4-level catalog); a category without levels lists its assets directly */
+  const l2=$('#a_l2'),l3=$('#a_l3');const PH=`<option value="">${t('Select...')} / ${t('قائمة')}</option>`;const uniq=a=>[...new Set(a)].filter(Boolean).sort((x,y)=>x.localeCompare(y,'ar'));
+  const opts=a=>PH+a.map(x=>`<option>${esc(x)}</option>`).join('');
+  const info=()=>{const x=get('types',typ.value);$('#a_tinfo').innerHTML=x&&x.code?`<span class="inline-block bg-gray-100 text-gray-700 rounded-lg px-2 py-1 font-mono" dir="ltr">${esc(x.code)}</span> ${x.critical?'<span class="inline-block bg-red-100 text-red-700 font-bold rounded-lg px-2 py-1">⚠️ أصل حرج</span>':'<span class="inline-block bg-green-50 text-green-700 rounded-lg px-2 py-1">غير حرج</span>'}`:''};
+  const fillT=list=>{typ.innerHTML=PH+list.sort((a,b)=>a.ar.localeCompare(b.ar,'ar')).map(x=>`<option value="${esc(x.id)}">${esc(x.ar)}${x.en?` (${esc(x.en)})`:''}</option>`).join('');typ.disabled=!list.length;info()};
+  const inCat=()=>FT.filter(x=>x.cat===cat.value);const lv=()=>inCat().some(x=>x.l2);
+  const showLv=()=>{$$('[data-lv]').forEach(d=>d.style.display=cat.value&&lv()?'':'none')};
+  cat.onchange=()=>{showLv();if(lv()){l2.innerHTML=opts(uniq(inCat().map(x=>x.l2)));l2.disabled=false;l3.innerHTML=PH;l3.disabled=true;fillT([]);typ.disabled=true}else fillT(inCat())};
+  l2.onchange=()=>{l3.innerHTML=opts(uniq(inCat().filter(x=>x.l2===l2.value).map(x=>x.l3)));l3.disabled=!l2.value;fillT([]);typ.disabled=true};
+  l3.onchange=()=>fillT(inCat().filter(x=>x.l2===l2.value&&x.l3===l3.value));
+  typ.addEventListener('change',info);
+  /* an existing record opens with its levels selected */
+  showLv();if(ct&&ct.l2&&lv()){l2.innerHTML=opts(uniq(inCat().map(x=>x.l2)));l2.value=ct.l2;l2.disabled=false;l3.innerHTML=opts(uniq(inCat().filter(x=>x.l2===ct.l2).map(x=>x.l3)));l3.value=ct.l3;l3.disabled=false;fillT(inCat().filter(x=>x.l2===ct.l2&&x.l3===ct.l3));typ.value=ct.id;info()}
+  else if(c.category_id&&lv()){cat.onchange()}
   $$('[name=upload_method_asset]').forEach(r=>r.onchange=()=>{const i=$('#aimg');if(r.value==='camera')i.setAttribute('capture','environment');else i.removeAttribute('capture')});
   // map (Leaflet, same behaviour as the original: draggable marker, click to move, auto-detect when empty)
   let lat=c.lat,lng=c.lng,map,marker;const has=lat!=null&&lng!=null;

@@ -11,11 +11,11 @@ const cfgOk=o=>!!(o&&/^https:\/\/[^/]+/.test(o.url||'')&&String(o.key||'').lengt
 const NV_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
 const NV_T={categories:'nv_categories',conditions:'nv_conditions',rooms:'nv_rooms',types:'nv_types',employees:'nv_employees',schools:'nv_schools',collections:'nv_collections'};
 const NV_ORDER=['categories','conditions','rooms','types','employees','schools','collections'];
-const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en'],employees:['id','number','name','created_at'],
+const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','created_at'],
   schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
     'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','parent_child','tag','submitted_at','created_at']};
-const NV_TEXT0=new Set(['moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag']);
+const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag']);
 const tsNorm=v=>{if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?v:d.toISOString()};
 const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),snap:{},uploaded:new Set(),dirty:new Set(),err:null,syncing:false,again:false,lastPull:0,tablesMissing:false,
   cfg(){try{const o=JSON.parse(localStorage.getItem(NV_CFG_KEY)||'null');if(cfgOk(o))return {url:String(o.url).replace(/\/+$/,''),key:o.key}}catch(e){}return cfgOk(SOLVIX_CFG)?SOLVIX_CFG:null},
@@ -24,7 +24,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
   async sb(){if(this.client)return this.client;if(!(window.supabase&&window.supabase.createClient))await loadScript(NV_LIB);const c=this.cfg();
     this.client=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'solvix-auth'}});return this.client},
   chk({data,error}){if(error)throw new Error(error.message||String(error));return data},
-  canon(t,r){const o={};for(const k of NV_COLS[t]){let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);o[k]=v}return o},
+  canon(t,r){const o={};for(const k of NV_COLS[t]){let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;o[k]=v}return o},
   key(t,r){return JSON.stringify(this.canon(t,r))},
   /* ---- start-up: who is signed in, and which role he has in Novaro ---- */
   async init(){
