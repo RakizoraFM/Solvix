@@ -368,12 +368,18 @@ function vSettings(){if(!canUsers())return go('#admin/asset-types');
   <hr><h6 class="fw-bold mb-1"><i class="bi bi-qr-code me-1"></i>مقاس ملصق الأصل</h6><p class="form-text mt-0">بالسنتيمتر. تُرتَّب الملصقات على صفحة A4 بقدر ما تتسع، أو اختر «ملصق واحد في كل صفحة» لطابعة الملصقات.</p>
   <div class="row g-2 align-items-end"><div class="col-6 col-md-3"><label class="form-label small" for="lbl_w">العرض (سم)</label><input type="number" id="lbl_w" class="form-control" min="3" max="20" step="0.1" value="${esc(labelSize().w)}"></div><div class="col-6 col-md-3"><label class="form-label small" for="lbl_h">الارتفاع (سم)</label><input type="number" id="lbl_h" class="form-control" min="2" max="20" step="0.1" value="${esc(labelSize().h)}"></div>
    <div class="col-12 col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="lbl_one" ${labelSize().one?'checked':''}><label class="form-check-label" for="lbl_one">ملصق واحد في كل صفحة (طابعة ملصقات)</label></div></div></div>
-  <div class="mt-2 d-flex align-items-center gap-2"><span class="small text-muted">معاينة بالمقاس الحقيقي:</span><div id="lbl_prev" class="border border-secondary rounded" style="border-style:dashed!important"></div></div>
+  <div class="row g-2 mt-1"><div class="col-12 col-md-6"><label class="form-label small" for="lbl_logo">شعار الملصق (يظهر بجانب رمز QR)</label><input type="file" id="lbl_logo" class="form-control form-control-sm" accept="image/png,image/jpeg,image/svg+xml,image/webp"><button type="button" class="btn btn-link btn-sm px-0 text-danger" id="lbl_nologo" ${labelSize().logo?'':'hidden'}>إزالة الشعار</button></div>
+   <div class="col-6 col-md-3"><label class="form-label small" for="lbl_ar">النص العربي أسفل الملصق</label><input id="lbl_ar" class="form-control form-control-sm" maxlength="60" value="${esc(labelSize().ar)}"></div><div class="col-6 col-md-3"><label class="form-label small" for="lbl_en">النص الإنجليزي</label><input id="lbl_en" class="form-control form-control-sm" maxlength="60" dir="ltr" value="${esc(labelSize().en)}"></div></div>
+  <style id="lbl_css"></style><div class="mt-3"><span class="small text-muted d-block mb-1">معاينة بالمقاس الحقيقي (أصل تجريبي):</span><div id="lbl_prev" style="display:inline-block;border:1px dashed #94a3b8;border-radius:2mm"></div></div>
   </div><div class="card-footer"><button type="submit" class="btn btn-primary">حفظ</button></div></form></div></div></div>`);
-  const pv=()=>{const w=+$('#lbl_w').value||0,h=+$('#lbl_h').value||0;$('#lbl_prev').style.width=w+'cm';$('#lbl_prev').style.height=h+'cm'};$('#lbl_w').oninput=pv;$('#lbl_h').oninput=pv;pv();
+  let lblLogo=labelSize().logo;const Zf=()=>({w:+$('#lbl_w').value||6.3,h:+$('#lbl_h').value||3.6,one:$('#lbl_one').checked,logo:lblLogo,ar:$('#lbl_ar').value,en:$('#lbl_en').value});
+  const sample=S.collections.find(c=>c.no&&c.type_id)||{no:84,school_id:(S.schools[0]||{}).id,floor:'الأرضي',room_name_id:(S.rooms[0]||{}).id,room_number:'3',type_id:(S.types.find(t=>t.code)||S.types[0]||{}).id,category_id:(S.types.find(t=>t.code)||S.types[0]||{}).cat,quantity:1};
+  const pv=()=>{const Z=Zf();$('#lbl_css').textContent=labelCSS(Z);needQR().then(()=>{$('#lbl_prev').innerHTML=labelHTML(sample,Z)}).catch(()=>{})};['lbl_w','lbl_h','lbl_ar','lbl_en'].forEach(id=>$('#'+id).oninput=pv);pv();
+  $('#lbl_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{lblLogo=await logoPng(f,420);$('#lbl_nologo').hidden=false;pv()}catch(er){alert(er.message)}};
+  $('#lbl_nologo').onclick=()=>{lblLogo='';$('#lbl_logo').value='';$('#lbl_nologo').hidden=true;pv()};
   let logo=null;$('#application_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{logo=await blobToData(await resizeImage(f,600,.9));$('#logo-preview').src=logo}catch(er){alert(er.message)}};
   $('#f').onsubmit=async e=>{e.preventDefault();const n=$('#application_name').value.trim();if(!n)return;S.settings.app_name=n;S.settings.admin_email=$('#admin_email').value.trim();if(logo)S.settings.logo=logo;
-    const lw=+$('#lbl_w').value,lh=+$('#lbl_h').value;if(!(lw>=3&&lw<=20&&lh>=2&&lh<=20)){alert('مقاس الملصق: العرض من 3 إلى 20 سم، والارتفاع من 2 إلى 20 سم.');return}S.settings.label={w:Math.round(lw*10)/10,h:Math.round(lh*10)/10,one:$('#lbl_one').checked};await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
+    const lw=+$('#lbl_w').value,lh=+$('#lbl_h').value;if(!(lw>=3&&lw<=20&&lh>=2&&lh<=20)){alert('مقاس الملصق: العرض من 3 إلى 20 سم، والارتفاع من 2 إلى 20 سم.');return}S.settings.label={w:Math.round(lw*10)/10,h:Math.round(lh*10)/10,one:$('#lbl_one').checked,logo:lblLogo||'',ar:$('#lbl_ar').value.trim(),en:$('#lbl_en').value.trim()};await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
 }
 
 /* ---------- extra: data & backup, admin account (replaces the server and the database) ---------- */
@@ -489,24 +495,37 @@ async function loadStaff(){const box=$('#staffBox');if(!box)return;let list=[],e
 </script>
 <script id="nv-nv12">
 /* NV12 — asset labels (number + QR), school report (Arabic / English), category drill-down, collections import, in-app notifications */
-let qrP=null;const labelSize=()=>{const l=S.settings.label||{};return {w:Number(l.w)||6.3,h:Number(l.h)||3.6,one:!!l.one}};
+let qrP=null;
+/* NV20 — label design from «الإعدادات»: size (cm), logo, the two «do not remove» texts */
+const LBL_AR='يرجى عدم إزالة الملصق',LBL_EN='Please do not remove';
+const labelSize=()=>{const l=S.settings.label||{};return {w:Number(l.w)||6.3,h:Number(l.h)||3.6,one:!!l.one,logo:l.logo||'',ar:l.ar!=null?l.ar:LBL_AR,en:l.en!=null?l.en:LBL_EN}};
+function labelCSS(Z){const W=Z.w*10,H=Z.h*10,pad=Math.max(1.2,H*.05),fh=Math.max(3.2,H*.16),ta=H-2*pad-fh,fn=Math.max(5,Math.min(9,H*.2)),qr=Math.max(8,Math.min(ta-fn*.5,W*.44)),ff=Math.max(4.5,Math.min(8,H*.16));
+  return `.lb{box-sizing:border-box;width:${W}mm;height:${H}mm;padding:${pad}mm ${pad*1.3}mm;display:flex;flex-direction:column;background:#fff;color:#111;border-radius:2mm;overflow:hidden;font-family:Tahoma,Arial,sans-serif;break-inside:avoid}
+  .lb .tp{flex:1;display:flex;align-items:center;gap:${pad}mm;min-height:0}.lb .lg{flex:1;display:flex;align-items:center;justify-content:center;height:100%;min-width:0}.lb .lg img{max-width:100%;max-height:${ta*.85}mm;object-fit:contain}
+  .lb .lg .nm{font-weight:700;font-size:${ff*1.1}pt;text-align:center;line-height:1.3}.lb .qc{flex:none;display:flex;flex-direction:column;align-items:center;gap:.3mm}.lb .qr{width:${qr}mm;height:${qr}mm}.lb .qr svg{width:100%;height:100%;display:block}
+  .lb .no{font:700 ${fn}pt/1.1 Arial,monospace;direction:ltr;letter-spacing:.2px}.lb .ft{height:${fh}mm;flex:none;border-top:.35mm solid #111;display:flex;align-items:center;justify-content:space-between;gap:2mm;font-size:${ff}pt;font-weight:700;white-space:nowrap;overflow:hidden}
+  .lb .ft .en{direction:ltr}`}
+function labelHTML(c,Z){const s=get('schools',c.school_id)||{};
+  return `<div class="lb"><div class="tp"><div class="lg">${Z.logo?`<img src="${Z.logo}" alt="">`:`<div class="nm">${esc(s.name||appName())}</div>`}</div><div class="qc"><div class="qr">${qrSvg(qrText(c))}</div><div class="no">${esc(assetLabel(c))}</div></div></div>${Z.ar||Z.en?`<div class="ft"><span class="ar">${esc(Z.ar)}</span><span class="en">${esc(Z.en)}</span></div>`:''}</div>`}
+/* a logo keeps its transparency: PNG, at most `max` px */
+function logoPng(file,max){return new Promise((res,rej)=>{if(file.size>4*1048576)return rej(new Error('حجم الشعار أكبر من 4 م.ب'));const u=URL.createObjectURL(file),img=new Image();
+  img.onload=()=>{const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const cv=document.createElement('canvas');cv.width=Math.round(img.naturalWidth*k)||max;cv.height=Math.round(img.naturalHeight*k)||max;cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);URL.revokeObjectURL(u);res(cv.toDataURL('image/png'))};
+  img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('تعذرت قراءة الصورة'))};img.src=u})}
 const needQR=()=>qrP||(qrP=window.qrcode?Promise.resolve():loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js').catch(e=>{qrP=null;throw e}));
-function qrSvg(text){qrcode.stringToBytes=qrcode.stringToBytesFuncs['UTF-8'];const q=qrcode(0,'M');q.addData(text,'Byte');q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})}
-function qrText(c){const s=get('schools',c.school_id)||{},r=get('rooms',c.room_name_id)||{};
-  return [`Solvix ${assetLabel(c)}`,`المدرسة: ${s.name||''} (${s.moe||''})`,`الفئة: ${(get('categories',c.category_id)||{}).ar||''}`,`النوع: ${(get('types',c.type_id)||{}).ar||''}`,(get('types',c.type_id)||{}).code?`الكود: ${get('types',c.type_id).code}${get('types',c.type_id).critical?' (حرج)':''}`:'',`الحالة: ${(get('conditions',c.condition_id)||{}).ar||''}`,
-    `الكمية: ${num(c.quantity)}`,c.price!=null&&c.price!==''?`السعر: ${c.price}`:'',`الموقع: ${c.floor||''} / ${r.ar||''} ${c.room_number||''}`,c.serial?`التسلسلي: ${c.serial}`:'',c.tag?`ASAD: ${c.tag}`:''].filter(Boolean).join('\n')}
+function qrSvg(text){qrcode.stringToBytes=qrcode.stringToBytesFuncs['UTF-8'];const q=qrcode(0,text.length>220?'L':'M');q.addData(text,'Byte');q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})}
+/* NV20 — scanning a label shows WHERE the asset is first (building, floor, room), then the full asset data */
+function qrText(c){const s=get('schools',c.school_id)||{},r=get('rooms',c.room_name_id)||{},t=get('types',c.type_id)||{},k=get('categories',c.category_id)||{},v=(l,x)=>x!=null&&x!==''?`${l}: ${x}`:'';
+  return ['📍 موقع الأصل',v('المبنى',s.name?`${s.name}${s.moe?' ('+s.moe+')':''}`:''),v('الطابق',c.floor),v('الغرفة',r.ar?`${r.ar}${c.room_number?' (رقم '+c.room_number+')':''}`:c.room_number),
+    '— بيانات الأصل —',v('رقم الأصل',assetLabel(c)),v('الوصف',t.ar),v('الكود',t.code?t.code+(t.critical?' (حرج)':' (غير حرج)'):''),v('التصنيف',[k.ar,t.l2,t.l3].filter(Boolean).join(' › ')),
+    v('الحالة الفنية',(get('conditions',c.condition_id)||{}).ar),v('الكمية',c.type_id?num(c.quantity):''),v('السعر',c.price),v('الشركة المصنعة',c.manufacturer),v('الماركة',c.brand),v('الموديل',c.model),v('السعة',c.capacity),
+    v('الرقم التسلسلي',c.serial),v('رقم ASAD',c.tag),v('دولة الموقع',c.asad_country),v('الوكيل',c.agency),v('الضمان',c.warranty),v('تاريخ التركيب',c.install_date),v('رئيسي / فرعي',c.parent_child==='Parent'?'رئيسي':c.parent_child==='Child'?'فرعي':c.parent_child),v('ملاحظات',c.notes),v('تاريخ الجرد',c.submitted_at?fmtYmd(c.submitted_at):'')].filter(Boolean).join('\n')}
 async function printLabels(list,title){list=list.filter(c=>c.no).sort((a,b)=>num(a.no)-num(b.no));if(!list.length)return alert('لا توجد أصول مُرسلة لطباعة ملصقاتها.');
   const w=window.open('','_blank');if(!w)return alert('اسمح للموقع بفتح النوافذ المنبثقة لطباعة الملصقات.');w.document.write('<p style="font-family:Tahoma;padding:20px">…</p>');
   try{await needQR()}catch(e){w.close();return alert(e.message)}
-  const L=list.map(c=>{const s=get('schools',c.school_id)||{},r=get('rooms',c.room_name_id)||{};
-    return `<div class="l"><div class="q">${qrSvg(qrText(c))}</div><div class="t"><img src="${NV_LOGO}" alt=""><b>${esc(assetLabel(c))}</b><span>${esc((get('types',c.type_id)||{}).ar||'')}</span><small>${esc(s.name||'')}</small><small>${esc([c.floor,r.ar,c.room_number].filter(Boolean).join(' · '))}</small></div></div>`}).join('');
-  /* NV13 — label size from «الإعدادات» (cm); the QR and the text scale with it */
-  const Z=labelSize(),W=Z.w*10,H=Z.h*10,qr=Math.max(10,Math.min(H-4,W*.48)),fs=Math.max(5,Math.min(11,H/4.2));
+  const Z=labelSize(),W=Z.w*10,H=Z.h*10;const L=list.map(c=>labelHTML(c,Z)).join('');
   w.document.open();w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ملصقات الأصول ${esc(title||'')}</title><style>
-  @page{size:${Z.one?`${W}mm ${H}mm`:'A4'};margin:${Z.one?0:'8mm'}}body{margin:0;font-family:Cairo,Tahoma,sans-serif;color:#0f172a}
-  .g{display:flex;flex-wrap:wrap;gap:${Z.one?0:'3mm'};align-content:flex-start}.l{box-sizing:border-box;width:${W}mm;height:${H}mm;display:flex;gap:1.5mm;align-items:center;border:${Z.one?'0':'1px dashed #94a3b8'};border-radius:1.5mm;padding:1.5mm;overflow:hidden;break-inside:avoid;${Z.one?'break-after:page;':''}}
-  .q{width:${qr}mm;height:${qr}mm;flex:none}.q svg{width:100%;height:100%}.t{display:flex;flex-direction:column;gap:.4mm;min-width:0;font-size:${fs*.8}pt;line-height:1.2}
-  .t img{height:${Math.max(2.5,H/7)}mm;width:auto;align-self:flex-start}.t b{font:700 ${fs}pt monospace;direction:ltr;text-align:right}.t span{font-weight:700}.t small{color:#475569;font-size:${fs*.7}pt;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @page{size:${Z.one?`${W}mm ${H}mm`:'A4'};margin:${Z.one?0:'8mm'}}body{margin:0;color:#0f172a}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .g{display:flex;flex-wrap:wrap;gap:${Z.one?0:'3mm'};align-content:flex-start}${labelCSS(Z)}.g .lb{${Z.one?'break-after:page;':'border:1px dashed #94a3b8;'}}
   .bar{padding:10px;text-align:center;font-family:Tahoma}@media print{.bar{display:none}}</style></head><body><div class="bar">${list.length} ملصق · ${Z.w} × ${Z.h} سم · <button onclick="print()">طباعة</button></div><div class="g">${L}</div><script>setTimeout(()=>print(),400)<\/script></body></html>`);w.document.close()}
 /* school report: one sheet in Arabic, one in English */
 function schoolReport(list,s){const sub=list.filter(c=>c.type_id);if(!sub.length)return alert('لا توجد أصول في هذه المدرسة.');

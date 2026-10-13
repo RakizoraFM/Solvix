@@ -23,14 +23,19 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  // group view: label numbers, labels window, school report
  await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#lbl');
  ok(/^101\d{8}$/.test((await p.textContent('.app-main tbody tr td')).trim()),'label number 101XXXXXXXX');
- const [pop]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop.waitForSelector('.l svg',{timeout:20000});
- ok((await pop.$$('.l')).length===3,'3 labels with QR');await pop.screenshot({path:B+'/shots/41-labels.png'});await pop.close();
+ const [pop]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop.waitForSelector('.lb .qr svg',{timeout:20000});
+ ok((await pop.$$('.lb')).length===3,'3 labels with QR');await pop.screenshot({path:B+'/shots/41-labels.png'});await pop.close();
  // NV13: label size from the settings (cm)
  await p.goto(U+'#admin/settings');await p.waitForSelector('#lbl_w');await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.check('#lbl_one');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
- ok(await p.evaluate(()=>JSON.stringify(S.settings.label))==='{"w":5,"h":3,"one":true}','label size saved');
+ ok(await p.evaluate(()=>{const l=S.settings.label;return l.w===5&&l.h===3&&l.one===true}),'label size saved');
+ // NV20: label logo + «do not remove» texts + live preview; the QR starts with the location
+ await p.goto(U+'#admin/settings');await p.waitForSelector('#lbl_prev .lb .qr svg',{timeout:20000});await p.setInputFiles('#lbl_logo',B+'/a.png');await p.waitForSelector('#lbl_prev .lg img');
+ ok((await p.textContent('#lbl_prev .ft')).includes('يرجى عدم إزالة الملصق')&&(await p.textContent('#lbl_prev .ft')).includes('Please do not remove'),'preview: logo + footer texts');
+ await p.screenshot({path:B+'/shots/44-label-settings.png'});await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');ok(await p.evaluate(()=>S.settings.label.logo.startsWith('data:image/png')),'label logo saved (PNG)');
+ const qt=await p.evaluate(c0=>qrText(S.collections.find(x=>x.id===c0)),ids.c0);ok(/^📍 موقع الأصل\nالمبنى: .+\nالطابق: .+\nالغرفة: .+\(رقم 3\)\n— بيانات الأصل —\nرقم الأصل: 101\d{8}/.test(qt),'QR text: location first, then the asset');
  await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#lbl');
- const [pop2]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop2.waitForSelector('.l svg',{timeout:20000});
- const box=await pop2.$eval('.l',e=>{const r=e.getBoundingClientRect();return [Math.round(r.width/37.8*10)/10,Math.round(r.height/37.8*10)/10]});ok(box[0]===5&&box[1]===3,'label printed 5 × 3 cm ('+box+')');await pop2.screenshot({path:B+'/shots/43-labels-5x3.png'});await pop2.close();
+ const [pop2]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop2.waitForSelector('.lb .qr svg',{timeout:20000});
+ const box=await pop2.$eval('.lb',e=>{const r=e.getBoundingClientRect();return [Math.round(r.width/37.8*10)/10,Math.round(r.height/37.8*10)/10]});ok(box[0]===5&&box[1]===3,'label printed 5 × 3 cm ('+box+')');ok(!!(await pop2.$('.lb .lg img'))&&(await pop2.textContent('.lb .ft')).includes('Please do not remove'),'printed label: logo + footer');await pop2.screenshot({path:B+'/shots/43-labels-5x3.png'});await pop2.close();
  const [d1]=await Promise.all([p.waitForEvent('download'),p.click('#rep')]);ok(!!d1,'school report downloaded');
  const sheets=await p.evaluate(async b=>{const wb=XLSX.read(Uint8Array.from(atob(b),c=>c.charCodeAt(0)),{type:'array'});return wb.SheetNames.join(',')+'|'+XLSX.utils.sheet_to_json(wb.Sheets['English'],{header:1})[5][0]},require('fs').readFileSync(await d1.path()).toString('base64'));
  ok(sheets.startsWith('عربي,English|Label Number'),'report sheets '+sheets);
