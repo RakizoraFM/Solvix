@@ -21,7 +21,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  ok((await p.$$('#chEmp .nvc-row')).length===1&&(await p.$$('#byCity .nvc-row')).length>=1&&(await p.$$('#chValue .nvc-row')).length>=1,'supervisors / cities / value bars rendered');await p.click('#dReset');
  await p.goto(U+'#admin/analytics');await p.waitForSelector('.breadcrumb');
  let rows=await p.$$eval('.app-main tbody tr',r=>r.length);ok(rows===2,'drill-down level 1: 2 categories ('+rows+')');
- const tot=await p.$$eval('.app-main .fs-4.fw-bold',x=>x.map(y=>y.textContent));ok(tot[0]==='11'&&tot[1]==='590'&&tot[2]==='5','totals: qty 11, cost 590, 5 records ('+tot+')');
+ const tot=await p.$$eval('[data-kpi=qty],[data-kpi=cost],[data-kpi=rec]',x=>x.map(y=>y.dataset.val));ok(tot[0]==='11'&&tot[1]==='590'&&tot[2]==='5','totals: qty 11, cost 590, 5 records ('+tot+')');
  await p.goto(U+'#admin/analytics?cat='+ids.cat0);await p.waitForSelector('.breadcrumb');await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/cond=/.test(location.hash));
  await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/type=/.test(location.hash));rows=await p.$$eval('.app-main tbody tr',r=>r.length);
  ok((await p.textContent('.app-main thead')).includes('المدرسة')&&rows>=1&&!(await p.textContent('.app-main tbody')).includes('s1'),'drill-down to schools by name ('+rows+')');await p.screenshot({path:B+'/shots/40-analytics.png'});

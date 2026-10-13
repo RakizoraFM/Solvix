@@ -8,7 +8,7 @@ function route(){
   if(seg[0]==='admin'){
     if(seg[1]==='login'||!isAuthed())return vAdminLogin();
     needAdminLibs().catch(()=>{});
-    if(Cloud.on&&LIST_PAGES.test(path)&&Date.now()-Cloud.lastPull>60000){const h=location.hash;Cloud.lastPull=Date.now();Cloud.sync().then(()=>Cloud.pull()).then(()=>{if(location.hash===h)route()}).catch(()=>{})}
+    if(Cloud.on&&LIST_PAGES.test(path)&&Date.now()-Cloud.lastPull>60000){const h=location.hash;Cloud.lastPull=Date.now();nvBusy(1);Cloud.sync().then(()=>Cloud.pull()).then(()=>{if(location.hash===h)route()}).catch(()=>{}).finally(()=>nvBusy(0))}
     const [ ,a,b,c,d]=seg;
     if(!a)return vDashboard();
     if(a==='collections'){if(!b)return vCollections();if(b==='view')return vCollectionGroup(c,d);if(c==='edit')return vCollectionEdit(b);return vCollectionShow(b)}
@@ -37,7 +37,7 @@ window.addEventListener('hashchange',route);
     if(!ok){Cloud.on=false;Cloud.tablesMissing=true;IDB.db.close();IDB.name='novaro_v2';for(const t of TABLES)S[t]=null;await loadState(false)}
     else{await Cloud.init();await Cloud.loadPublicSettings();
       if(recovery){history.replaceState(null,'',location.pathname+location.search+'#reset-password')}else if(authErr){history.replaceState(null,'',location.pathname+location.search+'#forgot');Cloud.authErr=authErr}
-      if(Cloud.role){app().innerHTML='<p style="padding:24px;font-family:Cairo,sans-serif;color:#64748b">…</p>';
+      if(Cloud.role){app().innerHTML='<div class="nv-skel" dir="rtl" aria-busy="true"><i style="height:54px"></i><div class="r"><i style="height:110px"></i><i style="height:110px"></i><i style="height:110px"></i><i style="height:110px"></i></div><i style="height:260px"></i><p>جارٍ تحميل البيانات…</p></div>';
         try{await Promise.race([Cloud.sync().then(()=>Cloud.pull()),new Promise(r=>setTimeout(r,15000))])}catch(e){console.warn(e)}}}
   }else await loadState(false);
   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});

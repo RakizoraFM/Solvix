@@ -29,7 +29,7 @@ function paginate(list,per=20){const total=list.length,last=Math.max(1,Math.ceil
   const footer=last>1?`<div class="card-footer clearfix"><div class="row align-items-center"><div class="col-sm-6"><span class="text-muted">عرض ${(page-1)*per+1} إلى ${(page-1)*per+items.length} من ${total} نتيجة</span></div><div class="col-sm-6">${links}</div></div></div>`:'';
   return {items,footer}}
 let aflash=null;const charts=[];function destroyCharts(){while(charts.length){try{charts.pop().destroy()}catch(e){}}}
-const chart=(el,o)=>{if(!el||!el.isConnected)return;o.chart=Object.assign({animations:{enabled:false},redrawOnParentResize:false,redrawOnWindowResize:false},o.chart);const c=new ApexCharts(el,o);charts.push(c);c.render()};const setAFlash=(m,k='success')=>{aflash={m,k}};
+const chart=(el,o)=>{if(!el||!el.isConnected)return;o.chart=Object.assign({animations:{enabled:false},redrawOnParentResize:false,redrawOnWindowResize:false},o.chart);el.innerHTML='';const c=new ApexCharts(el,o);charts.push(c);c.render()};const setAFlash=(m,k='success')=>{aflash={m,k}};
 const isAuthed=()=>Cloud.on?(Cloud.role==='admin'||Cloud.role==='reader'):isAdmin();
 /* NV10 roles: owner (مالك المشروع) / manager (مدير المشروع) / coordinator (منسق المشروع) sign in by e-mail; field supervisors (مشرف ميدان) are employees */
 const ROLE_L={owner:'مالك المشروع',manager:'مدير المشروع',coordinator:'منسق المشروع',reader:'قراءة فقط',field:'مشرف ميدان'};
@@ -76,7 +76,7 @@ function adminShell(active,title,content){
     ${navItem('#admin/log','bi-journal-text','سجل التعديلات',A('log'))}
     <li class="nav-item"><a href="javascript:void 0" class="nav-link" data-nv-logout><i class="nav-icon bi bi-box-arrow-right"></i><p>تسجيل الخروج</p></a></li>
    </ul></nav></div></aside>
-  <main class="app-main"><div class="app-content-header"><div class="container-fluid"><div class="row"><div class="col-sm-6"><h3 class="mb-0">${esc(title)}</h3></div></div></div></div>
+  <main class="app-main"><div class="app-content-header"><div class="container-fluid">${pageHead(active,title)}</div></div>
    <div class="app-content"><div class="container-fluid">${settingsTabs(active)}${fl?`<div class="alert alert-${fl.k} alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>${esc(fl.m)}</div>`:''}${content}</div></div></main>
   <footer class="app-footer"><div class="float-end d-none d-sm-inline">RakizoraFM • إدارة المرافق والأصول الذكية</div><strong>&copy; ${new Date().getFullYear()} ${esc(appName())}.</strong> جميع الحقوق محفوظة.</footer>
   </div><div class="sidebar-overlay"></div>`;
@@ -156,7 +156,7 @@ function vCollections(){
     <td><div class="d-flex align-items-center"><div class="avatar avatar-sm bg-primary-subtle text-primary rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="bi bi-person small"></i></div><span class="fw-medium">${esc(empName(g.emp)==='—'?'غير محدد':empName(g.emp))}</span></div></td>
     <td><span>${esc((get('schools',g.school)||{}).name||'غير محدد')}</span></td><td class="text-center"><span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-3">${g.count}</span></td>
     <td><div class="small text-muted"><i class="bi bi-clock me-1"></i>${g.last?fmtYmd(g.last):'--'}</div></td>
-    <td class="text-end pe-3"><div class="d-flex justify-content-end gap-2">${iconBtn(`#admin/collections/view/${encodeURIComponent(g.emp)}/${encodeURIComponent(g.school)}`,'bi-eye text-primary')}<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-delgroup="${esc(g.k)}"><i class="bi bi-trash text-danger"></i></button></div></td></tr>`).join('')||'<tr><td colspan="6" class="text-center py-5 text-muted">لا توجد أعمال جرد مطابقة.</td></tr>'}
+    <td class="text-end pe-3"><div class="d-flex justify-content-end gap-2">${iconBtn(`#admin/collections/view/${encodeURIComponent(g.emp)}/${encodeURIComponent(g.school)}`,'bi-eye text-primary')}<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-delgroup="${esc(g.k)}"><i class="bi bi-trash text-danger"></i></button></div></td></tr>`).join('')||(any?emptyRow(6,'bi-search','لا توجد أعمال جرد مطابقة','جرّب تغيير الفلاتر أو مسحها.','<a href="#admin/collections" class="btn btn-sm btn-outline-primary">مسح الفلاتر</a>'):emptyRow(6,'bi-collection','لا توجد أعمال جرد بعد','تظهر هنا أعمال مشرفي الميدان بعد أول إرسال من تطبيق الجوال.'))}
   </tbody></table></div></div>${pg.footer}</div>${reassignModal('نقل أعمال الجرد','اختر مشرف الميدان الذي تُنقل إليه أعمال الجرد المحددة.')}`);
   const form=$('#collections-form');const submitF=()=>{const fd=new FormData(form);const o={page:null};for(const k of ['search','employee_id','school_id','date','status'])o[k]=fd.get(k)||null;location.hash=withQuery(o)};
   form.onsubmit=e=>{e.preventDefault();submitF()};$$('[data-autosubmit]',form).forEach(s=>s.onchange=submitF);
@@ -204,7 +204,7 @@ function vCollectionGroup(empId,schoolId){
     <td><span class="d-block fw-medium">${esc(c.brand||'--')}</span><span class="text-muted small">${esc(c.serial||'--')}</span></td>
     <td>${c.submitted_at?'<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2"><i class="bi bi-check-circle me-1"></i>مُرسل</span>':'<span class="badge rounded-pill bg-warning-subtle text-warning border border-warning-subtle px-2"><i class="bi bi-clock me-1"></i>معلّق</span>'}</td>
     <td><div class="small"><span class="d-block">${c.submitted_at?fmtYmd(c.submitted_at):'--'}</span></div></td>
-    <td class="text-end pe-3"><div class="d-flex justify-content-end gap-2">${iconBtn('#admin/collections/'+encodeURIComponent(c.id),'bi-eye text-primary','عرض التفاصيل')}${iconBtn('#admin/collections/'+encodeURIComponent(c.id)+'/edit','bi-pencil text-warning','تعديل')}<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" title="حذف" data-del="${esc(c.id)}"><i class="bi bi-trash text-danger"></i></button></div></td></tr>`}).join('')||'<tr><td colspan="8" class="text-center py-5 text-muted">لا توجد أعمال جرد.</td></tr>'}
+    <td class="text-end pe-3"><div class="d-flex justify-content-end gap-2">${iconBtn('#admin/collections/'+encodeURIComponent(c.id),'bi-eye text-primary','عرض التفاصيل')}${iconBtn('#admin/collections/'+encodeURIComponent(c.id)+'/edit','bi-pencil text-warning','تعديل')}<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" title="حذف" data-del="${esc(c.id)}"><i class="bi bi-trash text-danger"></i></button></div></td></tr>`}).join('')||emptyRow(8,'bi-collection','لا توجد أعمال جرد')}
    </tbody></table></div></div></div>`);
   $$('img[data-photo]').forEach(i=>i.onclick=()=>window.open(i.src,'_blank'));
   $('#xl').onclick=()=>exportCollections(list,`${s.moe}_${s.name}.xlsx`);
@@ -227,7 +227,7 @@ function vCollectionShow(id){
    <div class="card mt-3"><div class="card-header"><h3 class="card-title">خريطة موقع الأصل</h3></div><div class="card-body p-2">${hasLL?'<div id="location-map"></div>':'<p class="text-muted text-center py-4">لا توجد بيانات موقع.</p>'}</div></div></div></div>
   <div class="card"><div class="card-header"><h3 class="card-title">تفاصيل الأصل</h3>${(()=>{const ty=get('types',c.type_id);return ty&&ty.code?`<div class="small mt-1">${esc(typeLevels(ty))} · <span class="font-monospace" dir="ltr">${esc(ty.code)}</span> · ${ty.critical?'<span class="badge text-bg-danger">حرج</span>':'<span class="badge text-bg-light border">غير حرج</span>'}</div>`:''})()}</div><div class="card-body table-responsive p-0"><table class="table table-striped"><thead><tr>${['المستوى الأول','وصف الأصل','الكمية','السعر','الشركة المصنعة','الماركة','الموديل','السعة','الرقم التسلسلي','رقم ASAD','الحالة الفنية','الإرسال','تاريخ الإرسال'].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
    ${c.type_id?`<tr><td>${esc((get('categories',c.category_id)||{}).ar||'--')}</td><td>${esc((get('types',c.type_id)||{}).ar||'--')}</td><td><span class="badge text-bg-secondary">${num(c.quantity)}</span></td><td>${c.price?Number(c.price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td><td>${esc(c.manufacturer||'--')}</td><td>${esc(c.brand||'--')}</td><td>${esc(c.model||'--')}</td><td>${esc(c.capacity||'--')}</td><td>${esc(c.serial||'--')}</td><td>${esc(c.tag||'--')}</td>
-    <td>${c.condition_id?`<span class="badge text-bg-info">${esc((get('conditions',c.condition_id)||{}).ar||'')}</span>`:'--'}</td><td>${c.submitted_at?'<span class="badge text-bg-success">مُرسل</span>':'<span class="badge text-bg-warning">معلّق</span>'}</td><td>${c.submitted_at?fmtYmd(c.submitted_at):'--'}</td></tr>`:'<tr><td colspan="13" class="text-center">لا توجد أصول مسجلة.</td></tr>'}</tbody></table></div></div>
+    <td>${c.condition_id?`<span class="badge text-bg-info">${esc((get('conditions',c.condition_id)||{}).ar||'')}</span>`:'--'}</td><td>${c.submitted_at?'<span class="badge text-bg-success">مُرسل</span>':'<span class="badge text-bg-warning">معلّق</span>'}</td><td>${c.submitted_at?fmtYmd(c.submitted_at):'--'}</td></tr>`:emptyRow(13,'bi-box-seam','لا توجد أصول مسجلة')}</tbody></table></div></div>
   <div class="row"><div class="col-md-12"><div class="card"><div class="card-header"><h3 class="card-title">معلومات إضافية</h3></div><div class="card-body"><div class="row">
    <div class="col-md-4"><p><strong>الوكيل (إن وجد):</strong> ${esc(c.agency||'--')}</p><p><strong>الضمان (إن وجد):</strong> ${esc(c.warranty||'--')}</p></div>
    <div class="col-md-4"><p><strong>تاريخ التركيب:</strong> ${esc(c.install_date||'--')}</p><p><strong>دولة الموقع (ASAD):</strong> ${esc(c.asad_country||'--')}</p></div>
@@ -322,7 +322,7 @@ function vLookup(key){if(key==='asset-categories')return go('#admin/asset-types'
    <div class="d-flex gap-2">${head}<a href="#admin/${key}/create" class="btn btn-primary btn-sm d-flex align-items-center gap-1"><i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">${L.add}</span></a></div></div></div>${filt}
   ${key==='asset-types'?catalogBar():''}
   <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light"><tr><th class="ps-3" style="width: 100px;">${sortA('id','#')}</th>${L.cols.map(([c,l])=>`<th${c==='types_count'?' class="text-center"':''}>${sortA(sk[c]||c,l,c==='ar'?'name_ar':null,'asc')}</th>`).join('')}<th class="text-end pe-3">إجراءات</th></tr></thead><tbody>
-  ${pg.items.map(x=>`<tr><td class="ps-3 text-muted">${esc(dispId(x.id))}</td>${L.cols.map(([c])=>cell(x,c)).join('')}<td class="text-end pe-3"><div class="d-flex justify-content-end gap-2">${iconBtn(`#admin/${key}/${encodeURIComponent(x.id)}/edit`,'bi-pencil text-warning')}${L.del?`<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-del="${esc(x.id)}"><i class="bi bi-trash text-danger"></i></button>`:''}</div></td></tr>`).join('')||`<tr><td colspan="${L.cols.length+2}" class="text-center py-5 text-muted">${L.empty}</td></tr>`}
+  ${pg.items.map(x=>`<tr><td class="ps-3 text-muted">${esc(dispId(x.id))}</td>${L.cols.map(([c])=>cell(x,c)).join('')}<td class="text-end pe-3"><div class="d-flex justify-content-end gap-2">${iconBtn(`#admin/${key}/${encodeURIComponent(x.id)}/edit`,'bi-pencil text-warning')}${L.del?`<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-del="${esc(x.id)}"><i class="bi bi-trash text-danger"></i></button>`:''}</div></td></tr>`).join('')||emptyRow(L.cols.length+2,L.icon,L.empty)}
   </tbody></table></div></div>${pg.footer}</div>`);
   $$('[data-search]').forEach(f=>{const sub=()=>{const fd=new FormData(f);location.hash=withQuery({search:fd.get('search')||null,category_id:fd.get('category_id')||null,page:null})};f.onsubmit=e=>{e.preventDefault();sub()};$$('[data-autosubmit]',f).forEach(s=>s.onchange=sub)});
   $$('[data-del]').forEach(b=>b.onclick=()=>{if(!confirm('هل أنت متأكد؟'))return;const id=b.dataset.del;if(S.collections.some(c=>c.condition_id===id)){setAFlash('هذه الحالة مستخدمة في أصول مجرودة ولا يمكن حذفها.','danger');return vLookup(key)}S[L.t]=S[L.t].filter(x=>x.id!==id);reindex();save(L.t);setAFlash('تم حذف الحالة.');vLookup(key)});
@@ -420,7 +420,7 @@ function logTable(list){return `<table class="table table-striped mb-0"><thead><
   <td class="small">${Object.entries(l.changes).map(([k,v])=>`<div><strong>${esc(FIELD_LBL[k]||k)}:</strong> <span class="text-muted text-decoration-line-through">${esc(fieldText(k,v.old))}</span> → ${esc(fieldText(k,v.new))}</div>`).join('')}</td>
   <td>${S.collections.some(c=>c.id===l.coll)?iconBtn('#admin/collections/'+encodeURIComponent(l.coll),'bi-eye text-primary'):'<span class="text-muted small">محذوف</span>'}</td></tr>`).join('')}</tbody></table>`}
 function vLog(){const pg=paginate(S.log,50);
-  adminShell('log','سجل التعديلات',`<div class="card shadow-sm border-0 mb-4"><div class="card-header bg-white py-3"><h3 class="card-title fw-bold mb-0 text-dark"><i class="bi bi-journal-text me-2 text-primary"></i>سجل التعديلات</h3></div><div class="card-body p-0 table-responsive">${pg.items.length?logTable(pg.items):'<p class="text-center py-5 text-muted mb-0">لا توجد تعديلات مسجلة.</p>'}</div>${pg.footer}</div>`)}
+  adminShell('log','سجل التعديلات',`<div class="card shadow-sm border-0 mb-4"><div class="card-header bg-white py-3"><h3 class="card-title fw-bold mb-0 text-dark"><i class="bi bi-journal-text me-2 text-primary"></i>سجل التعديلات</h3></div><div class="card-body p-0 table-responsive">${pg.items.length?logTable(pg.items):emptyBox('bi-journal-check','لا توجد تعديلات مسجلة','يُسجَّل هنا كل تعديل يجريه مشرف الميدان على أصل بعد إرساله.')}</div>${pg.footer}</div>`)}
 </script>
 <script id="nv-admin-cloud">
 /* fill an empty cloud with the built-in lists (seeders), then send them */
@@ -476,7 +476,7 @@ async function loadStaff(){const box=$('#staffBox');if(!box)return;let list=[],e
    return `<tr><td class="ps-3 fw-medium">${esc(u.name)}${u.user_id===me?' <span class="badge text-bg-light border">أنت</span>':''}</td><td class="small" dir="ltr">${esc(u.email)}</td>
    <td><select class="form-select form-select-sm" data-role="${esc(u.user_id)}" ${lock?'disabled':''} style="width:auto">${opts.map(([v,l])=>`<option value="${v}" ${R(u.role)===v?'selected':''}>${l}</option>`).join('')}</select></td>
    <td><div class="form-check form-switch"><input class="form-check-input" type="checkbox" data-act="${esc(u.user_id)}" ${u.active?'checked':''} ${lock?'disabled':''}></div></td>
-   <td class="text-end pe-3">${lock&&u.user_id!==me?'':`<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-pw="${esc(u.user_id)}" title="كلمة مرور جديدة"><i class="bi bi-key text-primary"></i></button>`}</td></tr>`}).join('')||'<tr><td colspan="5" class="text-center py-4 text-muted">لا توجد حسابات.</td></tr>'}
+   <td class="text-end pe-3">${lock&&u.user_id!==me?'':`<button type="button" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle" data-pw="${esc(u.user_id)}" title="كلمة مرور جديدة"><i class="bi bi-key text-primary"></i></button>`}</td></tr>`}).join('')||emptyRow(5,'bi-person-badge','لا توجد حسابات')}
   </tbody></table></div></div></div>`;
   const rpc=async(fn,args,msg)=>{try{const c=await Cloud.sb();Cloud.chk(await c.rpc(fn,args));if(msg)setAFlash(msg)}catch(e){setAFlash(e.message,'danger')}vEmployees()};
   $$('[data-role]',box).forEach(x=>x.onchange=()=>{const u=list.find(y=>y.user_id===x.dataset.role);rpc('nv_staff_set',{p_user:u.user_id,p_role:x.value,p_active:u.active},`تم تغيير دور ${u.name} إلى ${ROLE_L[x.value]}.`)});
@@ -536,24 +536,6 @@ function schoolReport(list,s){const sub=list.filter(c=>c.type_id);if(!sub.length
   const EN=['Label Number','Asset Code','Level 1','Level 2','Level 3','Asset','Criticality','Condition','Quantity','Unit Price','Total','Parent/Child','Brand','Model','Serial Number','ASAD Tag','Floor','Room Name','Room Number','Field Supervisor','Submitted At'];
   const head=l=>[[l==='ar'?'المدرسة':'School',s.name],[l==='ar'?'الرقم الوزاري':'MOE Number',s.moe],[l==='ar'?'المعرّف':'Identifier',s.ident],[l==='ar'?'المحافظة':'City',s.city],[]];
   writeXlsx([['عربي',[...head('ar'),AR,...sub.map(c=>row(c,'ar'))]],['English',[...head('en'),EN,...sub.map(c=>row(c,'en'))]]],`${s.moe||s.ident}_${s.name}_report.xlsx`)}
-/* category drill-down: category → condition → type → schools, with quantity and total cost */
-function vAnalytics(){const p=qp();const cat=p.get('cat'),cond=p.get('cond'),type=p.get('type');
-  let list=S.collections.filter(c=>c.submitted_at&&c.type_id);if(cat)list=list.filter(c=>c.category_id===cat);if(cond)list=list.filter(c=>(c.condition_id||'none')===cond);if(type)list=list.filter(c=>c.type_id===type);
-  const cost=c=>c.price!=null&&c.price!==''?num(c.quantity)*Number(c.price):0;
-  const group=key=>{const m=new Map();for(const c of list){const k=key(c)||'none';const x=m.get(k)||{k,rec:0,qty:0,cost:0,schools:new Set()};x.rec++;x.qty+=num(c.quantity);x.cost+=cost(c);x.schools.add(c.school_id);m.set(k,x)}return [...m.values()].sort((a,b)=>b.qty-a.qty)};
-  const nm=(t,id)=>{if(id==='none')return 'غير محدد';const x=get(t,id)||{};return x.ar||x.name||id};const money=n=>Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2});
-  const lvl=!cat?['cat','categories','الفئة']:!cond?['cond','conditions','الحالة الفنية']:!type?['type','types','نوع الأصل']:['school','schools','المدرسة'];
-  const rows=group(c=>lvl[0]==='cat'?c.category_id:lvl[0]==='cond'?c.condition_id:lvl[0]==='type'?c.type_id:c.school_id);
-  const tot=rows.reduce((a,x)=>({qty:a.qty+x.qty,cost:a.cost+x.cost,rec:a.rec+x.rec}),{qty:0,cost:0,rec:0});
-  const crumbs=[['#admin/analytics','كل الفئات'],...(cat?[[`#admin/analytics?cat=${encodeURIComponent(cat)}`,nm('categories',cat)]]:[]),...(cond?[[`#admin/analytics?cat=${encodeURIComponent(cat)}&cond=${encodeURIComponent(cond)}`,nm('conditions',cond)]]:[]),...(type?[['',nm('types',type)]]:[])];
-  const link=x=>lvl[0]==='school'?`#admin/collections?school_id=${encodeURIComponent(x.k)}`:withQuery({[lvl[0]]:x.k});
-  adminShell('analytics','تحليل الأصول',`<nav aria-label="breadcrumb"><ol class="breadcrumb mb-3">${crumbs.map(([h,l],i)=>i===crumbs.length-1?`<li class="breadcrumb-item active">${esc(l)}</li>`:`<li class="breadcrumb-item"><a href="${h}">${esc(l)}</a></li>`).join('')}</ol></nav>
-  <div class="row g-3 mb-3">${[['bi-box-seam','إجمالي الكمية',nf(tot.qty)],['bi-cash-coin','إجمالي التكلفة',money(tot.cost)],['bi-list-ol','عدد السجلات',nf(tot.rec)]].map(([i,l,v])=>`<div class="col-md-4"><div class="card border-0 shadow-sm"><div class="card-body d-flex align-items-center gap-3"><i class="bi ${i} fs-3 text-primary"></i><div><div class="small text-muted">${l}</div><div class="fs-4 fw-bold">${v}</div></div></div></div></div>`).join('')}</div>
-  <div class="card shadow-sm border-0"><div class="card-header bg-white py-3"><h3 class="card-title fw-bold mb-0"><i class="bi bi-diagram-3 me-2 text-primary"></i>حسب ${lvl[2]}</h3><small class="text-muted d-block">${lvl[0]==='school'?'اضغط المدرسة لفتح أعمالها':'اضغط أي صف للتعمق'}</small></div>
-  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light"><tr><th class="ps-3">${lvl[2]}</th><th class="text-center">الكمية</th><th class="text-center">السجلات</th><th class="text-center">المدارس</th><th class="text-end pe-3">إجمالي التكلفة</th><th style="width:30%"></th></tr></thead><tbody>
-  ${rows.map(x=>`<tr class="cursor-pointer" onclick="location.hash='${link(x)}'"><td class="ps-3 fw-bold"><a href="${link(x)}" class="text-decoration-none">${esc(nm(lvl[1],x.k))}</a></td><td class="text-center">${nf(x.qty)}</td><td class="text-center">${x.rec}</td><td class="text-center">${x.schools.size}</td><td class="text-end pe-3 font-monospace">${money(x.cost)}</td>
-   <td><div class="progress" style="height:8px"><div class="progress-bar" style="width:${tot.qty?Math.round(x.qty/tot.qty*100):0}%"></div></div></td></tr>`).join('')||'<tr><td colspan="6" class="text-center py-5 text-muted">لا توجد أصول مُرسلة بعد.</td></tr>'}
-  </tbody></table></div></div></div>`)}
 /* collections import (same columns as the export; every row is checked first, nothing is added if one row fails) */
 async function importCollections(){const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;let rows;try{rows=await readXlsx(f)}catch(e){return alert(e.message)}
   const pick=(r,names)=>{for(const n of names)if(n in r&&String(r[n]).trim()!=='')return String(r[n]).trim();return ''};
@@ -659,7 +641,7 @@ function vCatalog(){const ro=Cloud.on&&Cloud.role==='reader';
      <td class="font-monospace small text-nowrap" dir="ltr" style="overflow-wrap:normal">${hi(r.code,'code')||'<span class="text-muted">—</span>'}</td><td><span class="badge bg-primary-subtle text-primary border border-primary-subtle nvc-chip">${esc(r.l1)}</span></td><td class="small">${esc(r.l2)}</td><td class="small">${esc(r.l3)}</td>
      <td class="fw-semibold">${hi(r.ar,'ar')}</td><td class="small text-muted" dir="ltr">${hi(r.en,'en')}</td><td>${r.critical?'<span class="badge text-bg-danger">⚠️ حرج</span>':'<span class="badge text-bg-light border">غير حرج</span>'}</td>
      <td class="text-center">${r.used?`<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle">${r.used}</span>`:'<span class="text-muted small">—</span>'}</td>
-     <td class="text-end pe-3 text-nowrap">${ro?'':iconBtn(`#admin/asset-types/${encodeURIComponent(r.id)}/edit`,'bi-pencil text-warning','تعديل')}</td></tr>`).join('')||`<tr><td colspan="${CAT_COLS.length+2}" class="text-center py-5 text-muted">لا توجد نتائج مطابقة للفلاتر.</td></tr>`;
+     <td class="text-end pe-3 text-nowrap">${ro?'':iconBtn(`#admin/asset-types/${encodeURIComponent(r.id)}/edit`,'bi-pencil text-warning','تعديل')}</td></tr>`).join('')||emptyRow(CAT_COLS.length+2,'bi-search','لا توجد نتائج مطابقة للفلاتر','جرّب كلمة أخرى أو امسح الفلاتر.');
     $$('#nvcBody [data-id]').forEach(c=>c.onchange=()=>{c.checked?catState.sel.add(c.dataset.id):catState.sel.delete(c.dataset.id);c.closest('tr').classList.toggle('sel',c.checked);bulk()});
     $('#nvcCount').textContent=`${rows.length} من ${all.length} · ${rows.filter(r=>r.critical).length} حرج`;
     $('#nvcInfo').textContent=rows.length?`عرض ${(catState.page-1)*per+1}–${(catState.page-1)*per+items.length} من ${rows.length}`:'';
@@ -724,7 +706,7 @@ function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,d
     for(const k of vis.filter(x=>x.filter==='select')){const src=k.dep?all.filter(r=>k.dep.every(d=>!F[d]||String(val(r,d))===F[d])):all;opts(Q(`[data-f="${k.k}"]`),[...new Set(src.map(r=>val(r,k.k)))].filter(v=>v!==''&&v!=null).sort((a,b)=>cmp(a,b)),F[k.k]||'',k.lbl)}
     QA('[data-sort]').forEach(th=>{const on=th.dataset.sort===st.sort;th.classList.toggle('on',on);th.querySelector('i').className='bi '+(on?(st.dir==='asc'?'bi-sort-up':'bi-sort-down'):'bi-arrow-down-up')});
     const per=st.per||rows.length||1,last=Math.max(1,Math.ceil(rows.length/per));st.page=Math.min(st.page,last);const items=rows.slice((st.page-1)*per,st.page*per);
-    Q('[data-nvt="body"]').innerHTML=items.map(r=>`<tr class="${st.sel.has(r.id)?'sel':''} ${c.rowCls?c.rowCls(r):''}"><td class="text-center"><input type="checkbox" class="form-check-input" data-id="${esc(r.id)}" ${st.sel.has(r.id)?'checked':''}></td>${vis.map(k=>`<td class="${k.cls||''}">${k.html?k.html(r):esc(val(r,k.k)??'')}</td>`).join('')}<td class="text-end pe-2 text-nowrap">${ro?'':c.actions(r)}</td></tr>`).join('')||`<tr><td colspan="${vis.length+2}" class="text-center py-5 text-muted">لا توجد نتائج مطابقة.</td></tr>`;
+    Q('[data-nvt="body"]').innerHTML=items.map(r=>`<tr class="${st.sel.has(r.id)?'sel':''} ${c.rowCls?c.rowCls(r):''}"><td class="text-center"><input type="checkbox" class="form-check-input" data-id="${esc(r.id)}" ${st.sel.has(r.id)?'checked':''}></td>${vis.map(k=>`<td class="${k.cls||''}">${k.html?k.html(r):esc(val(r,k.k)??'')}</td>`).join('')}<td class="text-end pe-2 text-nowrap">${ro?'':c.actions(r)}</td></tr>`).join('')||(all.length?emptyRow(vis.length+2,'bi-search','لا توجد نتائج مطابقة','جرّب كلمة أخرى أو اضغط «مسح الفلاتر».'):emptyRow(vis.length+2,c.icon,c.empty||'لا توجد بيانات بعد',c.emptyHint||''));
     QA('[data-nvt="body"] [data-id]').forEach(x=>x.onchange=()=>{x.checked?st.sel.add(x.dataset.id):st.sel.delete(x.dataset.id);x.closest('tr').classList.toggle('sel',x.checked);bulk()});
     Q('[data-nvt="count"]').textContent=`${rows.length} من ${all.length}`;Q('[data-nvt="info"]').textContent=rows.length?`عرض ${(st.page-1)*per+1}–${(st.page-1)*per+items.length} من ${rows.length}`:'';
     const P=(n,l,dis,act)=>`<li class="page-item ${dis?'disabled':''} ${act?'active':''}"><a class="page-link" href="javascript:void 0" data-pg="${n}">${l}</a></li>`;const pg=[];
@@ -737,7 +719,7 @@ function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,d
 /* ---------- «المدارس» ---------- */
 const SCH_ST={completed:'مكتملة',in_progress:'قيد التنفيذ',not_started:'لم تبدأ'};
 function vSchools(){const sst=schoolStats();const lastEmp=new Map();for(const c of S.collections){const x=lastEmp.get(c.school_id);if(!x||(c.submitted_at||'')>(x.submitted_at||''))lastEmp.set(c.school_id,c)}
-  const T=nvTable({key:'schools',title:'المدارس',icon:'bi-building',minW:1000,sort:'name',actW:'100px',
+  const T=nvTable({key:'schools',title:'المدارس',icon:'bi-building',empty:'لا توجد مدارس بعد',emptyHint:'أضف مدرسة أو استورد ملف Excel بالمدارس.',minW:1000,sort:'name',actW:'100px',
     init:st=>{const s=qp().get('status');if(s&&SCH_ST[s])st.f.work=SCH_ST[s];else if(s==='active'||s==='inactive')st.f.status=s==='active'?'نشطة':'غير نشطة';const q=qp().get('search');if(q)st.f.q=q},
     rows:()=>S.schools.map(s=>{const x=sst.get(s.id);const le=lastEmp.get(s.id);return {id:s.id,s,no:num(dispId(s.id))||0,moe:s.moe||'',ident:s.ident||'',name:s.name||'',city:s.city||'',district:s.district||'',site:s.site||'',
       emp:s.completed_by?empName(s.completed_by):le?empName(le.employee_id):'',work:SCH_ST[schoolState(s,x)],status:s.status==='active'?'نشطة':'غير نشطة',recs:x?x.any:0,created:fmtYmd(s.created_at)}}),
@@ -773,7 +755,7 @@ async function importSchoolsFile(done){const f=await pickFile('.xlsx,.xls,.csv')
 let empLoginMap=null;
 async function loadEmpLogins(force){if(!Cloud.on)return;if(empLoginMap&&!force)return;try{const c=await Cloud.sb();empLoginMap=new Map((Cloud.chk(await c.rpc('nv_emp_logins'))||[]).map(r=>[r.id,r.has_login]))}catch(e){empLoginMap=new Map()}}
 function vEmployees(){const cnt=new Map();for(const c of S.collections)cnt.set(c.employee_id,(cnt.get(c.employee_id)||0)+1);const ed=Cloud.role==='admin'||!Cloud.on;
-  const T=nvTable({key:'employees',title:'مشرفو الميدان',icon:'bi-person-badge',sub:'يدخلون تطبيق الجرد برقمهم الوظيفي',sort:'name',minW:Cloud.on?860:760,actW:'120px',
+  const T=nvTable({key:'employees',title:'مشرفو الميدان',icon:'bi-person-badge',empty:'لا يوجد مشرفو ميدان بعد',emptyHint:'أضف مشرفاً من «إضافة مستخدم» أعلاه أو استورد ملف Excel.',sub:'يدخلون تطبيق الجرد برقمهم الوظيفي',sort:'name',minW:Cloud.on?860:760,actW:'120px',
     init:st=>{const q=qp().get('search');if(q)st.f.q=q},
     rows:()=>S.employees.map(e=>({id:e.id,e,no:num(dispId(e.id))||0,number:String(e.number),name:e.name,email:e.email||'',role:'مشرف ميدان',recs:cnt.get(e.id)||0,login:!Cloud.on?'':empLoginMap?(empLoginMap.get(e.id)?'نعم':'لا'):'…',created:fmtYmd(e.created_at)})),
     cols:[{k:'no',l:'#',w:'60px',cls:'text-muted small'},{k:'number',l:'الرقم الوظيفي',w:'130px',html:r=>`<code class="text-primary">${esc(r.number)}</code>`},{k:'name',l:'الاسم',w:'24%',cls:'fw-medium'},{k:'email',l:'البريد الإلكتروني',w:'22%',cls:'small',html:r=>r.email?`<span dir="ltr">${esc(r.email)}</span>`:'<span class="text-danger small">بدون بريد</span>'},
@@ -895,23 +877,7 @@ function vDashboard(){
     <div class="d-flex align-items-center gap-2 mb-2"><span class="nvk-ic" style="--c:${tone}"><i class="bi ${icon}"></i></span><span class="nvk-l">${label}</span></div>
     <div class="nvk-v">${val}</div><div class="nvk-s">${subtxt}</div>${extra||''}</div></div></div>`;
   const seg=(k,n,c,l)=>n?`<a class="nvp-seg" href="#admin/schools?status=${k}" style="flex:${n};background:${c}" title="${l}: ${nf(n)} (${pct(n)}%)"></a>`:'';
-  adminShell('dashboard','لوحة التحكم',`<style>
-   .nvd .card{border:1px solid #e2e8f0!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important;border-radius:14px}
-   .nvk-ic{width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--c) 12%,transparent);color:var(--c);font-size:1.05rem}
-   .nvk-l{font-weight:700;color:#475569;font-size:.85rem}.nvk-v{font-size:1.9rem;font-weight:800;color:#0f172a;line-height:1.15;font-variant-numeric:tabular-nums}.nvk-s{color:#64748b;font-size:.8rem;margin-top:.15rem}
-   .nvk-bar{height:6px;border-radius:99px;background:#e2e8f0;overflow:hidden;margin-top:.6rem}.nvk-bar i{display:block;height:100%;background:${DC.done};border-radius:99px}
-   .nvd .up{color:#0a7a0a;font-weight:700}.nvd .down{color:#c03030;font-weight:700}
-   .nvp{display:flex;gap:2px;height:22px;border-radius:8px;overflow:hidden;background:#f1f5f9}.nvp-seg{display:block;min-width:4px;transition:filter .15s}.nvp-seg:hover{filter:brightness(.92)}
-   .nvlg{display:flex;flex-wrap:wrap;gap:1.2rem;margin-top:.7rem;font-size:.85rem}.nvlg b{font-variant-numeric:tabular-nums}.nvlg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:.35rem}
-   .nvc-row{display:grid;grid-template-columns:minmax(80px,140px) 1fr 100px;gap:.6rem;align-items:center;padding:.32rem 0;font-size:.85rem}.nvc-row a{color:#0f172a;text-decoration:none;font-weight:600}
-   .nvc-track{display:flex;gap:2px;height:10px;border-radius:99px;background:#eef2f7;overflow:hidden}.nvc-track span{display:block;height:100%}
-   .nvc-row .num{color:#64748b;font-variant-numeric:tabular-nums;text-align:end;white-space:nowrap}.nvc-row .num b{color:#0f172a}[data-bs-theme=dark] .nvc-row .num b{color:#f1f5f9}
-   .nvc-plain{background:transparent;height:12px}.nvc-plain span:last-child{border-start-end-radius:4px;border-end-end-radius:4px}.nvc-wide{grid-template-columns:minmax(110px,190px) 1fr 90px}.nvc-row a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-   .nvd .card-title{font-size:.98rem;font-weight:800;color:#0f172a;float:none;display:block}.nvd .sub{color:#64748b;font-size:.78rem}
-   [data-bs-theme=dark] .nvd .card{border-color:#1e293b!important}[data-bs-theme=dark] .nvk-v,[data-bs-theme=dark] .nvd .card-title,[data-bs-theme=dark] .nvc-row a{color:#f1f5f9}[data-bs-theme=dark] .nvk-l{color:#cbd5e1}
-   [data-bs-theme=dark] .nvp,[data-bs-theme=dark] .nvc-track,[data-bs-theme=dark] .nvk-bar{background:#1e293b}[data-bs-theme=dark] .nvp-seg.rest,[data-bs-theme=dark] .nvlg i.rest{background:#475569!important}
-   [data-bs-theme=dark] .app-content-header h3{color:#f1f5f9}
-   @media (max-width:576px){.nvc-row,.nvc-wide{grid-template-columns:38% 1fr auto}.nvk-v{font-size:1.6rem}}</style>
+  adminShell('dashboard','لوحة التحكم',`
   <div class="nvd">
   ${empty?`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2"><div class="flex-grow-1"><strong>لا توجد بيانات في قاعدة Solvix بعد.</strong> حمّل القوائم الجاهزة (المدارس، دليل الأصول، أسماء الغرف، الموظفين) مرة واحدة للبدء.</div>${Cloud.role==='admin'?'<button class="btn btn-warning btn-sm" id="initCloud">تحميل القوائم الجاهزة</button>':''}</div>`:''}
   <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
@@ -929,7 +895,7 @@ function vDashboard(){
    <div class="nvp" data-kpi="bar" data-val="${comp},${prog},${ns}">${seg('completed',comp,DC.done,'مكتملة')}${seg('in_progress',prog,DC.prog,'قيد التنفيذ')}${seg('not_started',ns,DC.rest,'لم تبدأ').replace('class="nvp-seg"','class="nvp-seg rest"')}</div>
    <div class="nvlg"><span><i style="background:${DC.done}"></i>مكتملة <b>${nf(comp)}</b> <span class="sub">(${pct(comp)}%)</span></span><span><i style="background:${DC.prog}"></i>قيد التنفيذ <b>${nf(prog)}</b> <span class="sub">(${pct(prog)}%)</span></span><span><i class="rest" style="background:${DC.rest}"></i>لم تبدأ <b>${nf(ns)}</b> <span class="sub">(${pct(ns)}%)</span></span></div></div></div>
   <div class="row g-3 mt-0">
-   <div class="col-lg-7"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">النشاط اليومي</h6><div class="sub">الأصول المجرودة يومياً ${F.days?`— آخر ${F.days} يوماً`:''}، والخط = متوسط 7 أيام</div><div id="chDaily"></div></div></div></div>
+   <div class="col-lg-7"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">النشاط اليومي</h6><div class="sub">الأصول المجرودة يومياً ${F.days?`— آخر ${F.days} يوماً`:''}، والخط = متوسط 7 أيام</div><div id="chDaily" class="mt-2">${skel(280)}</div></div></div></div>
    <div class="col-lg-5"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">أداء مشرفي الميدان</h6><div class="sub">عدد المدارس لكل مشرف — مرتبة من الأعلى</div><div id="chEmp"></div></div></div></div>
    <div class="col-lg-6"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-1">الإنجاز حسب المحافظة</h6><div class="sub mb-2">المكتمل والجاري من مدارس كل محافظة</div><div id="byCity"></div></div></div></div>
    <div class="col-lg-6"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">القيمة التقديرية حسب المستوى الأول</h6><div class="sub">الكمية × السعر (ريال) — اضغط للتحليل</div><div id="chValue"></div></div></div></div>
@@ -970,4 +936,70 @@ function vDashboard(){
       xaxis:{categories:keys.map(fmtDay),tickAmount:Math.min(innerWidth<600?4:10,days),labels:{rotate:0,hideOverlappingLabels:true,style:{fontSize:'11px'}},axisBorder:{show:false},axisTicks:{show:false}},yaxis:{labels:{formatter:v=>nf(Math.round(v))}},tooltip:{...base.tooltip,shared:true,intersect:false,y:{formatter:v=>nf(v)}}});
   }).catch(()=>{});
 }
+</script>
+<script id="nv-nv24">
+/* NV24 — one look for every admin page: page header (icon + title + one-line purpose), empty states with a next step,
+   a skeleton while the first data loads, a busy line while the cloud refreshes, and «تحليل الأصول» in the dashboard style. */
+const PAGE_META={dashboard:['bi-speedometer2','متابعة تقدم الجرد في المدارس'],collections:['bi-collection','ما أرسله مشرفو الميدان، مجمّعاً حسب المدرسة والمشرف'],
+  analytics:['bi-diagram-3','الكمية والتكلفة حسب الفئة ثم الحالة ثم النوع ثم المدرسة'],schools:['bi-building','المدارس وحالة الجرد في كل منها'],
+  employees:['bi-people','حسابات الإدارة ومشرفو الميدان'],users:['bi-people','حسابات الإدارة ومشرفو الميدان'],settings:['bi-gear','إعدادات التطبيق والقوائم المرجعية'],
+  label:['bi-qr-code','حجم الملصق وشعاره ومحتوى رمز QR'],'asset-types':['bi-diagram-3','الدليل المعتمد بأربعة مستويات وكود لكل أصل'],'asset-categories':['bi-diagram-3','الدليل المعتمد بأربعة مستويات وكود لكل أصل'],
+  'room-names':['bi-door-open','الأسماء التي يختار منها مشرف الميدان'],'asset-conditions':['bi-shield-check','الحالات الفنية التي تُسجَّل لكل أصل'],
+  data:['bi-database','الاتصال بقاعدة البيانات، والنسخ الاحتياطي، والاستيراد والتصدير'],log:['bi-journal-text','تعديلات مشرفي الميدان على الأصول بعد إرسالها']};
+function pageHead(active,title){const m=PAGE_META[active.split('.')[0]]||['bi-grid',''];
+  return `<div class="nv-ph"><span class="nv-ph-ic"><i class="bi ${m[0]}"></i></span><div class="flex-grow-1" style="min-width:0"><h3 class="mb-0">${esc(title)}</h3>${m[1]?`<div class="nv-ph-sub">${m[1]}</div>`:''}</div></div>`}
+function emptyBox(icon,title,text,action){return `<div class="nv-empty"><span class="ic"><i class="bi ${icon||'bi-inbox'}"></i></span><b>${title}</b>${text?`<p>${text}</p>`:''}${action?`<p>${action}</p>`:''}</div>`}
+const emptyRow=(cols,icon,title,text,action)=>`<tr><td colspan="${cols}" class="p-0 border-0">${emptyBox(icon,String(title||'').replace(/\.$/,''),text,action)}</td></tr>`;
+const skel=h=>`<div class="nv-sk-in" style="height:${h}px"></div>`;
+/* «تحليل الأصول»: filters (city, critical only, sort), KPI cards, condition split, top cost, drill-down table */
+const condColor=(id,i)=>{if(id==='none')return '#94a3b8';const n=(get('conditions',id)||{}).ar||'';if(isWeak(id))return '#d03b3b';if(/ممتاز|جديد|سليم|جيد/.test(n))return '#0ca30c';if(/مناسب|مقبول|متوسط/.test(n))return '#eda100';return ['#2a78d6','#6250d6','#1baf7a','#eb6834'][i%4]};
+function vAnalytics(){const p=qp();const cat=p.get('cat'),cond=p.get('cond'),type=p.get('type'),city=p.get('city')||'',crit=p.get('crit')==='1',sort=p.get('sort')==='cost'?'cost':'qty';
+  let list=S.collections.filter(c=>c.submitted_at&&c.type_id);
+  if(city)list=list.filter(c=>(get('schools',c.school_id)||{}).city===city);if(crit)list=list.filter(c=>(get('types',c.type_id)||{}).critical);
+  const base=list;if(cat)list=list.filter(c=>c.category_id===cat);if(cond)list=list.filter(c=>(c.condition_id||'none')===cond);if(type)list=list.filter(c=>c.type_id===type);
+  const cost=c=>c.price!=null&&c.price!==''?num(c.quantity)*Number(c.price):0;
+  const group=(L,key)=>{const m=new Map();for(const c of L){const k=key(c)||'none';const x=m.get(k)||{k,rec:0,qty:0,cost:0,priced:0,schools:new Set()};x.rec++;x.qty+=num(c.quantity);x.cost+=cost(c);if(c.price!=null&&c.price!=='')x.priced+=num(c.quantity);x.schools.add(c.school_id);m.set(k,x)}return [...m.values()].sort((a,b)=>b[sort]-a[sort]||b.qty-a.qty)};
+  const nm=(t,id)=>{if(id==='none')return 'غير محدد';const x=get(t,id)||{};return x.ar||x.name||id};
+  const lvl=!cat?['cat','categories','المستوى الأول']:!cond?['cond','conditions','الحالة الفنية']:!type?['type','types','الأصل']:['school','schools','المدرسة'];
+  const rows=group(list,c=>lvl[0]==='cat'?c.category_id:lvl[0]==='cond'?c.condition_id:lvl[0]==='type'?c.type_id:c.school_id);
+  const tot=rows.reduce((a,x)=>({qty:a.qty+x.qty,cost:a.cost+x.cost,rec:a.rec+x.rec}),{qty:0,cost:0,rec:0});
+  const schoolsN=new Set(list.map(c=>c.school_id)).size;const critL=list.filter(c=>(get('types',c.type_id)||{}).critical);const critQ=critL.reduce((a,c)=>a+num(c.quantity),0),critW=critL.filter(c=>isWeak(c.condition_id)).reduce((a,c)=>a+num(c.quantity),0);
+  const keep={city:city||null,crit:crit?'1':null,sort:sort==='cost'?'cost':null};const q=o=>{const s=new URLSearchParams();for(const [k,v] of Object.entries(Object.assign({},keep,o)))if(v)s.set(k,v);const t=s.toString();return '#admin/analytics'+(t?'?'+t:'')};
+  const crumbs=[[q({}),'كل المستوى الأول'],...(cat?[[q({cat}),nm('categories',cat)]]:[]),...(cond?[[q({cat,cond}),nm('conditions',cond)]]:[]),...(type?[['',nm('types',type)]]:[])];
+  const link=x=>lvl[0]==='school'?`#admin/collections?school_id=${encodeURIComponent(x.k)}`:withQuery({[lvl[0]]:x.k});
+  const cities=[...new Set(S.schools.map(s=>s.city).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const kpi=(key,icon,tone,label,val,subtxt)=>`<div class="col-xl-3 col-md-6"><div class="nvk card h-100" data-kpi="${key}" data-val="${esc(String(val).replace(/[^\d.]/g,''))}"><div class="card-body"><div class="d-flex align-items-center gap-2 mb-2"><span class="nvk-ic" style="--c:${tone}"><i class="bi ${icon}"></i></span><span class="nvk-l">${label}</span></div><div class="nvk-v">${val}</div><div class="nvk-s">${subtxt}</div></div></div></div>`;
+  /* condition split of the current selection (one stacked bar) */
+  const cs=group(list,c=>c.condition_id).sort((a,b)=>b.qty-a.qty);const cHref=x=>cat&&!cond?withQuery({cond:x.k}):'';
+  const condBar=cs.length?`<div class="nvp" data-kpi="cond" data-val="${cs.length}">${cs.map((x,i)=>{const h=cHref(x);return `<${h?'a':'span'} class="nvp-seg" ${h?`href="${h}"`:''} style="flex:${x.qty||.0001};background:${condColor(x.k,i)}" title="${esc(nm('conditions',x.k))}: ${nf(x.qty)}"></${h?'a':'span'}>`}).join('')}</div>
+    <div class="nvlg">${cs.map((x,i)=>`<span><i style="background:${condColor(x.k,i)}"></i>${cHref(x)?`<a href="${cHref(x)}">${esc(nm('conditions',x.k))}</a>`:esc(nm('conditions',x.k))} <b>${nf(x.qty)}</b> <span class="sub">(${tot.qty?Math.round(x.qty/tot.qty*100):0}%)</span></span>`).join('')}</div>`:'';
+  /* top cost at the current level */
+  const tc=rows.filter(x=>x.cost>0).sort((a,b)=>b.cost-a.cost).slice(0,6);const cmax=Math.max(1,...tc.map(x=>x.cost));
+  const costBars=tc.map(x=>`<div class="nvc-row nvc-wide" title="${esc(nm(lvl[1],x.k))}: ${sar(x.cost)} ريال"><a href="${link(x)}">${esc(nm(lvl[1],x.k))}</a><div class="nvc-track nvc-plain"><span style="width:${x.cost/cmax*100}%;background:#6250d6"></span></div><span class="num">${sar(x.cost)}</span></div>`).join('');
+  const sh=x=>tot.qty?Math.round(x.qty/tot.qty*1000)/10:0;
+  adminShell('analytics','تحليل الأصول',`<div class="nva">
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+   <nav aria-label="breadcrumb" class="me-auto"><ol class="breadcrumb nv-crumb mb-0">${crumbs.map(([h,l],i)=>i===crumbs.length-1?`<li class="breadcrumb-item active">${esc(l)}</li>`:`<li class="breadcrumb-item"><a href="${h}">${esc(l)}</a></li>`).join('')}</ol></nav>
+   <select class="form-select form-select-sm" style="width:auto" id="aCity"><option value="">كل المحافظات</option>${cities.map(c=>`<option ${city===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+   <a class="btn btn-sm ${crit?'btn-danger':'btn-outline-danger'}" href="${withQuery({crit:crit?null:'1'})}"><i class="bi bi-exclamation-triangle me-1"></i>الحرجة فقط</a>
+   <div class="btn-group btn-group-sm">${[['qty','الكمية'],['cost','التكلفة']].map(([k,l])=>`<a class="btn ${sort===k?'btn-primary':'btn-outline-secondary'}" href="${withQuery({sort:k==='cost'?'cost':null})}">ترتيب: ${l}</a>`).join('')}</div>
+   <button type="button" class="btn btn-sm btn-success" id="aXl"${rows.length?'':' disabled'}><i class="bi bi-file-earmark-excel me-1"></i>تصدير</button></div>
+  <div class="row g-3 mb-3">
+   ${kpi('qty','bi-box-seam','#2a78d6','إجمالي الكمية',nf(tot.qty),`${nf(tot.rec)} سجل في ${nf(schoolsN)} مدرسة`)}
+   ${kpi('cost','bi-cash-coin','#6250d6','إجمالي التكلفة (ريال)',sar(tot.cost),tot.qty?`متوسط ${sar(tot.cost/Math.max(1,rows.reduce((a,x)=>a+x.priced,0)))} ريال للوحدة المسعّرة`:'لا توجد أسعار')}
+   ${kpi('rec','bi-list-ol','#1baf7a','عدد السجلات',nf(tot.rec),`${rows.length} ${lvl[2]==='المدرسة'?'مدرسة':'بنداً'} في هذا المستوى`)}
+   ${kpi('crit','bi-exclamation-triangle',critW?'#d03b3b':'#eda100','الأصول الحرجة',nf(critQ),critQ?(critW?`<span class="down">${nf(critW)} بحالة ضعيفة / تحتاج صيانة</span>`:'لا يوجد منها بحالة ضعيفة'):'لا توجد أصول حرجة في الاختيار')}
+  </div>
+  ${rows.length?`<div class="row g-3 mb-3"><div class="col-lg-6"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">الحالة الفنية</h6><div class="sub mb-2">توزيع الكمية حسب الحالة${cat&&!cond?' — اضغط حالة للتعمق':''}</div>${condBar}</div></div></div>
+   <div class="col-lg-6"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">الأعلى تكلفة</h6><div class="sub mb-2">حسب ${lvl[2]} (ريال)</div>${costBars||'<p class="text-muted small mb-0">لا توجد أسعار مسجلة في هذا الاختيار.</p>'}</div></div></div></div>`:''}
+  <div class="card"><div class="card-header py-3"><h3 class="card-title mb-0">حسب ${lvl[2]}</h3><small class="text-muted d-block">${lvl[0]==='school'?'اضغط المدرسة لفتح أعمالها':'اضغط أي صف للتعمق'}</small></div>
+  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light"><tr><th class="ps-3">${lvl[2]}</th><th class="num">الكمية</th><th style="width:22%">حصة الكمية</th><th class="num">السجلات</th><th class="num">المدارس</th><th class="num pe-3">إجمالي التكلفة</th></tr></thead><tbody>
+  ${rows.map(x=>`<tr style="cursor:pointer" onclick="location.hash='${link(x)}'"><td class="ps-3 fw-bold"><a href="${link(x)}" class="text-decoration-none">${esc(nm(lvl[1],x.k))}</a></td><td class="num fw-bold">${nf(x.qty)}</td>
+   <td><div class="nv-share"><div class="nvc-track"><span style="width:${sh(x)}%;background:#2a78d6"></span></div><small>${sh(x)}%</small></div></td><td class="num">${nf(x.rec)}</td><td class="num">${x.schools.size}</td><td class="num pe-3">${sar(x.cost)}</td></tr>`).join('')
+   ||emptyRow(6,base.length?'bi-search':'bi-diagram-3',base.length?'لا توجد أصول في هذا الاختيار':'لا توجد أصول مُرسلة بعد',base.length?'غيّر الفلاتر أو ارجع للمستوى السابق.':'يظهر التحليل بعد أن يرسل مشرفو الميدان أول أصول.')}
+  </tbody></table></div></div></div></div>`);
+  $('#aCity').onchange=e=>{location.hash=withQuery({city:e.target.value||null})};
+  $('#aXl').onclick=()=>writeXlsx([['تحليل الأصول',[[lvl[2],'الكمية','حصة الكمية %','السجلات','المدارس','إجمالي التكلفة'],...rows.map(x=>[nm(lvl[1],x.k),x.qty,sh(x),x.rec,x.schools.size,Math.round(x.cost*100)/100])]]],'asset-analytics.xlsx')}
+/* busy line while the cloud refreshes a list page */
+let nvBusyN=0;function nvBusy(on){nvBusyN=Math.max(0,nvBusyN+(on?1:-1));let b=document.getElementById('nv-busy');if(nvBusyN&&!b){b=document.createElement('div');b.id='nv-busy';b.setAttribute('role','progressbar');b.setAttribute('aria-label','جارٍ التحديث');document.body.appendChild(b)}else if(!nvBusyN&&b)b.remove()}
 </script>
