@@ -197,7 +197,6 @@ function vAsset(){
     <div>${L('a_quantity',t('Quantity'),t('العدد'),1)}<input type="number" id="a_quantity" required min="1" value="${esc(c.quantity??1)}" class="${INPUT}"></div>
     <div>${L('a_price',t('Current Price'),'',1)}<input type="number" step="0.01" min="0" id="a_price" required value="${v('price')}" class="${INPUT}"></div>
     <div>${L('a_condition_id',t('Asset Condition'),'',1)}<select id="a_condition_id" required class="${INPUT}"><option value="">${t('Select...')}</option>${S.conditions.map(x=>`<option value="${esc(x.id)}" ${c.condition_id===x.id?'selected':''}>${esc(x.ar)}</option>`).join('')}</select></div>
-    <div>${L('a_status',t('Status'),'',1)}<select id="a_status" required class="${INPUT}"><option value="">${t('Select...')}</option><option value="Works" ${c.status==='Works'?'selected':''}>${t('Works')}</option><option value="Does not work" ${c.status==='Does not work'?'selected':''}>${t('Does not work')}</option></select></div>
     ${txt('manufacturer','Manufacturer')}${txt('brand','Brand')}${txt('model','Model')}${txt('capacity','Capacity')}${txt('serial','Serial Number')}${txt('agency','Agency (If Available)')}${txt('warranty','Warranty (If Available)')}
     <div>${L('a_install_date',t('Installation Date'))}<input type="date" id="a_install_date" value="${v('install_date')}" class="${INPUT}"></div>
     ${txt('asad_country','ASAD Location Country')}
@@ -245,7 +244,7 @@ function vAsset(){
     marker=L.marker(p,{draggable:true}).addTo(map);marker.on('dragend',ev=>{const q=ev.target.getLatLng();setLL(q.lat,q.lng)});map.on('click',ev=>{marker.setLatLng(ev.latlng);setLL(ev.latlng.lat,ev.latlng.lng)});if(!has)detect()})
    .catch(()=>{leafP=null;$('#location-map').outerHTML=`<p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">${tx('تعذر تحميل الخريطة (لا يوجد اتصال). استخدم «تحديد موقعي».','Map could not load (offline). Use "Detect My Location".')}</p>`;if(!has)detect()});
   $('#f').onsubmit=async ev=>{ev.preventDefault();const form=$('#f');if(!form.reportValidity())return;$('#sb').disabled=true;
-    try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:num(g('price')),status:g('status'),
+    try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:num(g('price')),
         manufacturer:g('manufacturer'),brand:g('brand'),model:g('model'),capacity:g('capacity'),serial:g('serial'),agency:g('agency'),warranty:g('warranty'),install_date:g('install_date'),asad_country:g('asad_country'),
         lat:lat??null,lng:lng??null,parent_child:($('[name=parent_child]:checked')||{}).value,tag:g('tag'),notes:g('notes')};
       const fl=$('#aimg').files[0];let oldImg=null;if(fl){oldImg=c.asset_image;vals.asset_image=await storePhoto(fl)}

@@ -27,7 +27,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await t.waitForSelector('#floor-select');await t.selectOption('#floor-select','الأرضي');await t.selectOption('#room-number','1');
  await t.selectOption('#room-name',await t.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await t.click('#submit-btn');await t.waitForSelector('#a_category_id');
  const fill=async q=>{await t.selectOption('#a_category_id',await t.$eval('#a_category_id',s=>s.options[2].value));await t.selectOption('#a_l2',{index:1});await t.selectOption('#a_l3',{index:1});await t.selectOption('#a_type_id',{index:1});await t.setInputFiles('#aimg',B+'/b.png');
-   await t.fill('#a_quantity',String(q));await t.fill('#a_price','99');await t.selectOption('#a_condition_id',{index:1});await t.selectOption('#a_status','Works');await t.check('[name=parent_child][value=Child]');await t.fill('#a_brand','LG')};
+   await t.fill('#a_quantity',String(q));await t.fill('#a_price','99');await t.selectOption('#a_condition_id',{index:1});await t.check('[name=parent_child][value=Child]');await t.fill('#a_brand','LG')};
  await fill(3);await t.click('#sb');await t.waitForSelector('#same');await t.waitForTimeout(1500);
  const c1=M.db.nv_collections.filter(c=>c.submitted_at);ok(c1.length===1&&c1[0].quantity===3&&c1[0].no===1,'record in cloud: '+c1.length);
  ok(M.files[c1[0].asset_image+'.jpg']&&M.files[c1[0].school_image+'.jpg'],'photos uploaded');

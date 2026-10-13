@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV18',date:'2026-10-13'};
+const NV={version:'NV19',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -129,9 +129,16 @@ const stamp=()=>new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');
 
 /* NV12 — asset label number 101XXXXXXXX from the record number (unique: server identity in the cloud, device sequence offline) */
 const assetLabel=c=>c&&c.no?'101'+String(c.no).padStart(8,'0'):'';
-const EXPORT_HEAD=['ID','Employee','Employee #','School Name','MOE Number','School Identifier','City','District','Site','Category','Asset Type','Condition','Quantity','Price','Status','Manufacturer','Brand','Model','Capacity','Serial Number','Agency','Warranty','Installation Date','Floor','Room Number','Room Name','ASAD Country','ASAD Tag #','Parent/Child','Notes','School Image URL','Location Diagram URL','Asset Image URL','Submitted At','Created At','Label Number','Level 2','Level 3','Asset Code','Critical'];
+/* NV19 — column order approved by the owner (his sample file); «Status» (Works / Does not work) is no longer collected */
+const EXPORT_COLS=[['ID',(c)=>c.no||''],['Employee',(c,e)=>e.name||''],['Employee #',(c,e)=>e.number||''],['School Name',(c,e,s)=>s.name||''],['MOE Number',(c,e,s)=>s.moe||''],['School Identifier',(c,e,s)=>s.ident||''],
+  ['City',(c,e,s)=>s.city||''],['District',(c,e,s)=>s.district||''],['Site',(c,e,s)=>s.site||''],['Floor',c=>c.floor||''],['Room Number',c=>c.room_number||''],['Room Name',c=>(get('rooms',c.room_name_id)||{}).ar||''],
+  ['Category',c=>(get('categories',c.category_id)||{}).ar||''],['Asset Type',(c,e,s,t)=>t.ar||''],['Level 2',(c,e,s,t)=>t.l2||''],['Level 3',(c,e,s,t)=>t.l3||''],['Asset Code',(c,e,s,t)=>t.code||''],['Critical',(c,e,s,t)=>c.type_id?(t.critical?'حرج':'غير حرج'):''],
+  ['Condition',c=>(get('conditions',c.condition_id)||{}).ar||''],['Quantity',c=>num(c.quantity)],['Price',c=>c.price??''],['Manufacturer',c=>c.manufacturer||''],['Brand',c=>c.brand||''],['Model',c=>c.model||''],['Capacity',c=>c.capacity||''],
+  ['Serial Number',c=>c.serial||''],['Agency',c=>c.agency||''],['Warranty',c=>c.warranty||''],['Installation Date',c=>c.install_date||''],['ASAD Country',c=>c.asad_country||''],['ASAD Tag #',c=>c.tag||''],['Parent/Child',c=>c.parent_child||''],
+  ['Notes',c=>c.notes||''],['School Image URL',c=>c.school_image?c.school_image+'.jpg':''],['Location Diagram URL',()=>''],['Asset Image URL',c=>c.asset_image?c.asset_image+'.jpg':''],['Submitted At',c=>ymdhms(c.submitted_at)],['Created At',c=>ymdhms(c.created_at)],['Label Number',c=>assetLabel(c)]];
+const EXPORT_HEAD=EXPORT_COLS.map(x=>x[0]);
 const ymdhms=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
-function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{};return [c.no||'',e.name||'',e.number||'',s.name||'',s.moe||'',s.ident||'',s.city||'',s.district||'',s.site||'',(get('categories',c.category_id)||{}).ar||'',(get('types',c.type_id)||{}).ar||'',(get('conditions',c.condition_id)||{}).ar||'',num(c.quantity),c.price??'',c.status||'',c.manufacturer||'',c.brand||'',c.model||'',c.capacity||'',c.serial||'',c.agency||'',c.warranty||'',c.install_date||'',c.floor||'',c.room_number||'',(get('rooms',c.room_name_id)||{}).ar||'',c.asad_country||'',c.tag||'',c.parent_child||'',c.notes||'',c.school_image?c.school_image+'.jpg':'','',c.asset_image?c.asset_image+'.jpg':'',ymdhms(c.submitted_at),ymdhms(c.created_at),assetLabel(c),(get('types',c.type_id)||{}).l2||'',(get('types',c.type_id)||{}).l3||'',(get('types',c.type_id)||{}).code||'',(get('types',c.type_id)||{}).critical?'حرج':'غير حرج']}
+function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{},t=get('types',c.type_id)||{};return EXPORT_COLS.map(x=>x[1](c,e,s,t))}
 async function exportCollections(list,name){list=list.slice().sort((a,b)=>(b.created_at||'')<(a.created_at||'')?-1:1);await writeXlsx([['Worksheet',[EXPORT_HEAD,...list.map(exportRow)]]],name||('collections-'+stamp()+'.xlsx'))}
 async function exportPhotosZip(list){try{await needZip()}catch(e){zipP=null;return toast(e.message,4000)}const zip=new JSZip();const seen=new Set();let n=0;for(const c of list){for(const k of [c.school_image,c.asset_image]){if(!k||seen.has(k))continue;seen.add(k);const b=await IDB.get('photos',k).catch(()=>null);if(b){zip.file(k+'.jpg',b);n++}}}if(!n)return toast('لا توجد صور');toast('جارٍ تجهيز '+n+' صورة…');download(await zip.generateAsync({type:'blob'}),'solvix-photos-'+stamp()+'.zip')}
 

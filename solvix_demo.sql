@@ -71,10 +71,10 @@ begin
       select * into t from public.nv_types where id = types[1 + (k * 7) % array_length(types,1)];
       sub := now() - make_interval(days => r.days + (i % 3), hours => i);
       insert into public.nv_collections(id, employee_id, school_id, floor, room_number, room_name_id, notes, category_id, type_id, condition_id,
-        quantity, price, status, manufacturer, brand, model, serial, parent_child, tag, lat, lng, submitted_at, created_at)
+        quantity, price, manufacturer, brand, model, serial, parent_child, tag, lat, lng, submitted_at, created_at)
       values ('demo-c-' || lpad(k::text, 3, '0'), r.e, r.s, floors[1 + i % 4], (1 + i % 9)::text, rooms[1 + (i * 5) % array_length(rooms,1)],
         case when i % 5 = 0 then 'ملاحظة تجريبية: يحتاج صيانة' else '' end, t.cat, t.id, conds[1 + i % array_length(conds,1)],
-        1 + (i * 3) % 6, (array[150, 450, 1200, 2800, 650, 90])[1 + i % 6], case when i % 4 = 0 then 'Does not work' else 'Works' end,
+        1 + (i * 3) % 6, (array[150, 450, 1200, 2800, 650, 90])[1 + i % 6],
         (array['LG','Samsung','Carrier','Gree','HP','Dell'])[1 + i % 6], (array['LG','Samsung','Carrier','Gree','HP','Dell'])[1 + i % 6], 'DM-' || (100 + i),
         'SN-DEMO-' || lpad(k::text, 4, '0'), case when i % 3 = 0 then 'Child' else 'Parent' end, 'ASAD-' || (5000 + k),
         26.33 + (k % 9) * 0.004, 43.97 + (k % 7) * 0.004,

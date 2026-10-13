@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV18">
+<meta name="fm-version" content="NV19">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -220,7 +220,7 @@ body.sx-body{margin:0;background:#f4f7fb}
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV18',date:'2026-10-13'};
+const NV={version:'NV19',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -348,9 +348,16 @@ const stamp=()=>new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');
 
 /* NV12 — asset label number 101XXXXXXXX from the record number (unique: server identity in the cloud, device sequence offline) */
 const assetLabel=c=>c&&c.no?'101'+String(c.no).padStart(8,'0'):'';
-const EXPORT_HEAD=['ID','Employee','Employee #','School Name','MOE Number','School Identifier','City','District','Site','Category','Asset Type','Condition','Quantity','Price','Status','Manufacturer','Brand','Model','Capacity','Serial Number','Agency','Warranty','Installation Date','Floor','Room Number','Room Name','ASAD Country','ASAD Tag #','Parent/Child','Notes','School Image URL','Location Diagram URL','Asset Image URL','Submitted At','Created At','Label Number','Level 2','Level 3','Asset Code','Critical'];
+/* NV19 — column order approved by the owner (his sample file); «Status» (Works / Does not work) is no longer collected */
+const EXPORT_COLS=[['ID',(c)=>c.no||''],['Employee',(c,e)=>e.name||''],['Employee #',(c,e)=>e.number||''],['School Name',(c,e,s)=>s.name||''],['MOE Number',(c,e,s)=>s.moe||''],['School Identifier',(c,e,s)=>s.ident||''],
+  ['City',(c,e,s)=>s.city||''],['District',(c,e,s)=>s.district||''],['Site',(c,e,s)=>s.site||''],['Floor',c=>c.floor||''],['Room Number',c=>c.room_number||''],['Room Name',c=>(get('rooms',c.room_name_id)||{}).ar||''],
+  ['Category',c=>(get('categories',c.category_id)||{}).ar||''],['Asset Type',(c,e,s,t)=>t.ar||''],['Level 2',(c,e,s,t)=>t.l2||''],['Level 3',(c,e,s,t)=>t.l3||''],['Asset Code',(c,e,s,t)=>t.code||''],['Critical',(c,e,s,t)=>c.type_id?(t.critical?'حرج':'غير حرج'):''],
+  ['Condition',c=>(get('conditions',c.condition_id)||{}).ar||''],['Quantity',c=>num(c.quantity)],['Price',c=>c.price??''],['Manufacturer',c=>c.manufacturer||''],['Brand',c=>c.brand||''],['Model',c=>c.model||''],['Capacity',c=>c.capacity||''],
+  ['Serial Number',c=>c.serial||''],['Agency',c=>c.agency||''],['Warranty',c=>c.warranty||''],['Installation Date',c=>c.install_date||''],['ASAD Country',c=>c.asad_country||''],['ASAD Tag #',c=>c.tag||''],['Parent/Child',c=>c.parent_child||''],
+  ['Notes',c=>c.notes||''],['School Image URL',c=>c.school_image?c.school_image+'.jpg':''],['Location Diagram URL',()=>''],['Asset Image URL',c=>c.asset_image?c.asset_image+'.jpg':''],['Submitted At',c=>ymdhms(c.submitted_at)],['Created At',c=>ymdhms(c.created_at)],['Label Number',c=>assetLabel(c)]];
+const EXPORT_HEAD=EXPORT_COLS.map(x=>x[0]);
 const ymdhms=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
-function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{};return [c.no||'',e.name||'',e.number||'',s.name||'',s.moe||'',s.ident||'',s.city||'',s.district||'',s.site||'',(get('categories',c.category_id)||{}).ar||'',(get('types',c.type_id)||{}).ar||'',(get('conditions',c.condition_id)||{}).ar||'',num(c.quantity),c.price??'',c.status||'',c.manufacturer||'',c.brand||'',c.model||'',c.capacity||'',c.serial||'',c.agency||'',c.warranty||'',c.install_date||'',c.floor||'',c.room_number||'',(get('rooms',c.room_name_id)||{}).ar||'',c.asad_country||'',c.tag||'',c.parent_child||'',c.notes||'',c.school_image?c.school_image+'.jpg':'','',c.asset_image?c.asset_image+'.jpg':'',ymdhms(c.submitted_at),ymdhms(c.created_at),assetLabel(c),(get('types',c.type_id)||{}).l2||'',(get('types',c.type_id)||{}).l3||'',(get('types',c.type_id)||{}).code||'',(get('types',c.type_id)||{}).critical?'حرج':'غير حرج']}
+function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{},t=get('types',c.type_id)||{};return EXPORT_COLS.map(x=>x[1](c,e,s,t))}
 async function exportCollections(list,name){list=list.slice().sort((a,b)=>(b.created_at||'')<(a.created_at||'')?-1:1);await writeXlsx([['Worksheet',[EXPORT_HEAD,...list.map(exportRow)]]],name||('collections-'+stamp()+'.xlsx'))}
 async function exportPhotosZip(list){try{await needZip()}catch(e){zipP=null;return toast(e.message,4000)}const zip=new JSZip();const seen=new Set();let n=0;for(const c of list){for(const k of [c.school_image,c.asset_image]){if(!k||seen.has(k))continue;seen.add(k);const b=await IDB.get('photos',k).catch(()=>null);if(b){zip.file(k+'.jpg',b);n++}}}if(!n)return toast('لا توجد صور');toast('جارٍ تجهيز '+n+' صورة…');download(await zip.generateAsync({type:'blob'}),'solvix-photos-'+stamp()+'.zip')}
 
@@ -690,7 +697,6 @@ function vAsset(){
     <div>${L('a_quantity',t('Quantity'),t('العدد'),1)}<input type="number" id="a_quantity" required min="1" value="${esc(c.quantity??1)}" class="${INPUT}"></div>
     <div>${L('a_price',t('Current Price'),'',1)}<input type="number" step="0.01" min="0" id="a_price" required value="${v('price')}" class="${INPUT}"></div>
     <div>${L('a_condition_id',t('Asset Condition'),'',1)}<select id="a_condition_id" required class="${INPUT}"><option value="">${t('Select...')}</option>${S.conditions.map(x=>`<option value="${esc(x.id)}" ${c.condition_id===x.id?'selected':''}>${esc(x.ar)}</option>`).join('')}</select></div>
-    <div>${L('a_status',t('Status'),'',1)}<select id="a_status" required class="${INPUT}"><option value="">${t('Select...')}</option><option value="Works" ${c.status==='Works'?'selected':''}>${t('Works')}</option><option value="Does not work" ${c.status==='Does not work'?'selected':''}>${t('Does not work')}</option></select></div>
     ${txt('manufacturer','Manufacturer')}${txt('brand','Brand')}${txt('model','Model')}${txt('capacity','Capacity')}${txt('serial','Serial Number')}${txt('agency','Agency (If Available)')}${txt('warranty','Warranty (If Available)')}
     <div>${L('a_install_date',t('Installation Date'))}<input type="date" id="a_install_date" value="${v('install_date')}" class="${INPUT}"></div>
     ${txt('asad_country','ASAD Location Country')}
@@ -738,7 +744,7 @@ function vAsset(){
     marker=L.marker(p,{draggable:true}).addTo(map);marker.on('dragend',ev=>{const q=ev.target.getLatLng();setLL(q.lat,q.lng)});map.on('click',ev=>{marker.setLatLng(ev.latlng);setLL(ev.latlng.lat,ev.latlng.lng)});if(!has)detect()})
    .catch(()=>{leafP=null;$('#location-map').outerHTML=`<p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">${tx('تعذر تحميل الخريطة (لا يوجد اتصال). استخدم «تحديد موقعي».','Map could not load (offline). Use "Detect My Location".')}</p>`;if(!has)detect()});
   $('#f').onsubmit=async ev=>{ev.preventDefault();const form=$('#f');if(!form.reportValidity())return;$('#sb').disabled=true;
-    try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:num(g('price')),status:g('status'),
+    try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:num(g('price')),
         manufacturer:g('manufacturer'),brand:g('brand'),model:g('model'),capacity:g('capacity'),serial:g('serial'),agency:g('agency'),warranty:g('warranty'),install_date:g('install_date'),asad_country:g('asad_country'),
         lat:lat??null,lng:lng??null,parent_child:($('[name=parent_child]:checked')||{}).value,tag:g('tag'),notes:g('notes')};
       const fl=$('#aimg').files[0];let oldImg=null;if(fl){oldImg=c.asset_image;vals.asset_image=await storePhoto(fl)}
@@ -1173,9 +1179,9 @@ function vCollectionShow(id){
    <div class="card mt-3"><div class="card-header"><h3 class="card-title">صورة الأصل</h3></div><div class="card-body text-center">${c.asset_image?`<img data-photo="${esc(c.asset_image)}" alt="صورة الأصل" class="img-fluid rounded shadow-sm cursor-pointer" style="max-height: 300px; cursor: zoom-in;">`:'<p class="text-muted">لا توجد صورة للأصل.</p>'}</div></div>
    <div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center"><h3 class="card-title">ملصق الأصل</h3>${c.type_id?'<button type="button" class="btn btn-sm btn-dark ms-auto" id="lbl1"><i class="bi bi-printer me-1"></i>طباعة</button>':''}</div><div class="card-body d-flex align-items-center gap-3"><div id="qr1" style="width:120px;height:120px"></div><div><div class="small text-muted">رقم الملصق</div><div class="fs-4 fw-bold font-monospace">${esc(assetLabel(c)||'—')}</div></div></div></div>
    <div class="card mt-3"><div class="card-header"><h3 class="card-title">خريطة موقع الأصل</h3></div><div class="card-body p-2">${hasLL?'<div id="location-map"></div>':'<p class="text-muted text-center py-4">لا توجد بيانات موقع.</p>'}</div></div></div></div>
-  <div class="card"><div class="card-header"><h3 class="card-title">تفاصيل الأصل</h3>${(()=>{const ty=get('types',c.type_id);return ty&&ty.code?`<div class="small mt-1">${esc(typeLevels(ty))} · <span class="font-monospace" dir="ltr">${esc(ty.code)}</span> · ${ty.critical?'<span class="badge text-bg-danger">حرج</span>':'<span class="badge text-bg-light border">غير حرج</span>'}</div>`:''})()}</div><div class="card-body table-responsive p-0"><table class="table table-striped"><thead><tr>${['المستوى الأول','وصف الأصل','الكمية','السعر','الشركة المصنعة','الماركة','الموديل','السعة','الرقم التسلسلي','رقم ASAD','الحالة الفنية','التشغيل','تاريخ الإرسال'].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
+  <div class="card"><div class="card-header"><h3 class="card-title">تفاصيل الأصل</h3>${(()=>{const ty=get('types',c.type_id);return ty&&ty.code?`<div class="small mt-1">${esc(typeLevels(ty))} · <span class="font-monospace" dir="ltr">${esc(ty.code)}</span> · ${ty.critical?'<span class="badge text-bg-danger">حرج</span>':'<span class="badge text-bg-light border">غير حرج</span>'}</div>`:''})()}</div><div class="card-body table-responsive p-0"><table class="table table-striped"><thead><tr>${['المستوى الأول','وصف الأصل','الكمية','السعر','الشركة المصنعة','الماركة','الموديل','السعة','الرقم التسلسلي','رقم ASAD','الحالة الفنية','الإرسال','تاريخ الإرسال'].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
    ${c.type_id?`<tr><td>${esc((get('categories',c.category_id)||{}).ar||'--')}</td><td>${esc((get('types',c.type_id)||{}).ar||'--')}</td><td><span class="badge text-bg-secondary">${num(c.quantity)}</span></td><td>${c.price?Number(c.price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td><td>${esc(c.manufacturer||'--')}</td><td>${esc(c.brand||'--')}</td><td>${esc(c.model||'--')}</td><td>${esc(c.capacity||'--')}</td><td>${esc(c.serial||'--')}</td><td>${esc(c.tag||'--')}</td>
-    <td>${c.condition_id?`<span class="badge text-bg-info">${esc((get('conditions',c.condition_id)||{}).ar||'')}</span>`:'--'}</td><td>${c.submitted_at?(c.status==='Works'?'<span class="badge text-bg-success">يعمل</span>':'<span class="badge text-bg-danger">لا يعمل</span>'):'<span class="badge text-bg-warning">معلّق</span>'}</td><td>${c.submitted_at?fmtYmd(c.submitted_at):'--'}</td></tr>`:'<tr><td colspan="13" class="text-center">لا توجد أصول مسجلة.</td></tr>'}</tbody></table></div></div>
+    <td>${c.condition_id?`<span class="badge text-bg-info">${esc((get('conditions',c.condition_id)||{}).ar||'')}</span>`:'--'}</td><td>${c.submitted_at?'<span class="badge text-bg-success">مُرسل</span>':'<span class="badge text-bg-warning">معلّق</span>'}</td><td>${c.submitted_at?fmtYmd(c.submitted_at):'--'}</td></tr>`:'<tr><td colspan="13" class="text-center">لا توجد أصول مسجلة.</td></tr>'}</tbody></table></div></div>
   <div class="row"><div class="col-md-12"><div class="card"><div class="card-header"><h3 class="card-title">معلومات إضافية</h3></div><div class="card-body"><div class="row">
    <div class="col-md-4"><p><strong>الوكيل (إن وجد):</strong> ${esc(c.agency||'--')}</p><p><strong>الضمان (إن وجد):</strong> ${esc(c.warranty||'--')}</p></div>
    <div class="col-md-4"><p><strong>تاريخ التركيب:</strong> ${esc(c.install_date||'--')}</p><p><strong>دولة الموقع (ASAD):</strong> ${esc(c.asad_country||'--')}</p></div>
@@ -1202,7 +1208,6 @@ function vCollectionEdit(id){
    <div class="col-md-6 mb-3"><label class="form-label">نوع الأصل</label><select name="type_id" id="asset_type_id" class="form-select"><option value="">-- اختر النوع --</option>${opt(S.types.filter(x=>x.cat===c.category_id).sort(byAr),c.type_id,x=>esc(x.ar))}</select></div></div>
   <div class="row"><div class="col-md-3 mb-3"><label class="form-label">الكمية</label><input type="number" name="quantity" value="${esc(c.quantity??0)}" class="form-control" required min="0"></div>
    <div class="col-md-3 mb-3"><label class="form-label">السعر</label><input type="number" step="0.01" name="price" value="${esc(c.price??'')}" class="form-control"></div>
-   <div class="col-md-4 mb-3"><label class="form-label">التشغيل</label><select name="status" class="form-select"><option value="Works" ${c.status==='Works'?'selected':''}>يعمل</option><option value="Does not work" ${c.status==='Does not work'?'selected':''}>لا يعمل</option></select></div>
    <div class="col-md-4 mb-3"><label class="form-label">الماركة</label><input type="text" name="brand" value="${esc(c.brand||'')}" class="form-control"></div></div>
   <div class="row"><div class="col-md-6 mb-3"><label class="form-label">الرقم التسلسلي</label><input type="text" name="serial" value="${esc(c.serial||'')}" class="form-control"></div><div class="col-md-6 mb-3"><label class="form-label">رقم ASAD</label><input type="text" name="tag" value="${esc(c.tag||'')}" class="form-control"></div></div>
   <div class="mb-3"><label class="form-label">ملاحظات</label><textarea name="notes" class="form-control" rows="3">${esc(c.notes||'')}</textarea></div></div>
@@ -1210,7 +1215,7 @@ function vCollectionEdit(id){
   $('#asset_category_id').onchange=function(){const ts=S.types.filter(x=>x.cat===this.value).sort(byAr);$('#asset_type_id').innerHTML='<option value="">-- اختر النوع --</option>'+ts.map(x=>`<option value="${esc(x.id)}">${esc(x.ar)}</option>`).join('')};
   $('#f').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.target);const old=Object.assign({},c);
     const v={employee_id:fd.get('employee_id'),school_id:fd.get('school_id'),floor:fd.get('floor').trim(),room_number:fd.get('room_number').trim(),room_name_id:fd.get('room_name_id'),category_id:fd.get('category_id')||null,type_id:fd.get('type_id')||null,
-      quantity:Math.max(0,Math.round(num(fd.get('quantity')))),price:fd.get('price')===''?null:num(fd.get('price')),status:fd.get('status')||null,brand:fd.get('brand').trim(),serial:fd.get('serial').trim(),tag:fd.get('tag').trim(),notes:fd.get('notes').trim()};
+      quantity:Math.max(0,Math.round(num(fd.get('quantity')))),price:fd.get('price')===''?null:num(fd.get('price')),brand:fd.get('brand').trim(),serial:fd.get('serial').trim(),tag:fd.get('tag').trim(),notes:fd.get('notes').trim()};
     Object.assign(c,v,{updated_at:now()});logChange(c,'admin',diff(old,c,TRACK.concat(['employee_id','school_id'])));save('collections');
     setAFlash('تم تحديث السجل.');go(`#admin/collections/view/${encodeURIComponent(c.employee_id)}/${encodeURIComponent(c.school_id)}`)};
 }
@@ -1435,9 +1440,9 @@ async function printLabels(list,title){list=list.filter(c=>c.no).sort((a,b)=>num
 /* school report: one sheet in Arabic, one in English */
 function schoolReport(list,s){const sub=list.filter(c=>c.type_id);if(!sub.length)return alert('لا توجد أصول في هذه المدرسة.');
   const row=(c,l)=>{const e=get('employees',c.employee_id)||{},cat=get('categories',c.category_id)||{},ty=get('types',c.type_id)||{},co=get('conditions',c.condition_id)||{},r=get('rooms',c.room_name_id)||{};const n=x=>l==='ar'?(x.ar||x.en||''):(x.en||x.ar||'');
-    return [assetLabel(c),ty.code||'',n(cat),ty.l2||'',ty.l3||'',n(ty),ty.critical?(l==='ar'?'حرج':'Critical'):(l==='ar'?'غير حرج':'Non-critical'),n(co),num(c.quantity),c.price??'',c.price!=null&&c.price!==''?num(c.quantity)*Number(c.price):'',c.status==='Works'?(l==='ar'?'يعمل':'Works'):c.status?(l==='ar'?'لا يعمل':'Does not work'):'',c.parent_child||'',c.brand||'',c.model||'',c.serial||'',c.tag||'',c.floor||'',n(r),c.room_number||'',e.name||'',ymdhms(c.submitted_at)]};
-  const AR=['رقم الملصق','كود الأصل','المستوى الأول','المستوى الثاني','المستوى الثالث','وصف الأصل','التصنيف','الحالة الفنية','الكمية','سعر الوحدة','الإجمالي','التشغيل','رئيسي / فرعي','الماركة','الموديل','الرقم التسلسلي','رقم ASAD','الدور','اسم الغرفة','رقم الغرفة','مشرف الميدان','تاريخ الإرسال'];
-  const EN=['Label Number','Asset Code','Level 1','Level 2','Level 3','Asset','Criticality','Condition','Quantity','Unit Price','Total','Status','Parent/Child','Brand','Model','Serial Number','ASAD Tag','Floor','Room Name','Room Number','Field Supervisor','Submitted At'];
+    return [assetLabel(c),ty.code||'',n(cat),ty.l2||'',ty.l3||'',n(ty),ty.critical?(l==='ar'?'حرج':'Critical'):(l==='ar'?'غير حرج':'Non-critical'),n(co),num(c.quantity),c.price??'',c.price!=null&&c.price!==''?num(c.quantity)*Number(c.price):'',c.parent_child||'',c.brand||'',c.model||'',c.serial||'',c.tag||'',c.floor||'',n(r),c.room_number||'',e.name||'',ymdhms(c.submitted_at)]};
+  const AR=['رقم الملصق','كود الأصل','المستوى الأول','المستوى الثاني','المستوى الثالث','وصف الأصل','التصنيف','الحالة الفنية','الكمية','سعر الوحدة','الإجمالي','رئيسي / فرعي','الماركة','الموديل','الرقم التسلسلي','رقم ASAD','الدور','اسم الغرفة','رقم الغرفة','مشرف الميدان','تاريخ الإرسال'];
+  const EN=['Label Number','Asset Code','Level 1','Level 2','Level 3','Asset','Criticality','Condition','Quantity','Unit Price','Total','Parent/Child','Brand','Model','Serial Number','ASAD Tag','Floor','Room Name','Room Number','Field Supervisor','Submitted At'];
   const head=l=>[[l==='ar'?'المدرسة':'School',s.name],[l==='ar'?'الرقم الوزاري':'MOE Number',s.moe],[l==='ar'?'المعرّف':'Identifier',s.ident],[l==='ar'?'المحافظة':'City',s.city],[]];
   writeXlsx([['عربي',[...head('ar'),AR,...sub.map(c=>row(c,'ar'))]],['English',[...head('en'),EN,...sub.map(c=>row(c,'en'))]]],`${s.moe||s.ident}_${s.name}_report.xlsx`)}
 /* category drill-down: category → condition → type → schools, with quantity and total cost */
@@ -1472,9 +1477,9 @@ async function importCollections(){const f=await pickFile('.xlsx,.xls,.csv');if(
     const cv=pick(r,['Condition','الحالة الفنية']);const co=cv?byName('conditions',cv):null;if(cv&&!co)return E(`الحالة «${cv}» غير موجودة`);
     const q=pick(r,['Quantity','الكمية'])||'1',pr=pick(r,['Price','السعر']);if(!/^\d+$/.test(q))return E('الكمية يجب أن تكون صفراً أو أكثر');if(pr&&!(Number(pr)>=0))return E('السعر يجب أن يكون صفراً أو أكثر');
     const lb=pick(r,['Label Number','رقم الملصق']);if(lb&&(labels.has(lb)||seen.has(lb)))return E(`رقم الملصق ${lb} مكرر`);if(lb)seen.add(lb);
-    const st=pick(r,['Status','التشغيل']);const sub=pick(r,['Submitted At','تاريخ الإرسال']);const d=sub&&!isNaN(new Date(sub))?new Date(sub).toISOString():now();
+    const sub=pick(r,['Submitted At','تاريخ الإرسال']);const d=sub&&!isNaN(new Date(sub))?new Date(sub).toISOString():now();
     out.push(Object.assign(newCollection(e.id,s.id,null,{}),{floor:pick(r,['Floor','الدور']),room_number:pick(r,['Room Number','رقم الغرفة']),room_name_id:room.id,category_id:cat.id,type_id:ty.id,condition_id:co?co.id:null,quantity:+q,price:pr===''?null:Number(pr),
-      status:/does not|لا يعمل/i.test(st)?'Does not work':st?'Works':null,manufacturer:pick(r,['Manufacturer']),brand:pick(r,['Brand','الماركة']),model:pick(r,['Model','الموديل']),capacity:pick(r,['Capacity']),serial:pick(r,['Serial Number','الرقم التسلسلي']),
+      manufacturer:pick(r,['Manufacturer']),brand:pick(r,['Brand','الماركة']),model:pick(r,['Model','الموديل']),capacity:pick(r,['Capacity']),serial:pick(r,['Serial Number','الرقم التسلسلي']),
       agency:pick(r,['Agency']),warranty:pick(r,['Warranty']),install_date:pick(r,['Installation Date']),asad_country:pick(r,['ASAD Country']),tag:pick(r,['ASAD Tag #','رقم ASAD']),parent_child:pick(r,['Parent/Child','رئيسي / فرعي']),notes:pick(r,['Notes','ملاحظات']),submitted_at:d}))});
   if(!rows.length)return alert('الملف فارغ.');
   if(errs.length){alert(`لم يُستورد أي سجل — ${errs.length} سطر فيه أخطاء:\n\n`+errs.slice(0,25).join('\n')+(errs.length>25?`\n… و${errs.length-25} أخرى`:''));return}
@@ -1727,10 +1732,10 @@ async function buildFullXlsx(list,title,progress){await Promise.all([needExcelJS
   const wb=new ExcelJS.Workbook();wb.creator='Solvix';wb.created=new Date();
   const hd={font:{bold:true,color:{argb:'FFFFFFFF'}},fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF1E3A8A'}},alignment:{vertical:'middle',horizontal:'center',wrapText:true}};
   /* sheet 1: the data */
-  const ws=wb.addWorksheet('البيانات',{views:[{rightToLeft:true,state:'frozen',ySplit:1}]});const H=['رقم الأصل',...EXPORT_HEAD.filter(h=>h!=='Label Number')];
+  const ws=wb.addWorksheet('البيانات',{views:[{rightToLeft:true,state:'frozen',ySplit:1}]});const H=EXPORT_HEAD;
   ws.addRow(H);ws.getRow(1).eachCell(c=>Object.assign(c,hd));ws.getRow(1).height=30;
-  for(const c of list){const r=exportRow(c);const li=EXPORT_HEAD.indexOf('Label Number');r.splice(li,1);ws.addRow([assetLabel(c),...r])}
-  ws.columns.forEach((col,i)=>{col.width=i===0?16:Math.min(34,Math.max(12,String(H[i]).length+4))});ws.autoFilter={from:'A1',to:{row:1,column:H.length}};
+  for(const c of list)ws.addRow(exportRow(c));
+  ws.columns.forEach((col,i)=>{col.width=H[i]==='Label Number'?16:Math.min(34,Math.max(12,String(H[i]).length+4))});ws.autoFilter={from:'A1',to:{row:1,column:H.length}};
   /* sheet 2: photo + QR + asset number */
   const wp=wb.addWorksheet('صور الأصول',{views:[{rightToLeft:true,state:'frozen',ySplit:1}]});
   wp.columns=[{header:'رقم الأصل',width:18},{header:'صورة الأصل',width:26},{header:'رمز QR',width:18},{header:'وصف الأصل',width:30},{header:'كود الأصل',width:16},{header:'المدرسة',width:30},{header:'الموقع',width:28}];
