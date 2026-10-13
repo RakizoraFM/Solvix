@@ -38,7 +38,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  const k=await p.$$eval('.card h3.fw-bold',b=>b.map(x=>x.textContent.trim()));ok(k.join(',')==='7,1,0,2169','dashboard '+k.join(','));
  await p.click('.app-sidebar a[href="#admin/collections"]');await p.waitForSelector('#collections-form');await shot('12-collections');ok((await p.$$('tbody tr')).length===1,'1 group');
  const [dl]=await Promise.all([p.waitForEvent('download',{timeout:30000}).catch(()=>null),p.click('#export-btn')]);ok(!!dl,'excel '+(dl&&dl.suggestedFilename()));if(dl)await dl.saveAs(B+'/out2.xlsx');
- await p.click('a[href^="#admin/collections/view/"]');await p.waitForSelector('#xl');await p.waitForTimeout(400);await shot('13-group');ok((await p.$$('tbody tr')).length===3,'group rows');ok(!(await p.content()).includes('<b>x</b>'),'escaped');
+ await p.click('.app-main a[href^="#admin/collections/view/"]');await p.waitForSelector('#xl');await p.waitForTimeout(400);await shot('13-group');ok((await p.$$('tbody tr')).length===3,'group rows');ok(!(await p.content()).includes('<b>x</b>'),'escaped');
  await p.click('a[title="عرض التفاصيل"] >> nth=0');await p.waitForSelector('.table-bordered');await p.waitForTimeout(800);await shot('14-show');
  await p.goBack();await p.waitForSelector('#xl');await p.click('a[title="تعديل"] >> nth=2');await p.waitForSelector('[name=brand]');await shot('15-edit');await p.fill('[name=brand]','Samsung');await p.click('button:has-text("حفظ التعديل")');await p.waitForSelector('.alert-success');
  await p.click('.app-sidebar a[href="#admin/log"]');await p.waitForSelector('table');ok((await p.$$('tbody tr')).length===2,'log rows');

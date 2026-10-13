@@ -1,6 +1,6 @@
 <script id="nv-boot">
 /* Hash router and start-up */
-const LIST_PAGES=/^admin(\/(collections|schools|employees|asset-categories|asset-types|asset-conditions|room-names|log|users))?\/?$/;
+const LIST_PAGES=/^admin(\/(collections|schools|employees|asset-categories|asset-types|asset-conditions|room-names|log|users|analytics))?\/?$/;
 function route(){
   if(/[#&]cfg=/.test(location.hash)){/* a connection link opened in a tab that was already open */try{const m=location.hash.match(/[#&]cfg=([^&]+)/);const o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));if(cfgOk(o))localStorage.setItem(NV_CFG_KEY,JSON.stringify({url:o.url.replace(/\/+$/,''),key:o.key}))}catch(e){}location.replace(location.pathname+location.search+'#login');location.reload();return}
   const path=decodeURIComponent(location.hash.replace(/^#/,'').split('?')[0]);const seg=path.split('/');window.scrollTo(0,0);
@@ -14,7 +14,7 @@ function route(){
     if(a==='schools'){if(!b)return vSchools();if(b==='create')return vSchoolForm(null);return vSchoolForm(b)}
     if(a==='employees'){if(!b)return vEmployees();if(b==='create')return vEmployeeForm(null);return vEmployeeForm(b)}
     if(LK[a]){if(!b)return vLookup(a);if(b==='create')return vLookupForm(a,null);return vLookupForm(a,b)}
-    if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
+    if(a==='analytics')return vAnalytics();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
     return vDashboard();
   }
   destroyCharts();setMode('field');

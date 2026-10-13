@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV11',date:'2026-10-13'};
+const NV={version:'NV12',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -116,9 +116,11 @@ function pickFile(accept){return new Promise(res=>{const i=document.createElemen
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
 const stamp=()=>new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');
 
-const EXPORT_HEAD=['ID','Employee','Employee #','School Name','MOE Number','School Identifier','City','District','Site','Category','Asset Type','Condition','Quantity','Price','Status','Manufacturer','Brand','Model','Capacity','Serial Number','Agency','Warranty','Installation Date','Floor','Room Number','Room Name','ASAD Country','ASAD Tag #','Parent/Child','Notes','School Image URL','Location Diagram URL','Asset Image URL','Submitted At','Created At'];
+/* NV12 — asset label number 101XXXXXXXX from the record number (unique: server identity in the cloud, device sequence offline) */
+const assetLabel=c=>c&&c.no?'101'+String(c.no).padStart(8,'0'):'';
+const EXPORT_HEAD=['ID','Employee','Employee #','School Name','MOE Number','School Identifier','City','District','Site','Category','Asset Type','Condition','Quantity','Price','Status','Manufacturer','Brand','Model','Capacity','Serial Number','Agency','Warranty','Installation Date','Floor','Room Number','Room Name','ASAD Country','ASAD Tag #','Parent/Child','Notes','School Image URL','Location Diagram URL','Asset Image URL','Submitted At','Created At','Label Number'];
 const ymdhms=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
-function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{};return [c.no||'',e.name||'',e.number||'',s.name||'',s.moe||'',s.ident||'',s.city||'',s.district||'',s.site||'',(get('categories',c.category_id)||{}).ar||'',(get('types',c.type_id)||{}).ar||'',(get('conditions',c.condition_id)||{}).ar||'',num(c.quantity),c.price??'',c.status||'',c.manufacturer||'',c.brand||'',c.model||'',c.capacity||'',c.serial||'',c.agency||'',c.warranty||'',c.install_date||'',c.floor||'',c.room_number||'',(get('rooms',c.room_name_id)||{}).ar||'',c.asad_country||'',c.tag||'',c.parent_child||'',c.notes||'',c.school_image?c.school_image+'.jpg':'','',c.asset_image?c.asset_image+'.jpg':'',ymdhms(c.submitted_at),ymdhms(c.created_at)]}
+function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{};return [c.no||'',e.name||'',e.number||'',s.name||'',s.moe||'',s.ident||'',s.city||'',s.district||'',s.site||'',(get('categories',c.category_id)||{}).ar||'',(get('types',c.type_id)||{}).ar||'',(get('conditions',c.condition_id)||{}).ar||'',num(c.quantity),c.price??'',c.status||'',c.manufacturer||'',c.brand||'',c.model||'',c.capacity||'',c.serial||'',c.agency||'',c.warranty||'',c.install_date||'',c.floor||'',c.room_number||'',(get('rooms',c.room_name_id)||{}).ar||'',c.asad_country||'',c.tag||'',c.parent_child||'',c.notes||'',c.school_image?c.school_image+'.jpg':'','',c.asset_image?c.asset_image+'.jpg':'',ymdhms(c.submitted_at),ymdhms(c.created_at),assetLabel(c)]}
 async function exportCollections(list,name){list=list.slice().sort((a,b)=>(b.created_at||'')<(a.created_at||'')?-1:1);await writeXlsx([['Worksheet',[EXPORT_HEAD,...list.map(exportRow)]]],name||('collections-'+stamp()+'.xlsx'))}
 async function exportPhotosZip(list){try{await needZip()}catch(e){zipP=null;return toast(e.message,4000)}const zip=new JSZip();const seen=new Set();let n=0;for(const c of list){for(const k of [c.school_image,c.asset_image]){if(!k||seen.has(k))continue;seen.add(k);const b=await IDB.get('photos',k).catch(()=>null);if(b){zip.file(k+'.jpg',b);n++}}}if(!n)return toast('لا توجد صور');toast('جارٍ تجهيز '+n+' صورة…');download(await zip.generateAsync({type:'blob'}),'solvix-photos-'+stamp()+'.zip')}
 

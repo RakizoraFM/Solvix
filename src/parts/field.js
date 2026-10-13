@@ -96,6 +96,9 @@ function vSchool(err){
   <h2 class="text-2xl font-bold text-center mb-6">${t('Select School')}</h2>
   <p class="text-gray-500 text-center mb-8">${t('Please search by school name, MOE number or identifier and select a school from the list')}</p>
   <div class="relative mb-8"><label class="block text-sm font-medium text-gray-700 mb-2">${t('Search School')}</label>
+   <div class="grid grid-cols-2 gap-3 mb-3"><select id="fcity" class="${INPUT}"><option value="">${tx('كل المحافظات','All cities')}</option>${[...new Set(S.schools.filter(s=>s.status==='active').map(s=>s.city).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar')).map(c=>`<option>${esc(c)}</option>`).join('')}</select>
+    <select id="fdist" class="${INPUT}"><option value="">${tx('كل الأحياء / المكاتب','All districts')}</option></select></div>
+   <label class="flex items-center gap-2 mb-3 text-sm text-gray-600"><input type="checkbox" id="favail" checked class="w-4 h-4"> ${tx('المدارس المتاحة فقط (غير المحجوزة)','Available schools only (not claimed)')}</label>
    <input type="text" id="q" autocomplete="off" class="${INPUT}" placeholder="${esc(t('Search by Name, MOE or ID (2+ characters)...'))}">
    <ul id="res" class="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto" style="display:none"></ul>
    <p id="hint" class="mt-2 text-xs text-blue-500 italic" style="display:none">${t('Type at least 2 characters to search')}</p></div>
@@ -111,8 +114,12 @@ function vSchool(err){
    <div class="flex flex-col sm:flex-row gap-4"><a href="#employee-data" class="${BTN_BACK}">${t('Back')}</a><button type="submit" id="next" disabled class="${BTN_MAIN}">${t('Next')}</button></div></form>
   </div></section>`);
   const q=$('#q'),res=$('#res'),hint=$('#hint');
-  const search=()=>{const v=q.value.trim();hint.style.display=v.length>0&&v.length<2?'':'none';if(v.length<2){res.style.display='none';return}
-    const n=norm(v);const list=S.schools.filter(s=>s.status==='active'&&(norm(s.moe).includes(n)||norm(s.ident).includes(n)||norm(s.name).includes(n))).slice(0,60);
+  /* NV12 — directory filters: city, district, available only */
+  const fc=$('#fcity'),fd=$('#fdist'),fa=$('#favail');
+  fc.onchange=()=>{fd.innerHTML=`<option value="">${tx('كل الأحياء / المكاتب','All districts')}</option>`+[...new Set(S.schools.filter(s=>s.status==='active'&&(!fc.value||s.city===fc.value)).map(s=>s.district).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar')).map(d=>`<option>${esc(d)}</option>`).join('');search()};
+  fd.onchange=()=>search();fa.onchange=()=>search();
+  const search=()=>{const v=q.value.trim();const flt=fc.value||fd.value;hint.style.display=v.length>0&&v.length<2&&!flt?'':'none';if(v.length<2&&!flt){res.style.display='none';return}
+    const n=v.length>=2?norm(v):'';const other=fa.checked?new Set(S.collections.filter(c=>c.employee_id!==e.id).map(c=>c.school_id)):null;const list=S.schools.filter(s=>s.status==='active'&&(!fc.value||s.city===fc.value)&&(!fd.value||s.district===fd.value)&&(!other||!(s.completed_at||other.has(s.id)||(Cloud.on&&Cloud.busy.has(s.id))))&&(!n||norm(s.moe).includes(n)||norm(s.ident).includes(n)||norm(s.name).includes(n))).slice(0,60);
     res.innerHTML=list.map((s,i)=>`<li data-i="${i}" class="px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"><div class="font-bold text-gray-800">${esc(s.name)}</div><div class="text-xs text-gray-500">${t('MOE')}: ${esc(s.moe)} | ${t('ID')}: ${esc(s.ident)}</div><div class="text-xs text-gray-400">${esc(s.city)} - ${esc(s.district)}</div></li>`).join('');
     res.style.display=list.length?'':'none';res.onclick=ev=>{const li=ev.target.closest('[data-i]');if(li)select(list[+li.dataset.i])}};
   q.addEventListener('input',()=>{clearTimeout(timer);hint.style.display=q.value.length>0&&q.value.length<2?'':'none';timer=setTimeout(search,300)});

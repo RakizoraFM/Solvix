@@ -40,7 +40,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  const school=M.db.nv_collections[0].school_id;
  // second technician cannot take a school the first one is working on
  const T2=await mk({width:390,height:844});const t2=T2.p;await t2.goto(U);await t2.waitForSelector('#employee-pw');await t2.fill('#employee-id','21426');await t2.fill('#employee-pw','87654321');await t2.click('button[type=submit]');
- await t2.waitForSelector('#screen-data');await t2.click('text=تأكيد البيانات');const sname=M.db.nv_schools.find(s=>s.id===school).name;await t2.fill('#q',M.db.nv_schools.find(s=>s.id===school).moe);await t2.waitForSelector('#res li');await t2.click('#res li >> nth=0');
+ await t2.waitForSelector('#screen-data');await t2.click('text=تأكيد البيانات');const sname=M.db.nv_schools.find(s=>s.id===school).name;await t2.uncheck('#favail');await t2.fill('#q',M.db.nv_schools.find(s=>s.id===school).moe);await t2.waitForSelector('#res li');await t2.click('#res li >> nth=0');
  ok((await t2.textContent('#eid')).length>0,'busy school blocked for technician 2');
  // first technician finishes the school
  await t.click('#fin');await t.waitForSelector('#screen-job-completed');await t.waitForTimeout(1500);
@@ -48,8 +48,8 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await t.click('#out');await t.waitForSelector('#employee-pw');ok(true,'tech signed out');
  // ---- admin sees it, edits, change log from the server
  await a.goto(U+'#admin/collections');await a.waitForSelector('table');await a.waitForTimeout(1500);await a.goto(U+'#admin/data');await a.click('#cPull');await a.waitForSelector('.alert-success');
- await a.goto(U+'#admin/collections');await a.waitForSelector('a[href^="#admin/collections/view/"]');ok(true,'admin sees the technician group');
- await a.click('a[href^="#admin/collections/view/"]');await a.waitForSelector('a[title="تعديل"]');await a.waitForTimeout(500);await a.screenshot({path:B+'/shots/30-cloud-group.png'});
+ await a.goto(U+'#admin/collections');await a.waitForSelector('.app-main a[href^="#admin/collections/view/"]');ok(true,'admin sees the technician group');
+ await a.click('.app-main a[href^="#admin/collections/view/"]');await a.waitForSelector('a[title="تعديل"]');await a.waitForTimeout(500);await a.screenshot({path:B+'/shots/30-cloud-group.png'});
  await a.click('a[title="تعديل"] >> nth=0');await a.waitForSelector('[name=brand]');await a.fill('[name=brand]','Samsung');await a.click('button:has-text("حفظ التعديل")');await a.waitForSelector('.alert-success');await a.waitForTimeout(1500);
  ok(M.db.nv_collections.some(c=>c.brand==='Samsung')&&M.db.nv_log.length===1&&M.db.nv_log[0].by==='admin','admin edit + server log');
  await a.goto(U+'#admin/settings');await a.fill('#application_name','Novaro Qassim');await a.click('button:has-text("حفظ")');await a.waitForTimeout(1500);ok(M.db.nv_settings[0].data.app_name==='Novaro Qassim','settings in cloud');
