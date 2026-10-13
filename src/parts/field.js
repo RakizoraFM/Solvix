@@ -280,7 +280,7 @@ function vSuccess(){
   $('#same').onclick=()=>add(true);$('#other').onclick=()=>add(false);
   $('#fin').onclick=()=>{if(!confirm(tx('إنهاء جرد هذه المدرسة؟ لن يمكن إضافة أصول لها بعد ذلك.','Finish this school? No more assets can be added after that.')))return;
     S.collections=S.collections.filter(x=>!(x.school_id===sc.id&&x.employee_id===e.id&&!x.submitted_at));
-    Object.assign(sc,{completed_at:now(),completed_by:e.id,status:'inactive'});save('schools');save('collections');setSess({school:null,coll:null});go('#job-completed')};
+    Object.assign(sc,{completed_at:now(),completed_by:e.id,status:'inactive'});save('schools');save('collections');setSess({school:null,coll:null});if(Cloud.on)queueSchoolMail(sc.id,e.id);go('#job-completed')};
 }
 
 /* job-completed.blade.php */

@@ -20,3 +20,15 @@ Solvix (نوفارو سابقاً) تطبيق لجرد أصول المدارس �
   - `tests/offline_test.js` و`tests/cloud_test.js`: Playwright، والثاني مع خادم Supabase وهمي. يحتاجان `python3 -m http.server 8766` في جذر المستودع.
   - `tests/rls.sql`: صلاحيات قاعدة البيانات على PostgreSQL مع `tests/supabase_stub.sql`.
 - **النشر:** GitHub Pages من الفرع `main`، المجلد الجذر.
+
+## تفعيل إرسال البريد عند إنهاء جرد مدرسة (NV18)
+الصفحة لا ترسل بريداً بنفسها؛ ترسله دالة `supabase/functions/solvix-mail` على Supabase عبر خدمة **Resend**.
+1. أنشئ حساباً مجانياً على https://resend.com ، وأضف نطاقك (Domain) وأكّده، أو استخدم `onboarding@resend.dev` للتجربة (يرسل لبريدك فقط).
+2. من Resend ← API Keys أنشئ مفتاحاً.
+3. في Supabase (مشروع Solvix) ← **Edge Functions** ← **Deploy a new function** ← **Via Editor**، سمِّها `solvix-mail` والصق محتوى `supabase/functions/solvix-mail/index.ts` ← Deploy.
+4. Edge Functions ← **Secrets**: أضف `RESEND_API_KEY` = المفتاح، و `MAIL_FROM` = مثل `Solvix <reports@your-domain.com>`.
+5. في Solvix ← الإعدادات ← «بريد المستلمين» اكتب العناوين، ثم اضغط «إرسال رسالة تجريبية».
+المستلمون: بريد مشرف الميدان + «بريد المستلمين». المرفق: Excel فيه «البيانات» و«صور الأصول» (صورة + QR + رقم الأصل).
+
+## استعادة كلمة المرور (NV17)
+في Supabase ← Authentication ← **URL Configuration**: اجعل Site URL = `https://rakizorafm.github.io/Solvix/` وأضفه في Redirect URLs.

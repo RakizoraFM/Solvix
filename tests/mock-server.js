@@ -1,7 +1,7 @@
 // Node side: an in-memory stand-in for the section 20 tables, functions and policies.
 module.exports=function(){
  const db={nv_categories:[],nv_conditions:[],nv_rooms:[],nv_types:[],nv_employees:[],nv_schools:[],nv_collections:[],nv_log:[],nv_settings:[{id:1,data:{}}],nv_staff:[{user_id:'u-admin',email:'admin@x.com',name:'Admin',role:'admin',active:true,created_at:'2026-01-01'}]};
- const users={'admin@x.com':{id:'u-admin',pw:'adminpass',kind:'admin'}};const files={};let no=0;const resets=[];
+ const users={'admin@x.com':{id:'u-admin',pw:'adminpass',kind:'admin'}};const files={};let no=0;const resets=[];const mails=[];
  const who=u=>{if(!u)return {role:null};const x=Object.entries(users).find(([e,v])=>v.id===u.id);if(!x)return {role:null};if(x[1].kind==='admin')return {role:'admin',staff_role:'owner'};if(['owner','manager','coordinator'].includes(x[1].kind))return {role:'admin',staff_role:x[1].kind};if(x[1].kind==='reader')return {role:'reader',staff_role:'reader'};const emp=db.nv_employees.find(e=>e.user_id===u.id);return emp?{role:'tech',emp}:{role:null}};
  const err=m=>({data:null,error:{message:m}});
  const vis=(t,me)=>{let rows=db[t];if(me.role==='tech'){if(t==='nv_collections')rows=rows.filter(r=>r.employee_id===me.emp.id);if(t==='nv_employees')rows=rows.filter(r=>r.id===me.emp.id);if(t==='nv_log')rows=[]}else if(me.role!=='admin'&&me.role!=='reader'&&t!=='nv_settings')rows=[];return rows};
@@ -9,6 +9,7 @@ module.exports=function(){
  const open=(sid,me)=>{const s=db.nv_schools.find(x=>x.id===sid);return s&&s.status==='active'&&!s.completed_at&&!db.nv_collections.some(c=>c.school_id===sid&&c.employee_id!==me.emp.id)};
  const LOGK=['category_id','type_id','condition_id','quantity','price','status','brand','serial','notes','floor','room_number','room_name_id','employee_id','asset_image'];
  const handle=s=>{const me=who(s.user);const t=s.table;
+  if(s.op==='fn'){if(!me.role)return err('not allowed');mails.push({fn:s.name,body:s.body,role:me.role});return {data:{ok:true,to:['boss@x.com']},error:null}}
   if(s.op==='reset'){resets.push(s.email);return {data:{},error:null}}
   if(s.op==='setpw'){const x=Object.values(users).find(v=>v.id===(s.user&&s.user.id));if(!x)return err('not signed in');x.pw=s.password;return {data:{user:s.user},error:null}}
   if(s.op==='signin'){const u=users[s.email];if(!u||u.pw!==s.password)return err('Invalid login credentials');return {data:{user:{id:u.id,email:s.email}},error:null}}
@@ -38,5 +39,5 @@ module.exports=function(){
   return err('bad op')};
  const upd=(t,r,p,me)=>{if(t==='nv_collections'&&r.submitted_at){const ch={};for(const k of LOGK)if(k in p&&JSON.stringify(r[k]??null)!==JSON.stringify(p[k]??null))ch[k]={old:r[k]??null,new:p[k]??null};if(Object.keys(ch).length)db.nv_log.unshift({id:'l'+Math.random(),at:new Date().toISOString(),by:me.role==='admin'?'admin':'emp:'+me.emp.id,coll:r.id,school:r.school_id,emp:r.employee_id,changes:ch})}
    Object.assign(r,p);if(t==='nv_collections')r.updated_at=new Date().toISOString()};
- return {db,files,users,resets,handle:j=>JSON.stringify(handle(JSON.parse(j)))};
+ return {db,files,users,resets,mails,handle:j=>JSON.stringify(handle(JSON.parse(j)))};
 };

@@ -44,6 +44,10 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  ok((await t2.textContent('#eid')).length>0,'busy school blocked for technician 2');
  // first technician finishes the school
  await t.click('#fin');await t.waitForSelector('#screen-job-completed');await t.waitForTimeout(1500);
+ for(let i=0;i<40&&!M.mails.some(m=>m.body&&m.body.kind==='school');i++)await t.waitForTimeout(500);const ml=M.mails.find(m=>m.body&&m.body.kind==='school');
+ ok(!!ml&&ml.fn==='solvix-mail'&&ml.role==='tech'&&ml.body.file_b64.length>1000&&ml.body.count>0,'school report e-mailed on completion ('+(ml?ml.body.count+' assets, '+Math.round(ml.body.file_b64.length/1024)+' KB':'none')+')');
+ if(ml){const x=await t.evaluate(async b=>{await needExcelJS();const wb=new ExcelJS.Workbook();await wb.xlsx.load(Uint8Array.from(atob(b),c=>c.charCodeAt(0)).buffer);const p=wb.getWorksheet('صور الأصول');return [wb.worksheets.map(w=>w.name).join('|'),p.getImages().length,p.getRow(2).getCell(1).value]},ml.body.file_b64);
+   ok(x[0]==='البيانات|صور الأصول'&&x[1]>=2&&/^101\d{8}$/.test(String(x[2])),'report: sheets '+x[0]+', '+x[1]+' images, first asset '+x[2])}
  const sc=M.db.nv_schools.find(s=>s.id===school);ok(sc.completed_at&&sc.status==='inactive'&&M.db.nv_collections.every(c=>c.submitted_at),'school completed through nv_complete_school');
  await t.click('#out');await t.waitForSelector('#pw');ok(true,'tech signed out');
  // ---- admin sees it, edits, change log from the server
