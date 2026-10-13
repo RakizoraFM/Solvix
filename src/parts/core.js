@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV10',date:'2026-10-13'};
+const NV={version:'NV11',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -148,7 +148,7 @@ async function mergePackage(pkg){const d=pkg.data;const rep={coll:0,upd:0,sch:0,
   for(const l of (d.log||[]))if(!S.log.some(y=>y.id===l.id))S.log.push(l);S.log.sort((a,b)=>a.at<b.at?1:-1);
   for(const [k,v] of Object.entries(pkg.photos||{})){if(!(await IDB.get('photos',k).catch(()=>null))){await IDB.put('photos',k,await dataToBlob(v));rep.photos++}}
   reindex();await saveAll();return rep}
-async function restorePackage(pkg){if(pkg.kind!=='full')throw new Error('هذا ملف فني وليس نسخة كاملة — استخدم «دمج ملفات الفنيين».');const adm=S.settings.admin_login;for(const t of TABLES)S[t]=pkg.data[t]||(t==='settings'?{}:[]);S.settings.admin_login=adm;await IDB.clear('photos');urlCache.clear();for(const [k,v] of Object.entries(pkg.photos||{}))await IDB.put('photos',k,await dataToBlob(v));reindex();await saveAll()}
+async function restorePackage(pkg){if(pkg.kind!=='full')throw new Error('هذا ملف فني وليس نسخة كاملة — استخدم «دمج ملفات مشرفي الميدان».');const adm=S.settings.admin_login;for(const t of TABLES)S[t]=pkg.data[t]||(t==='settings'?{}:[]);S.settings.admin_login=adm;await IDB.clear('photos');urlCache.clear();for(const [k,v] of Object.entries(pkg.photos||{}))await IDB.put('photos',k,await dataToBlob(v));reindex();await saveAll()}
 
 /* ---------- admin PIN ---------- */
 async function hashPin(p){const data=new TextEncoder().encode('novaro:'+p);if(window.crypto&&crypto.subtle){const h=await crypto.subtle.digest('SHA-256',data);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('')}let h=5381;for(const b of data)h=((h<<5)+h+b)>>>0;return 'd'+h.toString(16)}

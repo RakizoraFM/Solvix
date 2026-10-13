@@ -54,12 +54,20 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  ok(M.db.nv_collections.some(c=>c.brand==='Samsung')&&M.db.nv_log.length===1&&M.db.nv_log[0].by==='admin','admin edit + server log');
  await a.goto(U+'#admin/settings');await a.fill('#application_name','Novaro Qassim');await a.click('button:has-text("حفظ")');await a.waitForTimeout(1500);ok(M.db.nv_settings[0].data.app_name==='Novaro Qassim','settings in cloud');
  await a.goto(U+'#admin');await a.waitForSelector('.card h3.fw-bold');const k=await a.$$eval('.card h3.fw-bold',b=>b.map(x=>x.textContent.trim()));ok(k.join(',')==='5,1,0,2169','dashboard '+k.join(','));await a.screenshot({path:B+'/shots/31-cloud-dashboard.png'});
- // users page: add a read-only user, who then cannot change anything
- await a.goto(U+'#admin/users');await a.waitForSelector('#fu');await a.fill('#u_name','Reader');await a.fill('#u_email','reader@x.com');await a.selectOption('#u_role','reader');const rpw=await a.inputValue('#u_pw');await a.click('#fu button');await a.waitForSelector('.alert-success');
- ok(M.db.nv_staff.some(u=>u.email==='reader@x.com'&&u.role==='reader'),'user added');
- const R=await mk();const rp=R.p;rp.on('dialog',d=>d.accept());await rp.goto(U+'#admin');await rp.waitForSelector('#em');await rp.fill('#em','reader@x.com');await rp.fill('#pw',rpw);await rp.click('button[type=submit]');await rp.waitForSelector('.app-sidebar');
- ok(!(await rp.$('a[href="#admin/users"]')),'reader has no Users page');const before=JSON.stringify(M.db.nv_schools[0]);
- await rp.goto(U+'#admin/schools/'+M.db.nv_schools[0].id+'/edit');await rp.waitForTimeout(2000);await rp.screenshot({path:B+'/shots/dbg-reader.png'});console.log('READER',(await rp.textContent('#app')).slice(0,300));await rp.waitForSelector('#name');await rp.fill('#name','HACK');await rp.click('button:has-text("حفظ")');await rp.waitForTimeout(1500);ok(JSON.stringify(M.db.nv_schools[0])===before,'reader edit not saved');
+ // users page (NV10): one page, four roles
+ await a.goto(U+'#admin/users');await a.waitForSelector('#staffBox table');ok((await a.textContent('#staffBox')).includes('مالك المشروع'),'owner listed in the users page');
+ await a.click('button.btn-primary[data-adduser]');await a.selectOption('#u_role','coordinator');await a.fill('#u_name','Coord');await a.fill('#u_email','co@x.com');const cpw=await a.inputValue('#u_pw');await a.click('#fu button.btn-primary');await a.waitForSelector('.alert-success');
+ ok(M.db.nv_staff.some(u=>u.email==='co@x.com'&&u.role==='coordinator'),'coordinator added');
+ await a.click('button.btn-primary[data-adduser]');await a.selectOption('#u_role','field');await a.fill('#u_name','Field One');await a.fill('#u_num','99001');await a.click('#fu button.btn-primary');await a.waitForSelector('.alert-success');
+ ok(M.db.nv_employees.some(e=>e.number==='99001'&&e.user_id),'field supervisor added with a sign-in');
+ const R=await mk();const rp=R.p;rp.on('dialog',d=>d.accept());await rp.goto(U+'#admin');await rp.waitForSelector('#em');await rp.fill('#em','co@x.com');await rp.fill('#pw',cpw);await rp.click('button[type=submit]');await rp.waitForSelector('.app-sidebar');
+ ok(!(await rp.$('a[href="#admin/settings"]')),'coordinator has no general settings');
+ await rp.goto(U+'#admin/employees');await rp.waitForSelector('button.btn-primary[data-adduser]');ok((await rp.$$eval('#u_role option',o=>o.map(x=>x.value).join(',')))==='field'&&!(await rp.$('#staffBox table')),'coordinator adds field supervisors only');
+ await rp.goto(U+'#admin/schools/'+M.db.nv_schools[0].id+'/edit');await rp.waitForSelector('#name');await rp.fill('#name','Coord edit');await rp.click('button:has-text("حفظ")');await rp.waitForTimeout(1500);ok(M.db.nv_schools[0].name==='Coord edit','coordinator edit saved');
+ // a read-only account (older installs) cannot change anything
+ M.users['reader@x.com']={id:'u-reader',pw:'readpass',kind:'reader'};M.db.nv_staff.push({user_id:'u-reader',email:'reader@x.com',name:'Reader',role:'reader',active:true,created_at:'2026-01-02'});
+ const R2=await mk();const rq=R2.p;rq.on('dialog',d=>d.accept());await rq.goto(U+'#admin');await rq.waitForSelector('#em');await rq.fill('#em','reader@x.com');await rq.fill('#pw','readpass');await rq.click('button[type=submit]');await rq.waitForSelector('.app-sidebar');const before=JSON.stringify(M.db.nv_schools[0]);
+ await rq.goto(U+'#admin/schools/'+M.db.nv_schools[0].id+'/edit');await rq.waitForSelector('#name');await rq.fill('#name','HACK');await rq.click('button:has-text("حفظ")');await rq.waitForTimeout(1500);ok(JSON.stringify(M.db.nv_schools[0])===before,'reader edit not saved');
  // an account without access
 
  M.users['sup@x.com']={id:'u-sup',pw:'suppass',kind:'none'};const P=await mk();const pp=P.p;await pp.goto(U+'#admin');await pp.waitForSelector('#em');await pp.fill('#em','sup@x.com');await pp.fill('#pw','suppass');await pp.click('button[type=submit]');await pp.waitForSelector('.sx-err');ok((await pp.textContent('.sx-err')).includes('صلاحية'),'no-access account refused');

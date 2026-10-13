@@ -10,18 +10,31 @@ create extension if not exists pgcrypto with schema extensions;
 
 -- ---------- 1) staff: who may open the admin pages ----------
 create table if not exists public.nv_staff(user_id uuid primary key references auth.users(id) on delete cascade, email text not null,
-  name text not null default '', role text not null default 'admin' check(role in ('admin','reader')), active boolean not null default true,
+  name text not null default '', role text not null default 'owner' check(role in ('owner','manager','coordinator','admin','reader')), active boolean not null default true,
   created_at timestamptz not null default now());
 alter table public.nv_staff enable row level security;
+-- NV10 roles: owner (مالك المشروع), manager (مدير المشروع), coordinator (منسق المشروع); the field supervisors (مشرف ميدان) are nv_employees
+-- with a sign-in. 'admin' (older installs, now owner) and 'reader' (read only) are still accepted.
+alter table public.nv_staff alter column role set default 'owner';
+alter table public.nv_staff drop constraint if exists nv_staff_role_check;
+alter table public.nv_staff add constraint nv_staff_role_check check(role in ('owner','manager','coordinator','admin','reader'));
+update public.nv_staff set role = 'owner' where role = 'admin';
 create or replace function public.nv_is_admin() returns boolean language sql stable security definer set search_path = public as $$
-  select exists(select 1 from public.nv_staff s where s.user_id = auth.uid() and s.active and s.role = 'admin') $$;
+  select exists(select 1 from public.nv_staff s where s.user_id = auth.uid() and s.active and s.role in ('owner','manager','coordinator','admin')) $$;
+-- who may manage users and the general settings: owner and manager
+create or replace function public.nv_can_users() returns boolean language sql stable security definer set search_path = public as $$
+  select exists(select 1 from public.nv_staff s where s.user_id = auth.uid() and s.active and s.role in ('owner','manager','admin')) $$;
+create or replace function public.nv_is_owner() returns boolean language sql stable security definer set search_path = public as $$
+  select exists(select 1 from public.nv_staff s where s.user_id = auth.uid() and s.active and s.role in ('owner','admin')) $$;
+create or replace function public.nv_my_role() returns text language sql stable security definer set search_path = public as $$
+  select s.role from public.nv_staff s where s.user_id = auth.uid() and s.active $$;
 create or replace function public.nv_can_read() returns boolean language sql stable security definer set search_path = public as $$
   select exists(select 1 from public.nv_staff s where s.user_id = auth.uid() and s.active) $$;
 -- the first account (not a technician) becomes the admin
 create or replace function public.nv_first_admin() returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if lower(coalesce(new.email,'')) not like '%@novaro.local' and not exists(select 1 from public.nv_staff) then
-    insert into public.nv_staff(user_id, email, name, role) values (new.id, lower(new.email), coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email,'@',1)), 'admin')
+    insert into public.nv_staff(user_id, email, name, role) values (new.id, lower(new.email), coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email,'@',1)), 'owner')
     on conflict (user_id) do nothing;
   end if;
   return new;
@@ -29,12 +42,12 @@ end $$;
 drop trigger if exists nv_first_admin_t on auth.users;
 create trigger nv_first_admin_t after insert on auth.users for each row execute function public.nv_first_admin();
 insert into public.nv_staff(user_id, email, name, role)
-  select u.id, lower(u.email), split_part(u.email,'@',1), 'admin' from auth.users u
+  select u.id, lower(u.email), split_part(u.email,'@',1), 'owner' from auth.users u
    where lower(coalesce(u.email,'')) not like '%@novaro.local' and not exists(select 1 from public.nv_staff)
    order by u.created_at limit 1
 on conflict (user_id) do nothing;
 drop policy if exists p_nv_staff_read on public.nv_staff;
-create policy p_nv_staff_read on public.nv_staff for select using (public.nv_is_admin() or user_id = auth.uid());
+create policy p_nv_staff_read on public.nv_staff for select using (public.nv_can_users() or user_id = auth.uid());
 revoke all on public.nv_staff from anon, authenticated;
 grant select on public.nv_staff to authenticated;
 -- the admin adds staff (creates the sign-in), changes role / active, and resets passwords
@@ -42,11 +55,14 @@ create or replace function public.nv_staff_create(p_email text, p_password text,
 language plpgsql security definer set search_path = public, extensions, auth as $$
 declare v_id uuid; v_email text := lower(trim(p_email));
 begin
-  if not public.nv_is_admin() then raise exception 'not allowed' using errcode = '42501'; end if;
+  if not public.nv_can_users() then raise exception 'not allowed' using errcode = '42501'; end if;
   if v_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' or v_email like '%@novaro.local' then raise exception 'invalid email'; end if;
   if length(coalesce(p_password,'')) < 8 then raise exception 'password too short'; end if;
-  if p_role not in ('admin','reader') then raise exception 'invalid role'; end if;
+  if p_role not in ('owner','manager','coordinator') then raise exception 'invalid role'; end if;
+  if p_role = 'owner' and not public.nv_is_owner() then raise exception 'only an owner can add an owner' using errcode = '42501'; end if;
   select id into v_id from auth.users where lower(email) = v_email;
+  if v_id is not null and exists(select 1 from public.nv_staff where user_id = v_id and role in ('owner','admin')) and not public.nv_is_owner() then
+    raise exception 'only an owner can change an owner' using errcode = '42501'; end if;
   if v_id is null then
     v_id := gen_random_uuid();
     insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
@@ -64,18 +80,22 @@ begin
 end $$;
 create or replace function public.nv_staff_set(p_user uuid, p_role text, p_active boolean) returns void language plpgsql security definer set search_path = public as $$
 begin
-  if not public.nv_is_admin() then raise exception 'not allowed' using errcode = '42501'; end if;
-  if p_role not in ('admin','reader') then raise exception 'invalid role'; end if;
-  if p_user = auth.uid() and (p_role <> 'admin' or not p_active) then raise exception 'you cannot remove your own admin access'; end if;
+  if not public.nv_can_users() then raise exception 'not allowed' using errcode = '42501'; end if;
+  if p_role not in ('owner','manager','coordinator','reader') then raise exception 'invalid role'; end if;
+  if p_user = auth.uid() then raise exception 'you cannot change your own role or access'; end if;
+  if not public.nv_is_owner() and (p_role = 'owner' or exists(select 1 from public.nv_staff where user_id = p_user and role in ('owner','admin'))) then
+    raise exception 'only an owner can change an owner' using errcode = '42501'; end if;
   update public.nv_staff set role = p_role, active = p_active where user_id = p_user;
   if not found then raise exception 'user not found'; end if;
 end $$;
 create or replace function public.nv_staff_set_password(p_user uuid, p_password text) returns void
 language plpgsql security definer set search_path = public, extensions, auth as $$
 begin
-  if not public.nv_is_admin() then raise exception 'not allowed' using errcode = '42501'; end if;
+  if not public.nv_can_users() then raise exception 'not allowed' using errcode = '42501'; end if;
   if length(coalesce(p_password,'')) < 8 then raise exception 'password too short'; end if;
   if not exists(select 1 from public.nv_staff where user_id = p_user) then raise exception 'user not found'; end if;
+  if p_user <> auth.uid() and not public.nv_is_owner() and exists(select 1 from public.nv_staff where user_id = p_user and role in ('owner','admin')) then
+    raise exception 'only an owner can change an owner' using errcode = '42501'; end if;
   update auth.users set encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf')), updated_at = now() where id = p_user;
 end $$;
 revoke all on function public.nv_staff_create(text,text,text,text), public.nv_staff_set(uuid,text,boolean), public.nv_staff_set_password(uuid,text) from public, anon;
@@ -171,7 +191,7 @@ create policy p_nv_log_read on public.nv_log for select using (public.nv_can_rea
 drop policy if exists p_nv_set_read on public.nv_settings;
 create policy p_nv_set_read on public.nv_settings for select using (true);
 drop policy if exists p_nv_set_write on public.nv_settings;
-create policy p_nv_set_write on public.nv_settings for update using (public.nv_is_admin()) with check (public.nv_is_admin());
+create policy p_nv_set_write on public.nv_settings for update using (public.nv_can_users()) with check (public.nv_can_users());
 revoke all on public.nv_employees, public.nv_schools, public.nv_categories, public.nv_types, public.nv_conditions, public.nv_rooms,
   public.nv_collections, public.nv_log, public.nv_settings from anon, authenticated;
 grant select, insert, update, delete on public.nv_employees, public.nv_schools, public.nv_categories, public.nv_types, public.nv_conditions,
@@ -180,9 +200,10 @@ grant select on public.nv_log to authenticated;
 grant select, update on public.nv_settings to authenticated;
 grant select on public.nv_settings to anon;   -- the login pages show the application name and logo
 
--- who am I in Novaro: 'admin' | 'reader' | 'tech' | null, plus the technician's employee row
+-- who am I: role 'admin' (may edit data) | 'reader' | 'tech' (field supervisor) | null; staff_role = owner / manager / coordinator / reader
 create or replace function public.nv_me() returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object('role', case when public.nv_is_admin() then 'admin' when public.nv_can_read() then 'reader' when public.nv_my_emp() is not null then 'tech' end,
+    'staff_role', (select case when s.role = 'admin' then 'owner' else s.role end from public.nv_staff s where s.user_id = auth.uid() and s.active),
     'emp', (select to_jsonb(e) - 'user_id' from public.nv_employees e where e.user_id = auth.uid())) $$;
 -- schools another technician is already working on (a technician cannot read other people's records)
 create or replace function public.nv_busy_schools() returns setof text language sql stable security definer set search_path = public as $$
@@ -223,6 +244,8 @@ begin
 end $$;
 create or replace function public.nv_emp_logins() returns table(id text, has_login boolean) language sql stable security definer set search_path = public as $$
   select e.id, e.user_id is not null from public.nv_employees e where public.nv_can_read() $$;
+revoke all on function public.nv_can_users(), public.nv_is_owner(), public.nv_my_role() from public, anon;
+grant execute on function public.nv_can_users(), public.nv_is_owner(), public.nv_my_role() to authenticated;
 revoke all on function public.nv_is_admin(), public.nv_can_read(), public.nv_my_emp(), public.nv_member(), public.nv_school_open_for_me(text), public.nv_me(),
   public.nv_busy_schools(), public.nv_complete_school(text), public.nv_emp_set_login(text,text), public.nv_emp_logins() from public, anon;
 grant execute on function public.nv_is_admin(), public.nv_can_read(), public.nv_my_emp(), public.nv_member(), public.nv_school_open_for_me(text), public.nv_me(),

@@ -33,14 +33,14 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
     try{const c=await this.sb();const {data}=await c.auth.getSession();const u=data&&data.session&&data.session.user;
       if(!u){await this.setMe(null);return}
       this.user=u;const me=this.chk(await c.rpc('nv_me'));await this.setMe(me,u.id)}
-    catch(e){if(/nv_me|schema cache|does not exist/i.test(e.message))this.tablesMissing=true;else if(cached){Object.assign(this,{role:cached.role,emp:cached.emp,user:{id:cached.uid}});this.err=e}}
+    catch(e){if(/nv_me|schema cache|does not exist/i.test(e.message))this.tablesMissing=true;else if(cached){Object.assign(this,{role:cached.role,emp:cached.emp,staffRole:cached.staff_role||null,user:{id:cached.uid}});this.err=e}}
   },
-  async setMe(me,uid){this.role=me&&me.role||null;this.emp=me&&me.emp||null;
+  async setMe(me,uid){this.role=me&&me.role||null;this.emp=me&&me.emp||null;this.staffRole=me&&me.staff_role||null;
     const prev=await IDB.get('kv','cloud_owner').catch(()=>null);
     if(uid&&prev&&prev!==uid){/* another account on this device: drop the previous account's cache */for(const t of TABLES)S[t]=t==='settings'?S.settings:[];this.snap={};for(const t of NV_ORDER.concat(['settings']))this.snap[t]={};await IDB.clear('photos');urlCache.clear();this.uploaded=new Set();await saveAll();await this.persistSnap()}
-    if(uid)await IDB.put('kv','cloud_owner',uid);await IDB.put('kv','cloud_me',this.role?{role:this.role,emp:this.emp,uid}:null)},
+    if(uid)await IDB.put('kv','cloud_owner',uid);await IDB.put('kv','cloud_me',this.role?{role:this.role,emp:this.emp,staff_role:this.staffRole,uid}:null)},
   async signIn(email,pw){const c=await this.sb();const r=this.chk(await c.auth.signInWithPassword({email,password:pw}));this.user=r.user;const me=this.chk(await c.rpc('nv_me'));await this.setMe(me,r.user.id);return me},
-  async signOut(){await this.sync().catch(()=>{});try{const c=await this.sb();await c.auth.signOut()}catch(e){}this.role=null;this.emp=null;this.user=null;await IDB.put('kv','cloud_me',null)},
+  async signOut(){await this.sync().catch(()=>{});try{const c=await this.sb();await c.auth.signOut()}catch(e){}this.role=null;this.emp=null;this.staffRole=null;this.user=null;await IDB.put('kv','cloud_me',null)},
   pendingCount(){let n=0;for(const t of this.pushTables())for(const r of S[t]){const s=this.snap[t][r.id];if(s===undefined||s!==this.key(t,r))n++}
     for(const t of this.pushTables())for(const id in this.snap[t])if(!S[t].some(r=>r.id===id))n++;return n},
   pushTables(){return this.role==='admin'?NV_ORDER:this.role==='tech'?['collections','schools']:[]},
@@ -67,7 +67,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
         else for(const [r,row,js] of upd){const o=Object.assign({},row);delete o.id;this.chk(await c.from(NV_T[t]).update(o).eq('id',r.id));snap[r.id]=js;await this.persistSnap()}
         for(let i=0;i<del.length;i+=200){const part=del.slice(i,i+200);this.chk(await c.from(NV_T[t]).delete().in('id',part));for(const id of part)delete snap[id];await this.persistSnap()}
       }
-      if(this.role==='admin'){const st={app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null};const js=JSON.stringify(st);
+      if(this.role==='admin'&&['owner','manager'].includes(this.staffRole||'owner')){const st={app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null};const js=JSON.stringify(st);
         if(this.snap.settings.data!==js){this.chk(await c.from('nv_settings').update({data:st,updated_at:new Date().toISOString()}).eq('id',1));this.snap.settings.data=js;await this.persistSnap()}}
       await saveNow('collections');this.err=null;
     }catch(e){this.err=e;console.warn('Novaro sync:',e.message);clearTimeout(this._r);this._r=setTimeout(()=>this.sync(),30000);if(!this._shown){this._shown=1;toast('لم تُرسل بعض البيانات بعد: '+e.message,5000)}}
