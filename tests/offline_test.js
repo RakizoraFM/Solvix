@@ -34,8 +34,8 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.click('#langSw');await p.waitForTimeout(200);ok((await p.textContent('h2')).includes('Asset Saved'),'english toggle');await p.click('#langSw');
  // admin
  await p.goto(U+'#admin');await p.waitForSelector('#em');await shot('10-admin-login');await p.fill('#em','admin@test.com');await p.fill('#pw','secret1');await p.fill('#pw2','secret1');await p.click('button[type=submit]');
- await p.waitForSelector('#schoolStatusChart');await p.waitForTimeout(1500);await shot('11-dashboard');
- const k=await p.$$eval('.card h3.fw-bold',b=>b.map(x=>x.textContent.trim()));ok(k.join(',')==='7,1,0,2169','dashboard '+k.join(','));
+ await p.waitForSelector('.nvd [data-kpi=bar]');await p.waitForTimeout(1500);await shot('11-dashboard');
+ const k=[await p.getAttribute('[data-kpi=assets]','data-val'),await p.getAttribute('[data-kpi=bar]','data-val')];ok(k.join(',')==='7,1,0,2169','dashboard '+k.join(','));
  await p.click('.app-sidebar a[href="#admin/collections"]');await p.waitForSelector('#collections-form');await shot('12-collections');ok((await p.$$('tbody tr')).length===1,'1 group');
  const [dl]=await Promise.all([p.waitForEvent('download',{timeout:30000}).catch(()=>null),p.click('#export-btn')]);ok(!!dl,'excel '+(dl&&dl.suggestedFilename()));if(dl)await dl.saveAs(B+'/out2.xlsx');
  await p.click('.app-main a[href^="#admin/collections/view/"]');await p.waitForSelector('#xl');await p.waitForTimeout(400);await shot('13-group');ok((await p.$$('tbody tr')).length===3,'group rows');ok(!(await p.content()).includes('<b>x</b>'),'escaped');

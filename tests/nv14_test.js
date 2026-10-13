@@ -6,7 +6,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await ctx.route(/^https:\/\/(cdnjs|cdn\.jsdelivr|fonts|[abc]\.tile)/,async r=>{try{const res=await fetch(r.request().url());await r.fulfill({status:res.status,body:Buffer.from(await res.arrayBuffer()),headers:{'content-type':res.headers.get('content-type')||'application/octet-stream','access-control-allow-origin':'*'}})}catch(e){await r.abort()}});
  const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push('PAGEERR '+e.message));p.on('dialog',d=>d.accept());
  const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)process.exitCode=1};
- await p.goto(U+'#admin');await p.waitForSelector('#em');await p.fill('#em','a@b.com');await p.fill('#pw','123456');await p.fill('#pw2','123456');await p.click('button[type=submit]');await p.waitForSelector('#schoolStatusChart');
+ await p.goto(U+'#admin');await p.waitForSelector('#em');await p.fill('#em','a@b.com');await p.fill('#pw','123456');await p.fill('#pw2','123456');await p.click('button[type=submit]');await p.waitForSelector('.nvd [data-kpi=bar]');
  const st=await p.evaluate(()=>[S.categories.length,S.types.length,S.types.filter(t=>t.critical).length,S.types.every(t=>t.code&&t.l2&&t.l3)]);ok(st.join()==='13,279,99,true','seeded catalog 13 / 279 / 99 critical ('+st+')');
  // settings tabs: one «دليل الأصول»
  await p.goto(U+'#admin/asset-types');await p.waitForSelector('.nv-set-tabs');const tabs=await p.$$eval('.nv-set-tabs a',a=>a.map(x=>x.textContent.trim()).join('|'));

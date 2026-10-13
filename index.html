@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV22">
+<meta name="fm-version" content="NV23">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -220,7 +220,7 @@ body.sx-body{margin:0;background:#f4f7fb}
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV22',date:'2026-10-13'};
+const NV={version:'NV23',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -958,7 +958,7 @@ function paginate(list,per=20){const total=list.length,last=Math.max(1,Math.ceil
   const footer=last>1?`<div class="card-footer clearfix"><div class="row align-items-center"><div class="col-sm-6"><span class="text-muted">عرض ${(page-1)*per+1} إلى ${(page-1)*per+items.length} من ${total} نتيجة</span></div><div class="col-sm-6">${links}</div></div></div>`:'';
   return {items,footer}}
 let aflash=null;const charts=[];function destroyCharts(){while(charts.length){try{charts.pop().destroy()}catch(e){}}}
-const chart=(el,o)=>{if(!el||!el.isConnected)return;o.chart=Object.assign({animations:{enabled:false}},o.chart);const c=new ApexCharts(el,o);charts.push(c);c.render()};const setAFlash=(m,k='success')=>{aflash={m,k}};
+const chart=(el,o)=>{if(!el||!el.isConnected)return;o.chart=Object.assign({animations:{enabled:false},redrawOnParentResize:false,redrawOnWindowResize:false},o.chart);const c=new ApexCharts(el,o);charts.push(c);c.render()};const setAFlash=(m,k='success')=>{aflash={m,k}};
 const isAuthed=()=>Cloud.on?(Cloud.role==='admin'||Cloud.role==='reader'):isAdmin();
 /* NV10 roles: owner (مالك المشروع) / manager (مدير المشروع) / coordinator (منسق المشروع) sign in by e-mail; field supervisors (مشرف ميدان) are employees */
 const ROLE_L={owner:'مالك المشروع',manager:'مدير المشروع',coordinator:'منسق المشروع',reader:'قراءة فقط',field:'مشرف ميدان'};
@@ -1050,31 +1050,6 @@ function vAdminLogin(err,emv){if(Cloud.on)return vCloudLogin(err,emv);
 }
 
 /* ---------- dashboard.blade.php ---------- */
-function vDashboard(){
-  const st=schoolStats();let comp=0,prog=0,ns=0;for(const s of S.schools){const k=schoolState(s,st.get(s.id));k==='completed'?comp++:k==='in_progress'?prog++:ns++}
-  const sub=S.collections.filter(submitted);const totalAssets=sub.reduce((a,c)=>a+num(c.quantity),0);
-  const tech=new Map();for(const c of S.collections){let x=tech.get(c.employee_id);if(!x){x={done:new Set(),prog:new Set()};tech.set(c.employee_id,x)}const s=get('schools',c.school_id);(s&&s.completed_at?x.done:x.prog).add(c.school_id)}
-  const techRows=[...tech.entries()].map(([id,x])=>({id,name:empName(id),done:x.done.size,prog:x.prog.size,total:x.done.size+x.prog.size})).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
-  const since=Date.now()-30*864e5;const dm=new Map();for(const c of sub){if(new Date(c.submitted_at).getTime()<since)continue;const k=dayKey(c.submitted_at);const x=dm.get(k)||{date:k,qty:0,rec:0};x.qty+=num(c.quantity);x.rec++;dm.set(k,x)}
-  const daily=[...dm.values()].sort((a,b)=>a.date<b.date?-1:1);
-  const card=(bg,icon,val,lbl,href)=>`<div class="col-xl-3 col-lg-6 col-md-6 col-12"><div class="card h-100 shadow-sm border-0 ${bg} text-white cursor-pointer hover-scale transition" onclick="location.hash='${href}'"><div class="card-body d-flex align-items-center p-3"><div class="rounded-circle bg-white bg-opacity-25 p-3 me-3"><i class="bi ${icon} fs-3"></i></div><div><h3 class="mb-0 fw-bold">${val}</h3><span class="opacity-75 small fw-bold text-uppercase">${lbl}</span></div></div></div></div>`;
-  const empty=Cloud.on&&!S.schools.length;
-  adminShell('dashboard','لوحة التحكم',`${empty?`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2"><div class="flex-grow-1"><strong>لا توجد بيانات في قاعدة Solvix بعد.</strong> حمّل القوائم الجاهزة (2170 مدرسة، 159 نوع أصل، 88 اسم غرفة، 142 موظفاً) مرة واحدة للبدء.</div>${Cloud.role==='admin'?'<button class="btn btn-warning btn-sm" id="initCloud">تحميل القوائم الجاهزة</button>':''}</div>`:''}<div class="row g-3">${card('bg-primary','bi-box-seam',nf(totalAssets),'إجمالي الأصول','#admin/collections')}${card('bg-success','bi-check-circle-fill',comp,'مدارس مكتملة','#admin/schools?status=completed')}${card('bg-info','bi-clock-history',prog,'قيد التنفيذ','#admin/schools?status=in_progress')}${card('bg-secondary','bi-exclamation-circle-fill',ns,'لم تبدأ','#admin/schools?status=not_started')}</div>
-  <div class="row g-4 mt-2"><div class="col-lg-4 col-12"><div class="card shadow-sm border-0 h-100"><div class="card-header bg-transparent border-0 pb-0 pt-3"><h6 class="card-title fw-bold mb-0"><i class="bi bi-pie-chart-fill me-2 text-primary"></i>توزيع حالة المدارس</h6></div><div class="card-body"><div id="schoolStatusChart"></div></div></div></div>
-   <div class="col-lg-8 col-12"><div class="card shadow-sm border-0 h-100"><div class="card-header bg-transparent border-0 pb-0 pt-3"><h6 class="card-title fw-bold mb-0"><i class="bi bi-person-badge-fill me-2 text-primary"></i>أداء مشرفي الميدان</h6><small class="text-muted d-block mt-1">المدارس المكتملة مقابل قيد التنفيذ</small></div><div class="card-body"><div id="techPerformanceChart"></div></div></div></div></div>
-  <div class="row g-4 mt-2 mb-4"><div class="col-12"><div class="card shadow-sm border-0"><div class="card-header bg-transparent border-0 py-3 d-flex justify-content-between align-items-center"><h6 class="card-title fw-bold mb-0"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>النشاط اليومي للجرد</h6><span class="badge bg-light text-dark border">آخر 30 يوماً</span></div>
-   <div class="card-body"><div id="dailyProgressChart"></div><div class="mt-4 border-top pt-4"><h6 class="fw-bold mb-3 small text-uppercase text-muted"><i class="bi bi-list-task me-1"></i>سجل النشاط اليومي</h6>
-    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;"><table class="table table-sm table-hover align-middle border-start border-end"><thead class="table-light sticky-top"><tr><th class="ps-3">التاريخ</th><th class="text-center">السجلات المرسلة</th><th class="text-center">الأصول المجرودة</th><th class="text-end pe-3">إجراء</th></tr></thead><tbody>
-    ${daily.slice().reverse().map(d=>`<tr><td class="ps-3 fw-bold">${d.date}</td><td class="text-center"><span class="badge bg-info-subtle text-info border border-info px-3">${d.rec}</span></td><td class="text-center"><span class="badge bg-primary-subtle text-primary border border-primary px-3">${nf(d.qty)}</span></td><td class="text-end pe-3"><a href="#admin/collections?date=${d.date}" class="btn btn-xs btn-outline-primary py-0"><i class="bi bi-eye"></i> عرض التفاصيل</a></td></tr>`).join('')||'<tr><td colspan="4" class="text-center py-4 text-muted small">لا يوجد نشاط في آخر 30 يوماً.</td></tr>'}
-    </tbody></table></div></div></div></div></div></div>`);
-  if($('#initCloud'))$('#initCloud').onclick=()=>initCloudLists();
-  needAdminLibs().then(()=>{if(routePath()!=='admin'&&routePath()!=='admin/')return;
-    chart($('#schoolStatusChart'),{series:[comp,prog,ns],labels:['مكتملة','قيد التنفيذ','لم تبدأ'],chart:{type:'pie',height:350,events:{dataPointSelection:(e,c,cfg)=>{location.hash='#admin/schools?status='+['completed','in_progress','not_started'][cfg.dataPointIndex]}}},colors:['#10b981','#7c3aed','#94a3b8'],legend:{position:'bottom'},responsive:[{breakpoint:480,options:{chart:{height:280},legend:{position:'bottom'}}}]});
-    chart($('#techPerformanceChart'),{series:[{name:'مكتملة',data:techRows.map(r=>r.done)},{name:'قيد التنفيذ',data:techRows.map(r=>r.prog)}],chart:{type:'bar',height:350,stacked:true,toolbar:{show:false},events:{dataPointSelection:(e,c,cfg)=>{location.hash='#admin/collections?employee_id='+techRows[cfg.dataPointIndex].id}}},plotOptions:{bar:{horizontal:false,columnWidth:'45%',borderRadius:4}},xaxis:{categories:techRows.map(r=>r.name),labels:{rotate:-45,trim:true,style:{fontSize:'11px'}}},colors:['#10b981','#7c3aed'],legend:{position:'top',horizontalAlign:'left'},dataLabels:{enabled:false}});
-    chart($('#dailyProgressChart'),{series:[{name:'الأصول',data:daily.map(d=>d.qty)}],chart:{type:'area',height:300,toolbar:{show:false}},dataLabels:{enabled:false},stroke:{curve:'smooth',width:3},xaxis:{categories:daily.map(d=>d.date),type:'datetime'},colors:['#2563eb'],fill:{type:'gradient',gradient:{shadeIntensity:1,opacityFrom:.35,opacityTo:.05}},markers:{size:0,hover:{size:6}}});
-  }).catch(()=>{});
-}
-
 /* ---------- collections/index.blade.php ---------- */
 function collectionFilter(list,p){const q=norm(p.get('search')||''),emp=p.get('employee_id'),sch=p.get('school_id'),date=p.get('date'),status=p.get('status');const sst=schoolStats();
   return list.filter(c=>{if(emp&&c.employee_id!==emp)return false;if(sch&&c.school_id!==sch)return false;if(date&&!(c.submitted_at&&dayKey(c.submitted_at)===date))return false;const s=get('schools',c.school_id)||{};
@@ -1816,6 +1791,114 @@ async function flushMail(){if(mailBusy||!Cloud.on||!navigator.onLine)return;let 
 window.addEventListener('online',()=>setTimeout(flushMail,3000));setInterval(flushMail,120000);setTimeout(flushMail,8000);
 async function testMail(){try{const c=await Cloud.sb();const {data,error}=await c.functions.invoke('solvix-mail',{body:{kind:'test'}});if(error)throw error;alert('تم الإرسال إلى: '+((data&&data.to)||[]).join('، '))}
   catch(e){alert('لم يُرسل البريد: '+(e.message||e)+'\n\nتأكد من نشر الدالة solvix-mail في Supabase وضبط RESEND_API_KEY و MAIL_FROM (راجع README).')}}
+</script>
+<script id="nv-nv23">
+/* NV23 — dashboard redesign: white KPI cards with context, one progress bar for all schools, filters (city / supervisor / period) that drive every chart,
+   horizontal supervisor bars, daily columns + 7-day average, completion per city, estimated value per level 1. One colour per state everywhere. */
+const DASH={city:'',emp:'',days:30};
+/* charts do not redraw themselves on resize (a pending redraw on a destroyed chart drew NaN paths); the dashboard re-renders once the resize settles */
+let dashRz=0;window.addEventListener('resize',()=>{clearTimeout(dashRz);dashRz=setTimeout(()=>{if(charts.length&&/^admin\/?$/.test(routePath()))vDashboard()},350)});
+const DC={done:'#0ca30c',prog:'#2a78d6',rest:'#cbd5e1',one:'#2a78d6',avg:'#eb6834'};
+const fmtDay=k=>new Date(k+'T12:00:00').toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric',month:'short'});
+const sar=n=>Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
+const isWeak=id=>/ضعيف|صيانة|تالف|سيئ|عطل/.test((get('conditions',id)||{}).ar||'');
+function vDashboard(){
+  const F=DASH,since=F.days?Date.now()-F.days*864e5:0;
+  const schools=S.schools.filter(s=>!F.city||s.city===F.city);const schSet=new Set(schools.map(s=>s.id));
+  const coll=S.collections.filter(c=>schSet.has(c.school_id)&&(!F.emp||c.employee_id===F.emp));
+  const st=new Map();for(const c of coll){let x=st.get(c.school_id);if(!x){x={any:0};st.set(c.school_id,x)}x.any++}
+  const scope=F.emp?schools.filter(s=>st.has(s.id)||s.completed_by===F.emp):schools;
+  let comp=0,prog=0,ns=0;for(const s of scope){const k=schoolState(s,st.get(s.id));k==='completed'?comp++:k==='in_progress'?prog++:ns++}
+  const tot=comp+prog+ns||1,pct=x=>Math.round(x/tot*1000)/10;
+  const sub=coll.filter(c=>c.submitted_at&&c.type_id);const inP=sub.filter(c=>!since||new Date(c.submitted_at).getTime()>=since);
+  const qtyAll=sub.reduce((a,c)=>a+num(c.quantity),0);
+  const wk=d0=>sub.filter(c=>{const t=Date.now()-new Date(c.submitted_at).getTime();return t>=d0*864e5&&t<(d0+7)*864e5}).reduce((a,c)=>a+num(c.quantity),0);
+  const thisWk=wk(0),lastWk=wk(7);const delta=lastWk?Math.round((thisWk-lastWk)/lastWk*100):null;
+  const crit=sub.filter(c=>(get('types',c.type_id)||{}).critical);const critQ=crit.reduce((a,c)=>a+num(c.quantity),0),critWeak=crit.filter(c=>isWeak(c.condition_id)).reduce((a,c)=>a+num(c.quantity),0);
+  const value=sub.reduce((a,c)=>a+(c.price!=null&&c.price!==''?num(c.quantity)*Number(c.price):0),0);
+  const activeEmp=new Set(sub.filter(c=>Date.now()-new Date(c.submitted_at).getTime()<7*864e5).map(c=>c.employee_id)).size;
+  const cities=[...new Set(S.schools.map(s=>s.city).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const emps=S.employees.slice().sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+  const empty=Cloud.on&&!S.schools.length;
+  const kpi=(key,icon,tone,label,val,subtxt,extra)=>`<div class="col-xl-3 col-md-6"><div class="nvk card h-100" data-kpi="${key}" data-val="${esc(String(val).replace(/[^\d.]/g,''))}"><div class="card-body">
+    <div class="d-flex align-items-center gap-2 mb-2"><span class="nvk-ic" style="--c:${tone}"><i class="bi ${icon}"></i></span><span class="nvk-l">${label}</span></div>
+    <div class="nvk-v">${val}</div><div class="nvk-s">${subtxt}</div>${extra||''}</div></div></div>`;
+  const seg=(k,n,c,l)=>n?`<a class="nvp-seg" href="#admin/schools?status=${k}" style="flex:${n};background:${c}" title="${l}: ${nf(n)} (${pct(n)}%)"></a>`:'';
+  adminShell('dashboard','لوحة التحكم',`<style>
+   .nvd .card{border:1px solid #e2e8f0!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important;border-radius:14px}
+   .nvk-ic{width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--c) 12%,transparent);color:var(--c);font-size:1.05rem}
+   .nvk-l{font-weight:700;color:#475569;font-size:.85rem}.nvk-v{font-size:1.9rem;font-weight:800;color:#0f172a;line-height:1.15;font-variant-numeric:tabular-nums}.nvk-s{color:#64748b;font-size:.8rem;margin-top:.15rem}
+   .nvk-bar{height:6px;border-radius:99px;background:#e2e8f0;overflow:hidden;margin-top:.6rem}.nvk-bar i{display:block;height:100%;background:${DC.done};border-radius:99px}
+   .nvd .up{color:#0a7a0a;font-weight:700}.nvd .down{color:#c03030;font-weight:700}
+   .nvp{display:flex;gap:2px;height:22px;border-radius:8px;overflow:hidden;background:#f1f5f9}.nvp-seg{display:block;min-width:4px;transition:filter .15s}.nvp-seg:hover{filter:brightness(.92)}
+   .nvlg{display:flex;flex-wrap:wrap;gap:1.2rem;margin-top:.7rem;font-size:.85rem}.nvlg b{font-variant-numeric:tabular-nums}.nvlg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:.35rem}
+   .nvc-row{display:grid;grid-template-columns:minmax(80px,140px) 1fr 100px;gap:.6rem;align-items:center;padding:.32rem 0;font-size:.85rem}.nvc-row a{color:#0f172a;text-decoration:none;font-weight:600}
+   .nvc-track{display:flex;gap:2px;height:10px;border-radius:99px;background:#eef2f7;overflow:hidden}.nvc-track span{display:block;height:100%}
+   .nvc-row .num{color:#64748b;font-variant-numeric:tabular-nums;text-align:end;white-space:nowrap}.nvc-row .num b{color:#0f172a}[data-bs-theme=dark] .nvc-row .num b{color:#f1f5f9}
+   .nvc-plain{background:transparent;height:12px}.nvc-plain span:last-child{border-start-end-radius:4px;border-end-end-radius:4px}.nvc-wide{grid-template-columns:minmax(110px,190px) 1fr 90px}.nvc-row a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+   .nvd .card-title{font-size:.98rem;font-weight:800;color:#0f172a;float:none;display:block}.nvd .sub{color:#64748b;font-size:.78rem}
+   [data-bs-theme=dark] .nvd .card{border-color:#1e293b!important}[data-bs-theme=dark] .nvk-v,[data-bs-theme=dark] .nvd .card-title,[data-bs-theme=dark] .nvc-row a{color:#f1f5f9}[data-bs-theme=dark] .nvk-l{color:#cbd5e1}
+   [data-bs-theme=dark] .nvp,[data-bs-theme=dark] .nvc-track,[data-bs-theme=dark] .nvk-bar{background:#1e293b}[data-bs-theme=dark] .nvp-seg.rest,[data-bs-theme=dark] .nvlg i.rest{background:#475569!important}
+   [data-bs-theme=dark] .app-content-header h3{color:#f1f5f9}
+   @media (max-width:576px){.nvc-row,.nvc-wide{grid-template-columns:38% 1fr auto}.nvk-v{font-size:1.6rem}}</style>
+  <div class="nvd">
+  ${empty?`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2"><div class="flex-grow-1"><strong>لا توجد بيانات في قاعدة Solvix بعد.</strong> حمّل القوائم الجاهزة (المدارس، دليل الأصول، أسماء الغرف، الموظفين) مرة واحدة للبدء.</div>${Cloud.role==='admin'?'<button class="btn btn-warning btn-sm" id="initCloud">تحميل القوائم الجاهزة</button>':''}</div>`:''}
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+   <select class="form-select form-select-sm" style="width:auto" id="dCity"><option value="">كل المحافظات</option>${cities.map(c=>`<option ${F.city===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+   <select class="form-select form-select-sm" style="width:auto;max-width:240px" id="dEmp"><option value="">كل مشرفي الميدان</option>${emps.map(e=>`<option value="${esc(e.id)}" ${F.emp===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select>
+   <div class="btn-group btn-group-sm" role="group">${[[7,'7 أيام'],[30,'30 يوماً'],[90,'90 يوماً'],[0,'الكل']].map(([d,l])=>`<button type="button" class="btn ${F.days===d?'btn-primary':'btn-outline-secondary'}" data-days="${d}">${l}</button>`).join('')}</div>
+   ${F.city||F.emp||F.days!==30?'<button type="button" class="btn btn-sm btn-link" id="dReset">إعادة ضبط</button>':''}</div>
+  <div class="row g-3">
+   ${kpi('pct','bi-check2-circle',DC.done,'نسبة الإنجاز',pct(comp)+'%',`${nf(comp)} مكتملة من ${nf(comp+prog+ns)} مدرسة`,`<div class="nvk-bar"><i style="width:${pct(comp)}%"></i></div>`)}
+   ${kpi('assets','bi-box-seam',DC.one,'الأصول المجرودة',nf(qtyAll),thisWk||lastWk?`هذا الأسبوع ${nf(thisWk)} ${delta==null?'':delta>=0?`<span class="up">▲ ${delta}%</span>`:`<span class="down">▼ ${Math.abs(delta)}%</span>`} عن السابق`:'لا جرد في آخر أسبوعين')}
+   ${kpi('critical','bi-exclamation-triangle',critWeak?'#d03b3b':'#eda100','الأصول الحرجة',nf(critQ),critQ?`${critWeak?`<span class="down">${nf(critWeak)} بحالة ضعيفة / تحتاج صيانة</span>`:'لا يوجد منها بحالة ضعيفة'}`:'لم تُجرد أصول حرجة بعد')}
+   ${kpi('value','bi-cash-coin','#6250d6','القيمة التقديرية (ريال)',sar(value),`${nf(prog)} مدرسة قيد التنفيذ · ${nf(activeEmp)} مشرف نشط هذا الأسبوع`)}
+  </div>
+  <div class="card mt-3"><div class="card-body"><div class="d-flex flex-wrap justify-content-between align-items-baseline mb-2"><h6 class="card-title mb-0">حالة الجرد في المدارس</h6><span class="sub">${F.city?esc(F.city)+' · ':''}${nf(comp+prog+ns)} مدرسة — اضغط أي جزء لعرض مدارسه</span></div>
+   <div class="nvp" data-kpi="bar" data-val="${comp},${prog},${ns}">${seg('completed',comp,DC.done,'مكتملة')}${seg('in_progress',prog,DC.prog,'قيد التنفيذ')}${seg('not_started',ns,DC.rest,'لم تبدأ').replace('class="nvp-seg"','class="nvp-seg rest"')}</div>
+   <div class="nvlg"><span><i style="background:${DC.done}"></i>مكتملة <b>${nf(comp)}</b> <span class="sub">(${pct(comp)}%)</span></span><span><i style="background:${DC.prog}"></i>قيد التنفيذ <b>${nf(prog)}</b> <span class="sub">(${pct(prog)}%)</span></span><span><i class="rest" style="background:${DC.rest}"></i>لم تبدأ <b>${nf(ns)}</b> <span class="sub">(${pct(ns)}%)</span></span></div></div></div>
+  <div class="row g-3 mt-0">
+   <div class="col-lg-7"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">النشاط اليومي</h6><div class="sub">الأصول المجرودة يومياً ${F.days?`— آخر ${F.days} يوماً`:''}، والخط = متوسط 7 أيام</div><div id="chDaily"></div></div></div></div>
+   <div class="col-lg-5"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">أداء مشرفي الميدان</h6><div class="sub">عدد المدارس لكل مشرف — مرتبة من الأعلى</div><div id="chEmp"></div></div></div></div>
+   <div class="col-lg-6"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-1">الإنجاز حسب المحافظة</h6><div class="sub mb-2">المكتمل والجاري من مدارس كل محافظة</div><div id="byCity"></div></div></div></div>
+   <div class="col-lg-6"><div class="card h-100"><div class="card-body"><h6 class="card-title mb-0">القيمة التقديرية حسب المستوى الأول</h6><div class="sub">الكمية × السعر (ريال) — اضغط للتحليل</div><div id="chValue"></div></div></div></div>
+  </div></div>`);
+  /* filters */
+  $('#dCity').onchange=e=>{F.city=e.target.value;vDashboard()};$('#dEmp').onchange=e=>{F.emp=e.target.value;vDashboard()};
+  $$('[data-days]').forEach(b=>b.onclick=()=>{F.days=+b.dataset.days;vDashboard()});if($('#dReset'))$('#dReset').onclick=()=>{Object.assign(F,{city:'',emp:'',days:30});vDashboard()};
+  if($('#initCloud'))$('#initCloud').onclick=()=>initCloudLists();
+  /* completion per city (HTML bars) */
+  const cm=new Map();for(const s of scope){const k=s.city||'غير محدد';const x=cm.get(k)||{n:0,c:0,p:0};x.n++;const t=schoolState(s,st.get(s.id));if(t==='completed')x.c++;else if(t==='in_progress')x.p++;cm.set(k,x)}
+  const cr=[...cm.entries()].sort((a,b)=>(b[1].c+b[1].p)/b[1].n-(a[1].c+a[1].p)/a[1].n||b[1].n-a[1].n);
+  const cityRows=(n)=>cr.slice(0,n).map(([k,x])=>`<div class="nvc-row"><a href="#admin/schools?search=${encodeURIComponent(k)}" title="${esc(k)}">${esc(k)}</a><div class="nvc-track" title="مكتملة ${x.c} · قيد التنفيذ ${x.p} · لم تبدأ ${x.n-x.c-x.p}"><span style="width:${x.c/x.n*100}%;background:${DC.done}"></span><span style="width:${x.p/x.n*100}%;background:${DC.prog}"></span></div><span class="num"><b>${x.c+x.p}</b> من ${x.n}</span></div>`).join('');
+  $('#byCity').innerHTML=cr.length?cityRows(8)+(cr.length>8?`<button class="btn btn-sm btn-link px-0" id="moreCity">عرض كل المحافظات (${cr.length})</button>`:''):'<p class="text-muted small mb-0">لا توجد مدارس.</p>';
+  if($('#moreCity'))$('#moreCity').onclick=()=>{$('#byCity').innerHTML=cityRows(cr.length)};
+  /* supervisors: horizontal stacked bars (HTML), sorted by schools */
+  const tm=new Map();for(const c of coll){let x=tm.get(c.employee_id);if(!x){x={d:new Set(),p:new Set()};tm.set(c.employee_id,x)}const s=get('schools',c.school_id);(s&&s.completed_at?x.d:x.p).add(c.school_id)}
+  const tr=[...tm.entries()].map(([id,x])=>({id,name:empName(id),d:x.d.size,p:x.p.size})).filter(r=>r.d+r.p).sort((a,b)=>b.d+b.p-(a.d+a.p)||b.d-a.d);const tmax=Math.max(1,...tr.map(r=>r.d+r.p));
+  const empRows=n=>tr.slice(0,n).map(r=>`<div class="nvc-row" title="${esc(r.name)} — مكتملة ${r.d} · قيد التنفيذ ${r.p}"><a href="#admin/collections?employee_id=${encodeURIComponent(r.id)}">${esc(r.name)}</a><div class="nvc-track nvc-plain"><span style="width:${r.d/tmax*100}%;background:${DC.done}"></span><span style="width:${r.p/tmax*100}%;background:${DC.prog}"></span></div><span class="num"><b>${r.d+r.p}</b> <small>مكتملة ${r.d}</small></span></div>`).join('');
+  $('#chEmp').innerHTML=tr.length?`<div class="nvlg mt-1 mb-2"><span><i style="background:${DC.done}"></i>مكتملة</span><span><i style="background:${DC.prog}"></i>قيد التنفيذ</span></div>`+empRows(10)+(tr.length>10?`<button class="btn btn-sm btn-link px-0" id="moreEmp">عرض الكل (${tr.length})</button>`:''):'<div class="text-center text-muted small py-5">لا يوجد عمل لمشرفي الميدان بعد.</div>';
+  if($('#moreEmp'))$('#moreEmp').onclick=()=>{$('#chEmp').innerHTML=`<div class="nvlg mt-1 mb-2"><span><i style="background:${DC.done}"></i>مكتملة</span><span><i style="background:${DC.prog}"></i>قيد التنفيذ</span></div>`+empRows(tr.length)};
+  /* estimated value per level 1 (HTML bars) */
+  const vm=new Map();for(const c of sub){if(c.price==null||c.price==='')continue;const k=c.category_id||'none';vm.set(k,(vm.get(k)||0)+num(c.quantity)*Number(c.price))}
+  const vr=[...vm.entries()].sort((a,b)=>b[1]-a[1]);const vmax=Math.max(1,...vr.map(x=>x[1]));
+  $('#chValue').innerHTML=vr.length?'<div class="mt-2"></div>'+vr.slice(0,9).map(([k,v])=>{const nm=(get('categories',k)||{}).ar||'غير محدد';return `<div class="nvc-row nvc-wide" title="${esc(nm)}: ${sar(v)} ريال"><a href="#admin/analytics?cat=${encodeURIComponent(k)}">${esc(nm)}</a><div class="nvc-track nvc-plain"><span style="width:${v/vmax*100}%;background:${DC.one}"></span></div><span class="num">${sar(v)}</span></div>`}).join(''):'<div class="text-center text-muted small py-5">لا توجد أسعار مسجلة بعد.</div>';
+  /* charts */
+  needAdminLibs().then(()=>{if(routePath()!=='admin'&&routePath()!=='admin/')return;
+    const dark=document.documentElement.getAttribute('data-bs-theme')==='dark',fg=dark?'#cbd5e1':'#475569',grid=dark?'#1e293b':'#eef2f7';
+    const base={chart:{fontFamily:'Cairo, Tahoma, sans-serif',foreColor:fg,toolbar:{show:false},zoom:{enabled:false}},grid:{borderColor:grid,strokeDashArray:3},tooltip:{theme:dark?'dark':'light'},dataLabels:{enabled:false},legend:{position:'top',horizontalAlign:'right',markers:{radius:3}}};
+    const emptyNote=(el,t)=>{el.innerHTML=`<div class="text-center text-muted small py-5">${t}</div>`};
+    /* daily columns + 7-day average (same unit, one axis) */
+    const days=F.days||Math.max(14,Math.min(120,Math.ceil((Date.now()-Math.min(...sub.map(c=>new Date(c.submitted_at).getTime()),Date.now()))/864e5)+1));
+    const keys=[];for(let i=days-1;i>=0;i--)keys.push(dayKey(new Date(Date.now()-i*864e5).toISOString()));
+    const dm=new Map(keys.map(k=>[k,0]));for(const c of sub){const k=dayKey(c.submitted_at);if(dm.has(k))dm.set(k,dm.get(k)+num(c.quantity))}
+    const vals=keys.map(k=>dm.get(k)),avg=vals.map((v,i)=>{const w=vals.slice(Math.max(0,i-6),i+1);return Math.round(w.reduce((a,b)=>a+b,0)/w.length*10)/10});
+    if(!inP.length)emptyNote($('#chDaily'),'لا يوجد جرد في هذه الفترة.');
+    else chart($('#chDaily'),{...base,series:[{name:'الأصول المجرودة',type:'column',data:vals},{name:'متوسط 7 أيام',type:'line',data:avg}],chart:{...base.chart,height:300,type:'line',events:{dataPointSelection:(e,c,cfg)=>{location.hash='#admin/collections?date='+keys[cfg.dataPointIndex]}}},
+      colors:[DC.one,DC.avg],stroke:{width:[0,2],curve:'smooth'},plotOptions:{bar:{columnWidth:days>45?'80%':'55%',borderRadius:4,borderRadiusApplication:'end'}},markers:{size:0,hover:{size:5}},
+      xaxis:{categories:keys.map(fmtDay),tickAmount:Math.min(innerWidth<600?4:10,days),labels:{rotate:0,hideOverlappingLabels:true,style:{fontSize:'11px'}},axisBorder:{show:false},axisTicks:{show:false}},yaxis:{labels:{formatter:v=>nf(Math.round(v))}},tooltip:{...base.tooltip,shared:true,intersect:false,y:{formatter:v=>nf(v)}}});
+  }).catch(()=>{});
+}
 </script>
 <script id="nv-boot">
 /* Hash router and start-up */

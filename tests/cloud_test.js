@@ -57,7 +57,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await a.click('a[title="تعديل"] >> nth=0');await a.waitForSelector('[name=brand]');await a.fill('[name=brand]','Samsung');await a.click('button:has-text("حفظ التعديل")');await a.waitForSelector('.alert-success');await a.waitForTimeout(1500);
  ok(M.db.nv_collections.some(c=>c.brand==='Samsung')&&M.db.nv_log.length===1&&M.db.nv_log[0].by==='admin','admin edit + server log');
  await a.goto(U+'#admin/settings');await a.fill('#application_name','Novaro Qassim');await a.click('button:has-text("حفظ")');await a.waitForTimeout(1500);ok(M.db.nv_settings[0].data.app_name==='Novaro Qassim','settings in cloud');
- await a.goto(U+'#admin');await a.waitForSelector('.card h3.fw-bold');const k=await a.$$eval('.card h3.fw-bold',b=>b.map(x=>x.textContent.trim()));ok(k.join(',')==='5,1,0,2169','dashboard '+k.join(','));await a.screenshot({path:B+'/shots/31-cloud-dashboard.png'});
+ await a.goto(U+'#admin');await a.waitForSelector('[data-kpi=bar]');const k=[await a.getAttribute('[data-kpi=assets]','data-val'),await a.getAttribute('[data-kpi=bar]','data-val')];ok(k.join(',')==='5,1,0,2169','dashboard '+k.join(','));await a.screenshot({path:B+'/shots/31-cloud-dashboard.png'});
  // users page (NV10): one page, four roles
  await a.goto(U+'#admin/users');await a.waitForSelector('#staffBox table');ok((await a.textContent('#staffBox')).includes('مالك المشروع'),'owner listed in the users page');
  await a.click('button.btn-primary[data-adduser]');await a.selectOption('#u_role','coordinator');await a.fill('#u_name','Coord');await a.fill('#u_email','co@x.com');const cpw=await a.inputValue('#u_pw');await a.click('#fu button.btn-primary');await a.waitForSelector('.alert-success');

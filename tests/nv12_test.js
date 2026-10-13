@@ -7,13 +7,18 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await ctx.route(/^https:\/\/(cdnjs|cdn\.jsdelivr|fonts|[abc]\.tile)/,async r=>{try{const res=await fetch(r.request().url());await r.fulfill({status:res.status,body:Buffer.from(await res.arrayBuffer()),headers:{'content-type':res.headers.get('content-type')||'application/octet-stream','access-control-allow-origin':'*'}})}catch(e){await r.abort()}});
  const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push('PAGEERR '+e.message));const dlg=[];p.on('dialog',d=>{dlg.push(d.message());d.accept()});
  const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)process.exitCode=1};
- await p.goto(U+'#admin');await p.waitForSelector('#em');await p.fill('#em','a@b.com');await p.fill('#pw','123456');await p.fill('#pw2','123456');await p.click('button[type=submit]');await p.waitForSelector('#schoolStatusChart');
+ await p.goto(U+'#admin');await p.waitForSelector('#em');await p.fill('#em','a@b.com');await p.fill('#pw','123456');await p.fill('#pw2','123456');await p.click('button[type=submit]');await p.waitForSelector('.nvd [data-kpi=bar]');
  // seed: 2 field supervisors, 2 schools, 5 submitted assets (two categories), one finished school and one edit of a submitted asset
  const ids=await p.evaluate(()=>{const e1=S.employees[0],e2=S.employees[1],s1=S.schools[0],s2=S.schools[1];const ty=S.types.filter(t=>t.cat===S.types[0].cat).slice(0,2).concat(S.types.filter(t=>t.cat!==S.types[0].cat).slice(0,1));
    const mk=(e,s,t,q,pr)=>Object.assign(newCollection(e.id,s.id,null,{}),{floor:'الأرضي',room_number:'3',room_name_id:S.rooms[0].id,category_id:t.cat,type_id:t.id,condition_id:S.conditions[0].id,quantity:q,price:pr,status:'Works',parent_child:'Parent',submitted_at:now()});
    const L=[mk(e1,s1,ty[0],2,100),mk(e1,s1,ty[1],1,50),mk(e1,s1,ty[2],4,10),mk(e2,s2,ty[0],3,100),mk(e2,s2,ty[2],1,null)];S.collections.push(...L);save('collections');
    s1.completed_at=now();s1.completed_by=e1.id;save('schools');S.log.unshift({id:'l1',at:now(),by:'emp:'+e1.id,school:s1.id,coll:L[0].id,changes:{quantity:{old:1,new:2}}});save('log');
    return {e1:e1.id,s1:s1.id,s1moe:s1.moe,s1ident:s1.ident,c0:L[0].id,cat0:ty[0].cat,e1num:e1.number,s2ident:s2.ident,type0:ty[0]}});
+ // NV23: dashboard KPIs, progress bar, filters
+ await p.goto(U+'#admin');await p.evaluate(()=>route());await p.waitForSelector('[data-kpi=bar]');const kb=await p.getAttribute('[data-kpi=bar]','data-val'),ka=await p.getAttribute('[data-kpi=assets]','data-val');ok(kb==='1,1,2168'&&ka==='11','dashboard: '+kb+' / '+ka);
+ const sc=await p.evaluate(()=>S.schools[0].city);await p.selectOption('#dCity',sc);await p.waitForFunction(c=>document.querySelector('[data-kpi=bar]')&&document.querySelector('[data-kpi=bar]').dataset.val.split(',').reduce((a,b)=>a+ +b,0)===S.schools.filter(s=>s.city===c).length,sc);ok(true,'city filter narrows the schools');
+ await p.selectOption('#dEmp',ids.e1);await p.waitForFunction(()=>document.querySelector('[data-kpi=assets]').dataset.val==='7');ok(true,'supervisor filter: his 7 assets');
+ ok((await p.$$('#chEmp .nvc-row')).length===1&&(await p.$$('#byCity .nvc-row')).length>=1&&(await p.$$('#chValue .nvc-row')).length>=1,'supervisors / cities / value bars rendered');await p.click('#dReset');
  await p.goto(U+'#admin/analytics');await p.waitForSelector('.breadcrumb');
  let rows=await p.$$eval('.app-main tbody tr',r=>r.length);ok(rows===2,'drill-down level 1: 2 categories ('+rows+')');
  const tot=await p.$$eval('.app-main .fs-4.fw-bold',x=>x.map(y=>y.textContent));ok(tot[0]==='11'&&tot[1]==='590'&&tot[2]==='5','totals: qty 11, cost 590, 5 records ('+tot+')');
