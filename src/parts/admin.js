@@ -74,7 +74,7 @@ function adminShell(active,title,content){
     ${navTree('bi-building','المدارس',A('schools')||A('schools.create')||A('schools.edit'),[navItem('#admin/schools','bi-list','كل المدارس',A('schools')),navItem('#admin/schools/create','bi-plus-circle','إضافة مدرسة',A('schools.create'))])}
     ${navItem('#admin/employees','bi-people','المستخدمون',active.startsWith('employees')||A('users'))}
     <li class="nav-header">النظام</li>
-    ${navItem(isSys()?'#admin/system':can('settings')?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||A('label')||A('system')||!!LK[active.split('.')[0]])}
+    ${navItem(isSys()?'#admin/system':can('settings')?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||A('label')||A('system')||A('subscription')||!!LK[active.split('.')[0]])}
     ${can('backup')||can('export')||can('import')?navItem('#admin/data','bi-database','البيانات والنسخ',A('data')):''}
     ${navItem('#admin/log','bi-journal-text','سجل التعديلات',A('log'))}
     <li class="nav-item"><a href="javascript:void 0" class="nav-link" data-nv-logout><i class="nav-icon bi bi-box-arrow-right"></i><p>تسجيل الخروج</p></a></li>
@@ -97,8 +97,8 @@ document.addEventListener('click',e=>{
   const nl=e.target.closest('.app-sidebar a.nav-link[href^="#"]');if(nl&&window.innerWidth<992)document.body.classList.remove('sidebar-open');
 });
 /* NV10 — the reference lists live under «الإعدادات» as tabs */
-function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&k!=='system'&&!LK[k])return '';
-  const T=[...(isSys()?[['system','bi-shield-lock','إدارة النظام (Admin)']]:[]),...(can('settings')?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],['asset-conditions','bi-shield-check','حالات الأصول']];
+function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&k!=='system'&&k!=='subscription'&&!LK[k])return '';
+  const T=[...(isSys()?[['system','bi-shield-lock','إدارة النظام (Admin)']]:Cloud.on?[['subscription','bi-patch-check','الاشتراك والاستخدام']]:[]),...(can('settings')?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],['asset-conditions','bi-shield-check','حالات الأصول']];
   return `<ul class="nav nav-pills nv-set-tabs flex-nowrap overflow-auto gap-1 mb-3 pb-1">${T.map(([id,ic,l])=>`<li class="nav-item"><a class="nav-link text-nowrap ${k===id?'active':''}" href="#admin/${id}"><i class="bi ${ic} me-1"></i>${l}</a></li>`).join('')}</ul>`}
 const iconBtn=(href,icon,title)=>`<a href="${href}" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle"${title?` title="${title}"`:''}><i class="bi ${icon}"></i></a>`;
 
@@ -434,7 +434,7 @@ function vLog(){const pg=paginate(S.log,50);
 <script id="nv-admin-cloud">
 /* fill an empty cloud with the built-in lists (seeders), then send them */
 async function initCloudLists(){if(S.schools.length&&!confirm('قاعدة البيانات فيها مدارس بالفعل. إضافة القوائم الجاهزة رغم ذلك؟ (السجلات الموجودة تبقى)'))return;
-  const T=seedLists({});for(const t of ['categories','conditions','rooms','types','employees','schools']){const have=new Set(S[t].map(x=>x.id));for(const r of T[t])if(!have.has(r.id))S[t].push(r)}
+  const T=seedLists({});{const hs=new Set(S.schools.map(x=>x.id)),he=new Set(S.employees.map(x=>x.id));if(!await limitOk('schools',T.schools.filter(x=>!hs.has(x.id)).length)||!await limitOk('field',T.employees.filter(x=>!he.has(x.id)).length))return}for(const t of ['categories','conditions','rooms','types','employees','schools']){const have=new Set(S[t].map(x=>x.id));for(const r of T[t])if(!have.has(r.id))S[t].push(r)}
   reindex();for(const t of ['categories','conditions','rooms','types','employees','schools'])save(t);toast('جارٍ إرسال القوائم إلى قاعدة البيانات…',4000);await Cloud.sync();
   setAFlash(Cloud.err?('لم يُرسل كل شيء: '+Cloud.err.message):'القوائم الجاهزة الآن في قاعدة البيانات.',Cloud.err?'danger':'success');route()}
 /* the offline copy (novaro_v2) kept by NV1/NV2 or by «?local» on this device, as a merge package */
@@ -574,6 +574,7 @@ async function importCollections(){const f=await pickFile('.xlsx,.xls,.csv');if(
       agency:pick(r,['Agency']),warranty:pick(r,['Warranty']),install_date:pick(r,['Installation Date']),asad_country:pick(r,['ASAD Country']),tag:pick(r,['ASAD Tag #','رقم ASAD']),parent_child:pick(r,['Parent/Child','رئيسي / فرعي']),notes:pick(r,['Notes','ملاحظات']),submitted_at:d}))});
   if(!rows.length)return alert('الملف فارغ.');
   if(errs.length){alert(`لم يُستورد أي سجل — ${errs.length} سطر فيه أخطاء:\n\n`+errs.slice(0,25).join('\n')+(errs.length>25?`\n… و${errs.length-25} أخرى`:''));return}
+  if(!await limitOk('assets',out.length))return;
   if(!confirm(`كل الأسطر سليمة. استيراد ${out.length} سجل جرد؟`))return;
   S.collections.push(...out);save('collections');setAFlash(`تم استيراد ${out.length} سجل جرد.`);vData()}
 /* in-app notifications: schools finished by field supervisors and edits of submitted assets */
@@ -763,6 +764,7 @@ async function deleteSchools(ids){const set=new Set(ids);const recs=S.collection
   if(typed!=='حذف')return false;await removeCollections(recs);S.schools=S.schools.filter(s=>!set.has(s.id));reindex();save('schools');setAFlash(`تم حذف ${ids.length} مدرسة.`);return true}
 async function importSchoolsFile(done){const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;let rows;try{rows=await readXlsx(f)}catch(e){return alert(e.message)}
   const pick=(r,names)=>{for(const n of names)if(n in r&&String(r[n]).trim()!=='')return String(r[n]).trim();return null};let add=0,upd=0,skip=0;const seen=new Set();
+  {const have=new Set(S.schools.map(x=>x.ident)),nw=new Set();for(const r of rows){const id=pick(r,['school_identifier','Identifier','المعرّف','معرّف المبنى']);if(id&&!have.has(id))nw.add(id)}if(!await limitOk('schools',nw.size))return}
   for(const r of rows){const ident=pick(r,['school_identifier','Identifier','المعرّف','معرّف المبنى']);if(!ident||seen.has(ident)){skip++;continue}seen.add(ident);
     const v={name:pick(r,['Name (Arabic)','Arabic Name','name_ar','اسم المدرسة']),moe:pick(r,['MOE Number','MoE No','moe_no','الرقم الوزاري']),city:pick(r,['City','city_ar','المحافظة']),district:pick(r,['District','District Arabic','district_ar','الحي / المكتب']),site:pick(r,['Site','site','الموقع']),description:pick(r,['Description','description','الوصف'])};
     const st=pick(r,['Status','الحالة']);if(st)v.status=/inactive|غير/i.test(st)?'inactive':'active';
@@ -807,6 +809,7 @@ async function deleteEmployees(ids){const set=new Set(ids);const recs=S.collecti
   const typed=ids.length>20?prompt(msg+'\nللتأكيد اكتب: حذف'):(confirm(msg)?'حذف':'');if(typed!=='حذف')return false;
   await removeCollections(recs);S.employees=S.employees.filter(x=>!set.has(x.id));for(const s of S.schools)if(set.has(s.completed_by))s.completed_by=null;reindex();save('employees');save('schools');setAFlash(`تم حذف ${ids.length} مشرف ميدان.`);return true}
 async function importEmployeesFile(done){const f=await pickFile('.xlsx,.xls,.csv');if(!f)return;let rows;try{rows=await readXlsx(f)}catch(e){return alert(e.message)}let add=0,upd=0,skip=0;const seen=new Set();
+  {const have=new Set(S.employees.map(x=>String(x.number))),nw=new Set();for(const r of rows){const n=String(r['Employee Number']??r['employee_number']??r['الرقم الوظيفي']??'').trim();if(n&&!have.has(n))nw.add(n)}if(!await limitOk('field',nw.size))return}
   for(const r of rows){const n=String(r['Employee Number']??r['employee_number']??r['الرقم الوظيفي']??'').trim(),nm=String(r['Name']??r['name']??r['الاسم']??'').trim();if(!n||!nm||seen.has(n)){skip++;continue}seen.add(n);
     const em=String(r['Email']??r['email']??r['البريد الإلكتروني']??r['البريد']??'').trim().toLowerCase()||null;const e=S.employees.find(x=>String(x.number)===n);if(e){e.name=nm;if(em)e.email=em;upd++}else{S.employees.push({id:nextId('employees','e'),number:n,name:nm,email:em,created_at:now()});add++}}
   reindex();save('employees');setAFlash(`استيراد مشرفي الميدان: ${add} جديد، ${upd} محدَّث${skip?`، ${skip} صف متجاهَل`:''}.`);done()}
@@ -1085,7 +1088,7 @@ const ROLE_PERMS={sysadmin:'*',owner:'view edit delete users settings catalog re
 const roleHas=(role,p)=>ROLE_PERMS[role]==='*'||(ROLE_PERMS[role]||'').split(' ').includes(p);
 const PLAN_L={trial:'تجريبي',quarterly:'ربع سنوي',half:'نصف سنوي',yearly:'سنوي',custom:'خاص'};
 function subBanner(){const s=subInfo();if(!s||s.state==='ok')return '';const d=x=>new Date(x).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
-  const link=isSys()?' <a href="#admin/system" class="alert-link">إدارة الاشتراك</a>':' تواصل مع مزوّد الخدمة للتجديد.';
+  const link=isSys()?' <a href="#admin/system" class="alert-link">إدارة الاشتراك</a>':' <button type="button" class="btn btn-sm btn-light border ms-2" data-renew><i class="bi bi-send me-1"></i>طلب تجديد</button> <a href="#admin/subscription" class="alert-link ms-1">الاستخدام</a>';
   if(s.state==='over')return `<div class="alert alert-danger py-2 small" data-sub="over"><i class="bi bi-lock me-1"></i><b>انتهى الاشتراك في ${d(s.end)} — النظام الآن للقراءة فقط.</b> البيانات محفوظة كاملة ويمكن عرضها وتصديرها.${link}</div>`;
   if(s.state==='grace')return `<div class="alert alert-warning py-2 small" data-sub="grace"><i class="bi bi-hourglass-split me-1"></i><b>انتهى الاشتراك في ${d(s.end)}.</b> يعمل النظام في فترة السماح حتى ${d(s.graceEnd)}، ثم يصبح للقراءة فقط.${link}</div>`;
   return `<div class="alert alert-info py-2 small" data-sub="soon"><i class="bi bi-calendar-event me-1"></i>ينتهي الاشتراك خلال <b>${s.days}</b> يوماً (${d(s.end)}).${link}</div>`}
@@ -1149,4 +1152,43 @@ async function vSystem(){if(!isSys())return go(can('settings')?'#admin/settings'
   $$('[data-pw]').forEach(x=>x.onchange=async()=>{const o=permsOf(x.dataset.pw,x.dataset.id);x.classList.toggle('nv-pchg',x.checked!==roleHas(x.dataset.pw==='e'?'field':(((others.find(u=>u.user_id===x.dataset.id)||{}).role)||'reader').replace('admin','owner'),x.dataset.k));await setPerms(x.dataset.pw,x.dataset.id,o)});
   $$('[data-pdef]').forEach(b=>b.onclick=async()=>{await setPerms(b.dataset.pdef,b.dataset.id,null);vSystem()});
 }
+</script>
+<script id="nv-nv29">
+/* NV29 — «الاشتراك والاستخدام» for the management (usage against the plan's limits, «طلب تجديد»), the daily reminder trigger,
+   the limit check before an import, and Arabic messages for the database's limit errors. */
+PAGE_META.subscription=['bi-patch-check','حالة الاشتراك واستخدامك مقابل حدود الباقة'];
+const LIM_L={schools:'المدارس',field:'مشرفو الميدان',staff:'حسابات الإدارة',assets:'الأصول'};
+async function subGet(){const c=await Cloud.sb();return Cloud.chk(await c.rpc('nv_sub_get'))}
+async function renewRequest(){const note=prompt('طلب تجديد الاشتراك — يُرسل إلى مزوّد الخدمة. اكتب ملاحظة إن أردت (المدة المطلوبة، زيادة الحدود…):','');if(note==null)return;
+  try{const c=await Cloud.sb();const {data,error}=await c.functions.invoke('solvix-mail',{body:{kind:'renew_request',note}});if(error)throw error;if(data&&data.error)throw new Error(data.error);toast('تم إرسال طلب التجديد. سيتواصل معك مزوّد الخدمة.',5000)}
+  catch(e){const m=String(e.message||e);toast(/12 hours/.test(m)?'أُرسل طلب تجديد خلال آخر 12 ساعة — يكفي طلب واحد.':'لم يُرسل الطلب: '+m,6000)}}
+document.addEventListener('click',e=>{if(e.target.closest('[data-renew]')){e.preventDefault();renewRequest()}});
+/* once a day, any management account that opens the platform lets the server check the subscription reminders (it sends each one only once) */
+function subReminderPing(){if(!Cloud.on||!Cloud.role||Cloud.role==='tech'||!Cloud.sub||!Cloud.sub.ends_at)return;const d=new Date().toISOString().slice(0,10);if(lsGet('nv_subrem','')===d)return;lsSet('nv_subrem',d);
+  Cloud.sb().then(c=>c.functions.invoke('solvix-mail',{body:{kind:'sub_reminder'}})).catch(()=>{})}
+setTimeout(subReminderPing,6000);
+/* limit check before adding many rows (the database refuses anyway; this stops before anything is sent) */
+async function limitOk(kind,adding){if(!Cloud.on||isSys()||!adding)return true;let s;try{s=await subGet()}catch(e){return true}
+  const max=s&&s['max_'+kind],used=+((s&&s.usage||{})[kind]||0);if(max==null||used+adding<=max)return true;
+  alert(`لن يُستورد شيء: الملف يضيف ${nf(adding)} جديداً إلى «${LIM_L[kind]}»، والمتاح في باقتك ${nf(Math.max(0,max-used))} فقط (المستخدم ${nf(used)} من ${nf(max)}).\n\nقلّل الملف أو اطلب زيادة الحد من «الإعدادات ← الاشتراك والاستخدام ← طلب تجديد».`);return false}
+const limitMsg=m=>{const x=/subscription limit reached: ([a-z ]+) \((\d+)\)/i.exec(String(m||''));if(!x)return m;const k={schools:'المدارس','field supervisors':'مشرفي الميدان','management accounts':'حسابات الإدارة',assets:'الأصول'}[x[1]]||x[1];
+  return `تم بلوغ حد الباقة: ${k} (${x[2]}). اطلب زيادة الحد من «الإعدادات ← الاشتراك والاستخدام».`};
+async function vSubscription(){if(!Cloud.on)return go('#admin');if(isSys())return go('#admin/system');
+  adminShell('subscription','الاشتراك والاستخدام',`<div id="subBox">${skel(140)}<div class="mt-3">${skel(220)}</div></div>`);
+  let s;try{s=await subGet()}catch(e){if($('#subBox'))$('#subBox').innerHTML=`<div class="alert alert-danger">${esc(e.message)}</div>`;return}if(!$('#subBox'))return;
+  const end=s.ends_at?new Date(s.ends_at).getTime():null,days=end?Math.ceil((end-Date.now())/864e5):null,fmt=x=>x?new Date(x).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'}):'—';
+  const st=!end?['secondary','بلا تاريخ انتهاء']:!s.ok?['danger','منتهٍ — قراءة فقط']:Date.now()>=end?['warning','فترة سماح']:days<=14?['warning','ينتهي قريباً']:['success','نشط'];
+  const U=s.usage||{};const card=k=>{const used=+(U[k]||0),max=s['max_'+k];const pc=max?Math.min(100,Math.round(used/max*100)):0,tone=!max?'#2a78d6':pc>=100?'#d03b3b':pc>=85?'#eda100':'#0ca30c';
+    return `<div class="col-md-6 col-xl-3"><div class="nvk card h-100" data-kpi="use-${k}" data-val="${used}"><div class="card-body"><div class="nvk-l mb-1">${LIM_L[k]}</div><div class="nvk-v">${nf(used)}${max?` <span class="fs-6 text-muted fw-normal">من ${nf(max)}</span>`:''}</div>
+     ${max?`<div class="nvk-bar"><i style="width:${pc}%;background:${tone}"></i></div><div class="nvk-s mt-1">${pc>=100?'<span class="down">بلغت الحد — لا يمكن الإضافة</span>':pc>=85?`<span class="down">قريب من الحد (${pc}%) — المتبقي ${nf(max-used)}</span>`:`المتبقي ${nf(max-used)} (${100-pc}%)`}</div>`:'<div class="nvk-s mt-2">بلا حد في باقتك</div>'}</div></div></div>`};
+  const near=['schools','field','staff','assets'].filter(k=>s['max_'+k]&&(+(U[k]||0))/s['max_'+k]>=.85);
+  $('#subBox').innerHTML=`<div class="card mb-3"><div class="card-body d-flex flex-wrap gap-4 align-items-center">
+    <div><div class="small text-muted">الجهة</div><div class="fw-bold fs-5">${esc(s.customer||'—')}</div></div>
+    <div><div class="small text-muted">الباقة</div><div class="fw-bold fs-5">${esc(PLAN_L[s.plan]||s.plan||'—')}</div></div>
+    <div><div class="small text-muted">ينتهي في</div><div class="fw-bold fs-5">${fmt(s.ends_at)}</div>${end?`<div class="small ${days<=14?'text-danger fw-bold':'text-muted'}">${days>=0?`متبقٍ ${nf(days)} يوماً`:`انتهى منذ ${nf(-days)} يوماً`}</div>`:''}</div>
+    <span class="badge text-bg-${st[0]} fs-6" data-sub-state>${st[1]}</span>
+    <button type="button" class="btn btn-primary ms-auto" data-renew><i class="bi bi-send me-1"></i>طلب تجديد / زيادة الحدود</button></div></div>
+   ${near.length?`<div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>اقتربت من حد: ${near.map(k=>LIM_L[k]).join('، ')}. اطلب ترقية الباقة قبل أن تتوقف الإضافة.</div>`:''}
+   <div class="row g-3">${['schools','field','staff','assets'].map(card).join('')}</div>
+   <p class="small text-muted mt-3 mb-0">بعد تاريخ الانتهاء وفترة السماح (${esc(s.grace_days)} أيام) يصبح النظام للقراءة فقط: يبقى العرض والتصدير، ولا يُحذف أي شيء، ويعود كل شيء فور التجديد. تصلك رسالة تذكير بالبريد قبل الانتهاء بأربعة عشر يوماً، ثم بسبعة أيام، ثم بيوم واحد.</p>`}
 </script>

@@ -35,6 +35,16 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await o.goto(U+'#admin/settings');await o.waitForSelector('.nv-set-tabs');ok(!(await o.textContent('.nv-set-tabs')).includes('إدارة النظام'),'owner: no Admin tab');
  await o.goto(U+'#admin/system');await o.waitForFunction(()=>location.hash==='#admin/settings');ok(true,'owner: #admin/system redirects');
  ok(!!(await o.evaluate(()=>window.__mockCall(JSON.stringify({user:{id:'u-admin'},op:'rpc',fn:'nv_sub_save',args:{p:{plan:'x'}}})).then(r=>JSON.parse(r).error))),'owner cannot change the subscription');
+ // NV29: the owner's usage page, «طلب تجديد», the daily reminder, the import limit check
+ await o.waitForTimeout(6500);ok(M.mails.some(m=>m.body&&m.body.kind==='sub_reminder'),'daily reminder check sent to the mail function');
+ await o.goto(U+'#admin/subscription');await o.waitForSelector('[data-kpi="use-schools"]');ok((await o.textContent('.nv-set-tabs')).includes('الاشتراك والاستخدام')&&(await o.textContent('#subBox')).includes('من 3,000'),'owner: usage against the limits');
+ await o.screenshot({path:B+'/shots/73-usage.png',fullPage:true});
+ await o.click('#subBox [data-renew]');await o.waitForTimeout(800);ok(M.mails.some(m=>m.body&&m.body.kind==='renew_request'),'«طلب تجديد» sent');
+ M.sub.max_field=143;let alertMsg='';o.removeAllListeners('dialog');o.on('dialog',d=>{alertMsg=d.message();d.accept()});
+ await o.goto(U+'#admin/employees');await o.waitForSelector('#nvt-employees [data-nvt="imp"]');const n0=M.db.nv_employees.length;await o.evaluate(()=>needXLSX());
+ const xl=await o.evaluate(()=>{const ws=XLSX.utils.json_to_sheet([{'Employee Number':'90001','Name':'أ'},{'Employee Number':'90002','Name':'ب'},{'Employee Number':'90003','Name':'ج'}]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'x');return XLSX.write(wb,{type:'base64',bookType:'xlsx'})}).catch(()=>null);
+ if(xl){const [fc]=await Promise.all([o.waitForEvent('filechooser'),o.click('#nvt-employees [data-nvt="imp"]')]);await fc.setFiles({name:'emp.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(xl,'base64')});await o.waitForTimeout(1500)}
+ ok(alertMsg.includes('لن يُستورد شيء')&&M.db.nv_employees.length===n0,'import over the limit refused before sending: '+alertMsg.slice(0,70));M.sub.max_field=150;
  // coordinator without delete: no delete actions
  const Cc=await mk();const cc=Cc.p;await signIn(cc,'co@x.com','12345678','.nvd');await cc.goto(U+'#admin/schools');await cc.waitForSelector('#nvt-schools');
  ok(!(await cc.$('[data-nvb="del"]'))&&!(await cc.$('[data-nvb="delwork"]'))&&!!(await cc.$('[data-nvb="complete"]')),'coordinator: delete actions hidden');

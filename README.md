@@ -14,6 +14,19 @@ Solvix (نوفارو سابقاً) تطبيق لجرد أصول المدارس �
 
 ما يسجله الفني بلا إنترنت يبقى على جهازه ويُرسل تلقائياً عند عودة الاتصال. والرابط `index.html?local` يعمل بدون سحابة، والبيانات فيه على الجهاز فقط.
 
+## رسائل الاشتراك وطلب التجديد (NV29)
+1. شغّل `solvix_setup.sql`، ثم **أعد نشر** الدالة `solvix-mail` بالمحتوى الجديد من `supabase/functions/solvix-mail/index.ts`.
+2. **مهم:** عطّل «Verify JWT» لهذه الدالة (في إعدادات الدالة، أو `supabase functions deploy solvix-mail --no-verify-jwt`)؛ الدالة تتحقق من المستخدم بنفسها.
+3. التذكير (قبل 14 و7 أيام ويوم واحد، ومرة عند الانتهاء) يُرسل لحسابات «مالك المشروع» مع نسخة لحسابات Admin، مرة واحدة لكل مرحلة. يُفحص تلقائياً عند فتح أي حساب إداري للمنصة مرة يومياً.
+4. اختياري — فحص يومي مضمون حتى لو لم يفتح أحد المنصة: أضف في Edge Functions ← Secrets القيمة `CRON_SECRET` (كلمة سرية من اختيارك)، ثم شغّل في SQL Editor (بعد تفعيل الإضافتين pg_cron و pg_net):
+```sql
+select cron.schedule('solvix-sub-reminder', '0 6 * * *', $$
+  select net.http_post(url := 'https://izheuautphutjlxnfckb.supabase.co/functions/v1/solvix-mail',
+    headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','ضع CRON_SECRET هنا'),
+    body := '{"kind":"sub_reminder"}'::jsonb) $$);
+```
+5. «طلب تجديد» (للمالك ومدير المشروع): من «الإعدادات ← الاشتراك والاستخدام» أو من شريط التنبيه؛ يصل بريد لكل حسابات Admin، طلب واحد كل 12 ساعة.
+
 ## مدير النظام (Admin) والاشتراك والصلاحيات (NV28)
 1. شغّل `solvix_setup.sql`. أقدم حساب «مالك مشروع» (حساب من أعدّ Solvix) يصبح **Admin** تلقائياً إذا لم يوجد Admin. في مشروع جديد: أول حساب يُنشأ هو Admin.
    لجعل حساب آخر Admin يدوياً: `update public.nv_staff set role = 'sysadmin' where email = 'البريد';`

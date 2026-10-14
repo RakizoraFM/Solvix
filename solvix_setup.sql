@@ -467,6 +467,48 @@ revoke all on function public.nv_is_sys(), public.nv_sub_ok(), public.nv_perm(te
 grant execute on function public.nv_is_sys(), public.nv_sub_ok(), public.nv_perm(text), public.nv_emp_perm(text), public.nv_sub_get(), public.nv_sub_save(jsonb,text),
   public.nv_staff_perms(uuid,jsonb), public.nv_emp_perms(text,jsonb), public.nv_staff_list() to authenticated;
 
+-- =====================================================================
+-- NV29 — subscription e-mails: reminders 14 / 7 / 1 days before the end (+ once when it ends) and «طلب تجديد» from the owner.
+-- The Edge Function solvix-mail sends them; these functions decide WHO and WHEN. The reminder helpers run only with the
+-- service role (inside the Edge Function), never from a page.
+-- =====================================================================
+create or replace function public.nv_sub_reminder_due() returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare s public.nv_subscription; d int; st int;
+begin
+  select * into s from public.nv_subscription where id = 1;
+  if s.ends_at is null then return null; end if;
+  d := ceil(extract(epoch from (s.ends_at - now())) / 86400)::int;
+  st := case when d <= 0 and now() < s.ends_at + make_interval(days => greatest(s.grace_days, 1)) then 0 when d between 1 and 1 then 1 when d between 2 and 7 then 7 when d between 8 and 14 then 14 end;
+  if st is null then return null; end if;
+  if exists(select 1 from public.nv_sub_log where action = 'reminder' and data->>'stage' = st::text and data->>'ends_at' = s.ends_at::text) then return null; end if;
+  return jsonb_build_object('stage', st, 'days', d, 'ends_at', s.ends_at, 'grace_days', s.grace_days, 'customer', s.customer, 'plan', s.plan,
+    'to', (select coalesce(jsonb_agg(distinct lower(email)), '[]') from public.nv_staff where active and role in ('owner','admin')),
+    'cc', (select coalesce(jsonb_agg(distinct lower(email)), '[]') from public.nv_staff where active and role = 'sysadmin'));
+end $$;
+create or replace function public.nv_sub_reminder_mark(p_stage int, p_ends_at timestamptz, p_to jsonb) returns void language sql security definer set search_path = public as $$
+  insert into public.nv_sub_log(by, action, data) values ('system', 'reminder', jsonb_build_object('stage', p_stage, 'ends_at', p_ends_at::text, 'to', p_to)) $$;
+create or replace function public.nv_sys_emails() returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(distinct lower(email)), '[]') from public.nv_staff where active and role = 'sysadmin' $$;
+revoke all on function public.nv_sub_reminder_due(), public.nv_sub_reminder_mark(int,timestamptz,jsonb), public.nv_sys_emails() from public, anon, authenticated;
+do $g$ begin execute 'grant execute on function public.nv_sub_reminder_due(), public.nv_sub_reminder_mark(int,timestamptz,jsonb), public.nv_sys_emails() to service_role'; exception when undefined_object then null; end $g$;
+-- the owner (or anyone in the management except the Admin) asks for a renewal: logged, at most once every 12 hours per person
+create or replace function public.nv_renew_request(p_note text default '') returns jsonb language plpgsql security definer set search_path = public as $$
+declare me public.nv_staff; s public.nv_subscription;
+begin
+  select * into me from public.nv_staff where user_id = auth.uid() and active;
+  if me.user_id is null or me.role = 'sysadmin' then raise exception 'not allowed' using errcode = '42501'; end if;
+  if exists(select 1 from public.nv_sub_log where action = 'renew_request' and by = me.email and at > now() - interval '12 hours') then
+    raise exception 'a renewal request was already sent in the last 12 hours'; end if;
+  select * into s from public.nv_subscription where id = 1;
+  insert into public.nv_sub_log(by, action, data) values (me.email, 'renew_request', jsonb_build_object('note', left(coalesce(p_note,''), 1000), 'ends_at', s.ends_at::text));
+  return jsonb_build_object('by', me.email, 'name', me.name, 'role', me.role, 'note', left(coalesce(p_note,''), 1000), 'customer', s.customer, 'plan', s.plan, 'ends_at', s.ends_at,
+    'ok', public.nv_sub_ok(), 'max_schools', s.max_schools, 'max_field', s.max_field, 'max_staff', s.max_staff, 'max_assets', s.max_assets,
+    'usage', jsonb_build_object('schools', (select count(*) from public.nv_schools), 'field', (select count(*) from public.nv_employees),
+      'staff', (select count(*) from public.nv_staff where role <> 'sysadmin' and active), 'assets', (select count(*) from public.nv_collections where type_id is not null)));
+end $$;
+revoke all on function public.nv_renew_request(text) from public, anon;
+grant execute on function public.nv_renew_request(text) to authenticated;
+
 -- photos: private bucket nv-photos, flat names <random key>.jpg; members upload and read, admins delete
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('nv-photos','nv-photos',false,8388608,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
 do $do$ begin

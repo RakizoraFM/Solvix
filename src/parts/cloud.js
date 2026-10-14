@@ -75,7 +75,7 @@ const Cloud={skip:new Set(),on:false,client:null,role:null,emp:null,user:null,bu
       const mc=/Could not find the '([a-z0-9_]+)' column of '([a-z_]+)'|column "?([a-z0-9_]+)"? of relation "?([a-z_]+)"? does not exist/i.exec(e.message||'');
       if(mc){const col=mc[1]||mc[3],tb=Object.keys(NV_T).find(k=>NV_T[k]===(mc[2]||mc[4]));if(tb&&!this.skip.has(tb+'.'+col)){this.skip.add(tb+'.'+col);this.dbOld=[...this.skip].map(x=>x.split('.')[1]);console.warn('Solvix: the database misses column',tb,col);
         for(const id in this.snap[tb]){try{const o=JSON.parse(this.snap[tb][id]);delete o[col];this.snap[tb][id]=JSON.stringify(o)}catch(x){}}this.again=true;this.err=null;return}}
-      this.err=e;console.warn('Novaro sync:',e.message);clearTimeout(this._r);this._r=setTimeout(()=>this.sync(),30000);if(!this._shown){this._shown=1;toast('لم تُرسل بعض البيانات بعد: '+e.message,5000)}}
+      this.err=e;console.warn('Novaro sync:',e.message);clearTimeout(this._r);this._r=setTimeout(()=>this.sync(),30000);if(!this._shown){this._shown=1;toast('لم تُرسل بعض البيانات بعد: '+(window.limitMsg?limitMsg(e.message):e.message),7000)}}
     finally{this.syncing=false;this.badge();if(this.again){this.again=false;this.sync()}}
   },
   /* ---- pull: the server copy, keeping rows changed on this device that are not sent yet ---- */

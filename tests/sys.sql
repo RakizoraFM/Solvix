@@ -63,3 +63,17 @@ select 'renewed +3 months', (public.nv_sub_save(jsonb_build_object('ends_at',(no
 select pg_temp.as_user(:co); insert into nv_schools(id,ident,name) values ('sx7','ISX7','SX7'); select 'coordinator writes again', count(*) from nv_schools where id='sx7';
 select pg_temp.as_user(:sys); select 'log entries', jsonb_array_length(public.nv_sub_get()->'log'), 'staff list', (select count(*) from public.nv_staff_list());
 reset role;
+-- NV29: reminders (service role only, once per stage) and «طلب تجديد»
+\set o9 '''' `psql -h /tmp/nvpg -p 5544 -U postgres -d sx -Atc "select user_id from nv_staff where email='own9@x.com'"` ''''
+update nv_subscription set ends_at = now() + interval '6 days 2 hours';
+set role service_role; select 'due (7)', public.nv_sub_reminder_due()->>'stage', public.nv_sub_reminder_due()->'to'; select public.nv_sub_reminder_mark((public.nv_sub_reminder_due()->>'stage')::int,(public.nv_sub_reminder_due()->>'ends_at')::timestamptz,'[]');
+select 'after mark (null)', public.nv_sub_reminder_due() is null; reset role;
+update nv_subscription set ends_at = now() + interval '20 hours'; set role service_role; select 'due (1)', public.nv_sub_reminder_due()->>'stage'; reset role;
+update nv_subscription set ends_at = now() - interval '1 day', grace_days = 7; set role service_role; select 'ended (0)', public.nv_sub_reminder_due()->>'stage'; reset role;
+set role authenticated; select pg_temp.as_user(:o9);
+select 'owner calls reminder helper (expect error)'; select public.nv_sub_reminder_due();
+select 'owner renew request', public.nv_renew_request('نرجو التجديد سنة')->>'customer';
+select 'second request (expect error)'; select public.nv_renew_request('x');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1'); select 'Admin renew request (expect error)'; select public.nv_renew_request('x');
+reset role; update nv_subscription set ends_at = now() + interval '3 months', grace_days = 7;
+
