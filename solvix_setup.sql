@@ -137,6 +137,15 @@ create table if not exists public.nv_collections(id text primary key, no bigint 
   asad_country text not null default '', lat numeric(10,8), lng numeric(11,8), asset_image text, parent_child text, tag text not null default '',
   submitted_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
 alter table public.nv_collections add column if not exists asset_image2 text; -- NV25: second on-site photo (nameplate / serial)
+-- NV26: school coordinates (reference for the location check), distance of the photos from the school, photo review by the management
+alter table public.nv_schools add column if not exists lat numeric(10,8);
+alter table public.nv_schools add column if not exists lng numeric(11,8);
+alter table public.nv_collections add column if not exists geo_dist int;
+alter table public.nv_collections add column if not exists review_status text;
+alter table public.nv_collections add column if not exists review_note text not null default '';
+alter table public.nv_collections add column if not exists reviewed_at timestamptz;
+alter table public.nv_collections add column if not exists reviewed_by text;
+do $c$ begin alter table public.nv_collections add constraint nv_coll_review_chk check (review_status is null or review_status in ('ok','returned')); exception when duplicate_object then null; end $c$;
 create index if not exists nv_collections_school on public.nv_collections(school_id);
 create index if not exists nv_collections_emp on public.nv_collections(employee_id);
 create table if not exists public.nv_log(id text primary key default gen_random_uuid()::text, at timestamptz not null default now(), by text not null,
@@ -150,6 +159,12 @@ create or replace function public.nv_coll_trg() returns trigger language plpgsql
 declare ch jsonb := '{}'; k text; o jsonb; n jsonb;
 begin
   new.updated_at := now();
+  -- NV26: only the management reviews photos. A supervisor's insert starts unreviewed; his edit sends the asset back to review
+  -- (status cleared) and keeps the reviewer's note / name / time.
+  if not public.nv_is_admin() then
+    if tg_op = 'INSERT' then new.review_status := null; new.review_note := ''; new.reviewed_at := null; new.reviewed_by := null;
+    else new.review_status := null; new.review_note := old.review_note; new.reviewed_at := old.reviewed_at; new.reviewed_by := old.reviewed_by; end if;
+  end if;
   if tg_op = 'UPDATE' and old.submitted_at is not null then
     o := to_jsonb(old); n := to_jsonb(new);
     for k in select unnest(array['category_id','type_id','condition_id','quantity','price','status','manufacturer','brand','model','capacity','serial','agency',

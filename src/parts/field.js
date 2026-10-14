@@ -31,7 +31,7 @@ function fieldLayout(inner){
   app().innerHTML=`<header class="bg-white shadow-sm py-4 px-6 flex justify-between items-center">
     <a href="#login" class="flex items-center gap-3 text-decoration-none"><img src="${esc(S.settings.logo||NV_ICON)}" alt="${esc(appName())}" class="h-12 w-auto"><h1 class="text-xl font-bold text-gray-800">${esc(appName())}</h1></a>
     <a href="javascript:void 0" id="langSw" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-bold">${ar?'English':'العربية'}</a></header>
-  <main class="flex-grow flex items-center justify-center p-4">${inner}</main>
+  ${Cloud.on&&Cloud.role==='tech'&&curEmp()?'<div id="nvPend" class="nv-pend" hidden></div>':''}<main class="flex-grow flex items-center justify-center p-4">${inner}</main>
   <div id="lb" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4" x-cloak style="display:none">
     <button type="button" id="lbX" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
     <div class="relative max-w-full max-h-full overflow-auto flex items-center justify-center"><img id="lbImg" class="max-w-full max-h-[90vh] object-contain cursor-zoom-in rounded-lg shadow-2xl" alt=""></div></div>
@@ -68,12 +68,13 @@ function vLogin(err,val){if(Cloud.on){if(!err&&Cloud.role==='tech'&&Cloud.emp){s
 
 /* employee-data.blade.php (+ a "send my data" card for working on several devices) */
 function vEmployee(){
-  if(!needEmp())return;const e=curEmp();
+  if(!needEmp())return;const e=curEmp();const ret=S.collections.filter(x=>x.employee_id===e.id&&x.review_status==='returned');
   fieldLayout(`<section id="screen-data" class="w-full max-w-2xl"><div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
   <div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-bold text-gray-800">${t('Employee Data')}</h2><span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">${t('Active')}</span></div>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
    <div class="space-y-1"><label class="text-sm text-gray-500">${t('Full Name')}</label><p class="text-lg font-bold text-gray-900 border-b pb-2">${esc(e.name)}</p></div>
    <div class="space-y-1"><label class="text-sm text-gray-500">${t('Employee ID')}</label><p class="text-lg font-bold text-gray-900 border-b pb-2">${esc(e.number)}</p></div></div>
+  ${ret.length?`<div class="nv-ret mb-8" id="retBox"><b>↩️ ${tx('أصول أعادتها الإدارة للتعديل','Assets returned by the management')} (${ret.length})</b>${ret.map(x=>`<a href="javascript:void 0" data-ret="${esc(x.id)}"><span>${esc((get('types',x.type_id)||{}).ar||'')} — ${esc((get('schools',x.school_id)||{}).name||'')} · ${esc(x.floor||'')} ${esc(roomName(x)||'')}</span><small>${esc(x.review_note||'')}</small></a>`).join('')}</div>`:''}
   <div class="bg-blue-50 p-6 rounded-2xl border border-blue-100 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
    <div class="flex items-center gap-4"><div class="bg-blue-600 p-3 rounded-xl text-white"><i class="bi bi-clock-history text-xl"></i></div>
     <div><h4 class="font-bold text-gray-800">${t('Collection History')}</h4><p class="text-sm text-gray-500">${t('View and edit your previous submissions')}</p></div></div>
@@ -86,6 +87,7 @@ function vEmployee(){
   </div></section>`);
   $('#back').onclick=async()=>{if(!await cloudLogoutOk())return;clearSess();go('#login')};
   if($('#send'))$('#send').onclick=()=>exportPackage({kind:'employee',by:e.id});
+  $$('[data-ret]').forEach(b=>b.onclick=()=>{const c=S.collections.find(x=>x.id===b.dataset.ret);if(!c)return;setSess({school:c.school_id,coll:c.id});setFlash(t('You are now editing an existing collection.'));go('#location')});
 }
 
 /* school.blade.php */
@@ -181,7 +183,7 @@ function vAsset(){
   const txt=(k,lbl)=>`<div>${L('a_'+k,t(lbl))}<input type="text" id="a_${k}" value="${v(k)}" class="${INPUT}"></div>`;
   const done=S.collections.filter(x=>x.school_id===c.school_id&&x.employee_id===e.id&&x.submitted_at).sort((a,b)=>a.submitted_at<b.submitted_at?1:-1);
   fieldLayout(`<div class="flex flex-col gap-8 w-full max-w-4xl mx-auto px-4 pb-12"><section id="screen-asset-details" class="w-full"><div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
-  <h2 class="text-2xl font-bold text-center mb-6">${t('Asset Details')}</h2><p class="text-gray-500 text-center mb-8">${t('Please enter the asset details')}</p>${statusBox(f0&&f0.t)}
+  <h2 class="text-2xl font-bold text-center mb-6">${t('Asset Details')}</h2><p class="text-gray-500 text-center mb-8">${t('Please enter the asset details')}</p>${statusBox(f0&&f0.t)}${c.review_status==='returned'?`<div class="nv-ret mb-6"><b>↩️ ${tx('أعادت الإدارة هذا الأصل للتعديل','The management returned this asset')}</b><small>${esc(c.review_note||'')}</small><small>${tx('صحّح المطلوب وأعد الحفظ؛ يعود للمراجعة.','Fix it and save again; it goes back to review.')}</small></div>`:''}
   <form id="f" class="space-y-6">
    <div>${L('a_category_id',t('Asset Category'),t('فئة الأصل'),1)}<select id="a_category_id" required class="${INPUT}"><option value="">${t('Select...')} / ${t('قائمة')}</option>${cats.map(x=>`<option value="${esc(x.id)}" ${c.category_id===x.id?'selected':''}>${esc(x.ar)}${x.en?` (${esc(x.en)})`:''}</option>`).join('')}</select></div>
    <div data-lv>${L('a_l2',tx('المستوى الثاني','Level 2'),'',1)}<select id="a_l2" class="${INPUT}" disabled></select></div>
@@ -190,6 +192,7 @@ function vAsset(){
    <div><label class="block text-sm font-medium text-gray-700 mb-1">${tx('صور الأصل من موقعه','Asset photos on site')} <span class="text-red-500">*</span></label>
     <p class="text-xs text-gray-500 mb-3">${tx('صورتان إلزاميتان تُلتقطان الآن بكاميرا الجوال أمام الأصل. لا تُقبل صور المعرض أو الصور القديمة، ويُطبع على كل صورة الوقت والمدرسة والغرفة والموقع.','Two required photos taken now with the phone camera in front of the asset. Gallery or old photos are refused; time, school, room and location are printed on each photo.')}</p>
     <div class="nv-shots">${SHOTS.map((x,n)=>shotTile(n,c[x.k])).join('')}</div>
+    <button type="button" id="ocr" class="nv-ocr">🔍 ${tx('قراءة لوحة البيانات تلقائياً (الرقم التسلسلي، الموديل، السعة، الماركة)','Read the nameplate (serial, model, capacity, brand)')}</button><p id="ocrMsg" class="nv-ocr-msg"></p>
     <p id="e_img" class="text-red-500 text-xs mt-1"></p></div>
    <div class="pt-4 border-t border-gray-100"><div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <div>${L('a_quantity',t('Quantity'),t('العدد'),1)}<input type="number" id="a_quantity" required min="1" value="${esc(c.quantity??1)}" class="${INPUT}"></div>
@@ -232,9 +235,21 @@ function vAsset(){
   showLv();if(ct&&ct.l2&&lv()){l2.innerHTML=opts(uniq(inCat().map(x=>x.l2)));l2.value=ct.l2;l2.disabled=false;l3.innerHTML=opts(uniq(inCat().filter(x=>x.l2===ct.l2).map(x=>x.l3)));l3.value=ct.l3;l3.disabled=false;fillT(inCat().filter(x=>x.l2===ct.l2&&x.l3===ct.l3));typ.value=ct.id;info()}
   else if(c.category_id&&lv()){cat.onchange()}
   /* NV25 — two photos taken now on site (camera only; a file older than PHOTO_FRESH_MIN minutes is refused) */
-  const pend=[null,null];$$('.nv-shot input').forEach(inp=>inp.onchange=()=>{const n=+inp.dataset.n,f=inp.files[0],tile=inp.closest('.nv-shot');$('#e_img').textContent='';if(!f)return;
+  const pend=[null,null],ref=schoolRef(c.school_id,c),G=geoCfg();
+  const geoShow=n=>{const P=pend[n],el=$(`[data-shot="${n}"] [data-geo]`);if(!el)return;el.className='nv-geo';if(!P){el.textContent='';return}
+    if(!P.pos){el.textContent=P.geoErr?tx('📍 تعذر تحديد الموقع — فعّل GPS','📍 Location unavailable — turn on GPS'):tx('📍 جارٍ تحديد الموقع…','📍 Locating…');return}
+    if(!ref){el.textContent=tx('📍 تم تسجيل الموقع','📍 Location recorded');return}const d=geoDist(P.pos,ref.p);P.dist=d;el.textContent=(d>G.m?'⚠️ ':'📍 ')+fmtDist(d)+' '+tx('من المدرسة','from the school');if(d>G.m)el.className='nv-geo far'};$$('.nv-shot input').forEach(inp=>inp.onchange=()=>{const n=+inp.dataset.n,f=inp.files[0],tile=inp.closest('.nv-shot');$('#e_img').textContent='';if(!f)return;
     if(!/^image\//.test(f.type||'image/')||Date.now()-f.lastModified>PHOTO_FRESH_MIN*6e4){inp.value='';pend[n]=null;tile.classList.add('bad');tile.classList.remove('ok');tile.querySelector('small').textContent=tx('مرفوضة: التقط الصورة الآن بالكاميرا','Refused: take the photo now with the camera');return}
-    pend[n]={f,at:f.lastModified};tile.classList.remove('bad');tile.classList.add('ok');tile.querySelector('.nv-shot-pv').innerHTML=`<img src="${URL.createObjectURL(f)}" alt="">`;tile.querySelector('small').textContent=tx('✓ تم الالتقاط — اضغط لإعادة الالتقاط','✓ Taken — tap to retake')});
+    pend[n]={f,at:f.lastModified};const P=pend[n];geoShow(n);if(navigator.geolocation)navigator.geolocation.getCurrentPosition(q=>{if(pend[n]===P){P.pos=[q.coords.latitude,q.coords.longitude];geoShow(n)}},()=>{if(pend[n]===P){P.geoErr=1;geoShow(n)}},{enableHighAccuracy:true,timeout:15000,maximumAge:60000});tile.classList.remove('bad');tile.classList.add('ok');tile.querySelector('.nv-shot-pv').innerHTML=`<img src="${URL.createObjectURL(f)}" alt="">`;tile.querySelector('small').textContent=tx('✓ تم الالتقاط — اضغط لإعادة الالتقاط','✓ Taken — tap to retake')});
+  $('#ocr').onclick=async()=>{const b=$('#ocr'),m=$('#ocrMsg');let src=pend[1]&&pend[1].f;
+    if(!src&&c.asset_image2)src=await IDB.get('photos',c.asset_image2).catch(()=>null)||(Cloud.on?await Cloud.fetchPhoto(c.asset_image2):null);
+    if(!src){m.textContent=tx('التقط صورة لوحة البيانات (الصورة 2) أولاً.','Take the nameplate photo (photo 2) first.');return}
+    b.disabled=true;m.textContent=tx('جارٍ تحميل القارئ… (أول مرة تحتاج إنترنت)','Loading the reader… (needs internet the first time)');
+    try{const o=parsePlate(await ocrPlate(src,p=>{m.textContent=tx('جارٍ قراءة اللوحة… ','Reading the plate… ')+p+'%'}));if(o.brand&&!o.manufacturer)o.manufacturer=o.brand;
+      const NM={serial:tx('الرقم التسلسلي','Serial'),model:tx('الموديل','Model'),capacity:tx('السعة','Capacity'),brand:tx('الماركة','Brand'),manufacturer:tx('الشركة المصنعة','Manufacturer')};const done=[];
+      for(const k of Object.keys(NM)){const el=$('#a_'+k);if(o[k]&&el&&!el.value.trim()){el.value=o[k];el.classList.add('nv-filled');done.push(NM[k]+': '+o[k])}}
+      m.textContent=done.length?tx('تمت التعبئة — ','Filled — ')+done.join(' · ')+tx(' — راجعها قبل الحفظ.',' — check before saving.'):Object.keys(o).length?tx('الحقول معبأة مسبقاً. ما قُرئ: ','Fields already filled. Read: ')+Object.values(o).join(' · '):tx('لم تُقرأ بيانات واضحة. صوّر اللوحة أقرب وبإضاءة جيدة، ثم أعد المحاولة.','Nothing clear was read. Take the plate closer and well lit, then retry.')}
+    catch(e){console.warn('ocr',e);m.textContent=tx('تعذر تشغيل القارئ — تحقق من الاتصال وأعد المحاولة.','The reader could not start — check the connection and retry.')}finally{b.disabled=false}};
   // map (Leaflet, same behaviour as the original: draggable marker, click to move, auto-detect when empty)
   let lat=c.lat,lng=c.lng,map,marker;const has=lat!=null&&lng!=null;
   const setLL=(a,b,move)=>{lat=+(+a).toFixed(8);lng=+(+b).toFixed(8);$('#lat-display').innerText=lat.toFixed(8);$('#lng-display').innerText=lng.toFixed(8);if(marker){marker.setLatLng([lat,lng]);if(move)map.setView([lat,lng],16)}};
@@ -243,15 +258,19 @@ function vAsset(){
   needLeaflet().then(()=>{if(!document.body.contains($('#location-map')))return;const p=has?[+lat,+lng]:[24.7136,46.6753];map=L.map('location-map').setView(p,has?16:13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     marker=L.marker(p,{draggable:true}).addTo(map);marker.on('dragend',ev=>{const q=ev.target.getLatLng();setLL(q.lat,q.lng)});map.on('click',ev=>{marker.setLatLng(ev.latlng);setLL(ev.latlng.lat,ev.latlng.lng)});if(!has)detect()})
-   .catch(()=>{leafP=null;$('#location-map').outerHTML=`<p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">${tx('تعذر تحميل الخريطة (لا يوجد اتصال). استخدم «تحديد موقعي».','Map could not load (offline). Use "Detect My Location".')}</p>`;if(!has)detect()});
+   .catch(()=>{leafP=null;if($('#location-map'))$('#location-map').outerHTML=`<p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">${tx('تعذر تحميل الخريطة (لا يوجد اتصال). استخدم «تحديد موقعي».','Map could not load (offline). Use "Detect My Location".')}</p>`;if(!has)detect()});
   $('#f').onsubmit=async ev=>{ev.preventDefault();const form=$('#f');if(!form.reportValidity())return;$('#sb').disabled=true;
     try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:num(g('price')),
         manufacturer:g('manufacturer'),brand:g('brand'),model:g('model'),capacity:g('capacity'),serial:g('serial'),agency:g('agency'),warranty:g('warranty'),install_date:g('install_date'),asad_country:g('asad_country'),
         lat:lat??null,lng:lng??null,parent_child:($('[name=parent_child]:checked')||{}).value,tag:g('tag'),notes:g('notes')};
       const miss=SHOTS.map((x,n)=>!pend[n]&&!c[x.k]?x.t():null).filter(Boolean);if(miss.length){$('#e_img').textContent=tx('التقط الصور المطلوبة: ','Take the required photos: ')+miss.join('، ');$('#sb').disabled=false;$('.nv-shots').scrollIntoView({block:'center'});return}
+      const ds=pend.filter(Boolean).map(P=>P.pos&&ref?geoDist(P.pos,ref.p):ref&&lat!=null?geoDist([+lat,+lng],ref.p):null).filter(d=>d!=null);const far=ds.length?Math.max(...ds):null;
+      if(far!=null&&far>G.m){if(G.block){$('#e_img').textContent=tx(`أنت على بعد ${fmtDist(far)} من موقع المدرسة (المسموح ${fmtDist(G.m)}). صوّر الأصل من داخل المدرسة.`,`You are ${fmtDist(far)} from the school (allowed ${fmtDist(G.m)}). Take the photos inside the school.`);$('#sb').disabled=false;return}
+        if(!confirm(tx(`تنبيه: الصور ملتقطة على بعد ${fmtDist(far)} من موقع المدرسة (المسموح ${fmtDist(G.m)}).\nهل الأصل فعلاً في هذه المدرسة؟ ستُسجَّل المسافة للمراجعة.`,`Warning: the photos were taken ${fmtDist(far)} from the school (allowed ${fmtDist(G.m)}).\nIs the asset really in this school? The distance is recorded for review.`))){$('#sb').disabled=false;return}}
+      if(pend.some(Boolean))vals.geo_dist=far!=null?Math.round(far):null;vals.review_status=null;
       const sc=get('schools',c.school_id)||{},rm=get('rooms',c.room_name_id)||{};const oldImg=[];
       for(let n=0;n<SHOTS.length;n++){const P=pend[n];if(!P)continue;const k=SHOTS[n].k;
-        const lines=[`${ymdhms(new Date(P.at).toISOString())} · ${SHOTS[n].t()}`,[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')+(lat!=null?`  ·  ${(+lat).toFixed(5)}, ${(+lng).toFixed(5)}`:'')];
+        const lines=[`${ymdhms(new Date(P.at).toISOString())} · ${SHOTS[n].t()}`,[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')+((P.pos||lat!=null)?`  ·  ${(+(P.pos?P.pos[0]:lat)).toFixed(5)}, ${(+(P.pos?P.pos[1]:lng)).toFixed(5)}`:'')];
         if(c[k])oldImg.push(c[k]);vals[k]=await storePhoto(P.f,lines)}
       const old=Object.assign({},c);const was=!!c.submitted_at;Object.assign(c,vals,{updated_at:now()});if(!c.submitted_at)c.submitted_at=now();
       if(was)logChange(c,'emp:'+e.id,diff(old,c,TRACK));save('collections');oldImg.forEach(deletePhoto);
@@ -262,7 +281,7 @@ function vAsset(){
 const PHOTO_FRESH_MIN=15;
 const SHOTS=[{k:'asset_image',t:()=>tx('الأصل كاملاً في مكانه','Whole asset in place')},{k:'asset_image2',t:()=>tx('لوحة البيانات / الرقم التسلسلي','Nameplate / serial number')}];
 const CAM='<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.66-.9l.82-1.2A2 2 0 0110.07 4h3.86a2 2 0 011.66.9l.82 1.2a2 2 0 001.66.9H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3.2"/></svg>';
-function shotTile(n,cur){return `<label class="nv-shot ${cur?'ok':''}" data-shot="${n}"><input type="file" id="aimg${n?'2':''}" data-n="${n}" accept="image/*" capture="environment"><div class="nv-shot-pv">${cur?img(cur,'',''):CAM}</div><b>${n+1}. ${SHOTS[n].t()}</b><small>${cur?tx('✓ موجودة — اضغط لإعادة الالتقاط','✓ Saved — tap to retake'):tx('اضغط لالتقاط الصورة','Tap to take the photo')}</small></label>`}
+function shotTile(n,cur){return `<label class="nv-shot ${cur?'ok':''}" data-shot="${n}"><input type="file" id="aimg${n?'2':''}" data-n="${n}" accept="image/*" capture="environment"><div class="nv-shot-pv">${cur?img(cur,'',''):CAM}</div><b>${n+1}. ${SHOTS[n].t()}</b><i data-geo class="nv-geo"></i><small>${cur?tx('✓ موجودة — اضغط لإعادة الالتقاط','✓ Saved — tap to retake'):tx('اضغط لالتقاط الصورة','Tap to take the photo')}</small></label>`}
 
 /* success.blade.php */
 function vSuccess(){
@@ -312,7 +331,7 @@ function vHistory(){
   ${list.length?`<div class="overflow-hidden border border-gray-100 rounded-2xl"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-gray-50 text-gray-600 uppercase text-xs"><tr><th class="px-6 py-4">${t('Image')}</th><th class="px-6 py-4">${t('School & Location')}</th><th class="px-6 py-4">${t('Asset Details')}</th><th class="px-6 py-4">${t('Submitted')}</th><th class="px-6 py-4 text-right">${t('Action')}</th></tr></thead><tbody class="divide-y divide-gray-100">
    ${list.map(a=>`<tr class="hover:bg-blue-50/30 transition-colors"><td class="px-6 py-4">${img(a.asset_image,'h-12 w-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity shadow-sm border border-gray-100','<div class="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400"><i class="bi bi-image"></i></div>')}</td>
     <td class="px-6 py-4"><div class="font-bold text-gray-900">${esc((get('schools',a.school_id)||{}).name||'')}</div><div class="text-xs text-gray-500 flex items-center gap-1 mt-1"><i class="bi bi-geo-alt"></i>${esc(a.floor||'')} • ${esc(roomName(a)??'N/A')}</div></td>
-    <td class="px-6 py-4"><div class="text-gray-900 font-medium">${esc((get('types',a.type_id)||{}).ar||'')}</div><div class="text-xs text-gray-500">${esc((get('categories',a.category_id)||{}).ar||'')}</div></td>
+    <td class="px-6 py-4"><div class="text-gray-900 font-medium">${esc((get('types',a.type_id)||{}).ar||'')}${a.review_status==='returned'?` <span class="nv-badge r">${tx('مُرجع','Returned')}</span>`:a.review_status==='ok'?` <span class="nv-badge g">${tx('معتمد','Approved')}</span>`:''}</div><div class="text-xs text-gray-500">${esc((get('categories',a.category_id)||{}).ar||'')}</div></td>
     <td class="px-6 py-4"><div class="text-gray-700 text-xs">${ymd(a.submitted_at)}</div><div class="text-gray-400 text-xs">${hiA(a.submitted_at)}</div></td>
     <td class="px-6 py-4 text-right"><a href="javascript:void 0" data-ed="${esc(a.id)}" class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg font-bold transition-all text-xs"><i class="bi bi-pencil-square"></i>${t('Edit')}</a></td></tr>`).join('')}
    </tbody></table></div></div>`:`<div class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200"><div class="text-gray-400 mb-3"><i class="bi bi-inbox text-5xl"></i></div><p class="text-gray-600 font-medium">${t('No history found.')}</p><p class="text-gray-400 text-sm">${t('Start a new collection to see it here.')}</p></div>`}
@@ -320,4 +339,26 @@ function vHistory(){
   </div></section>`);
   $$('[data-ed]').forEach(b=>b.onclick=()=>{const c=S.collections.find(x=>x.id===b.dataset.ed);if(!c)return;setSess({school:c.school_id,coll:c.id});setFlash(t('You are now editing an existing collection.'));go('#location')});
 }
+
+/* NV26 — upload status for the field supervisor: records and photos still on this phone */
+let pendBusy=false;
+async function nvPendUI(){const el=document.getElementById('nvPend');if(!el||!Cloud.on||Cloud.role!=='tech')return;const recs=Cloud.pendingCount();let ph=0;
+  try{ph=(await IDB.keys('photos')).filter(k=>!Cloud.uploaded.has(k)).length}catch(e){}
+  const busy=Cloud.syncing||pendBusy,err=Cloud.err&&(recs||ph);el.hidden=false;el.dataset.recs=recs;el.dataset.ph=ph;el.className='nv-pend '+(busy?'run':recs||ph?(err?'err':'wait'):'ok');
+  el.innerHTML=busy?`⏫ ${tx('جارٍ رفع البيانات والصور…','Uploading data and photos…')}`:recs||ph?`<span>${err?'⚠️':'⏳'} ${tx('بانتظار الرفع','Waiting to upload')}: <b>${recs}</b> ${tx('سجل','records')} · <b>${ph}</b> ${tx('صورة','photos')}${err?' — '+tx('لا يوجد اتصال؟ لا تحذف التطبيق ولا تمسح بيانات المتصفح','No connection? Do not clear the browser data'):''}</span><button type="button" id="nvPendGo">${tx('إرسال الآن','Send now')}</button>`:`✓ ${tx('كل بياناتك وصورك مرفوعة','All your data and photos are uploaded')}`;
+  const b=document.getElementById('nvPendGo');if(b)b.onclick=async()=>{pendBusy=true;nvPendUI();try{await Cloud.sync()}finally{pendBusy=false;nvPendUI()}}}
+/* NV26 — the asset page opened from the QR link (#a/<label number>) for a field supervisor */
+function vAssetCard(c){const s=get('schools',c.school_id)||{},ty=get('types',c.type_id)||{},co=get('conditions',c.condition_id)||{};
+  const row=(l,v)=>v!=null&&v!==''?`<div class="nv-kv"><span>${l}</span><b>${esc(v)}</b></div>`:'';
+  fieldLayout(`<section class="w-full max-w-2xl"><div class="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
+   <div class="text-center mb-4"><div class="text-xs text-gray-500">${tx('رقم الأصل','Asset number')}</div><div class="text-2xl font-bold">${esc(assetLabel(c))}</div><div class="text-lg font-bold text-blue-700 mt-1">${esc(ty.ar||'')}</div>${ty.critical?`<span class="nv-badge r">${tx('أصل حرج','Critical')}</span>`:''}</div>
+   <div class="nv-shots mb-4">${SHOTS.map(x=>`<div class="nv-shot ok"><div class="nv-shot-pv">${img(c[x.k],'',CAM)}</div><b>${x.t()}</b></div>`).join('')}</div>
+   ${row(tx('المدرسة','School'),[s.name,s.moe].filter(Boolean).join(' · '))}${row(tx('الموقع','Location'),[c.floor,roomName(c),c.room_number].filter(Boolean).join(' · '))}${row(tx('الكود','Code'),ty.code)}${row(tx('الحالة الفنية','Condition'),co.ar)}
+   ${row(tx('الكمية','Quantity'),c.quantity)}${row(tx('الماركة','Brand'),c.brand)}${row(tx('الموديل','Model'),c.model)}${row(tx('الرقم التسلسلي','Serial'),c.serial)}${row(tx('السعة','Capacity'),c.capacity)}${row(tx('تاريخ الجرد','Collected'),c.submitted_at?ymd(c.submitted_at):'')}
+   <a href="#employee-data" class="block mt-6 text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">${tx('رجوع','Back')}</a></div></section>`)}
+function openAssetLink(lb){const c=S.collections.find(x=>x.no&&assetLabel(x)===lb);
+  if(isAuthed()){if(c)return go('#admin/collections/'+encodeURIComponent(c.id));setAFlash(`لم يُعثر على الأصل رقم ${lb}.`,'warning');return go('#admin/collections')}
+  if(curEmp()){if(c)return vAssetCard(c);setFlash(tx(`الأصل رقم ${lb} غير موجود في سجلاتك.`,`Asset ${lb} is not in your records.`));return go('#employee-data')}
+  try{sessionStorage.setItem('nv_after','#a/'+lb)}catch(e){}go(Cloud.on?'#login':'#admin/login')}
+function afterLinkGo(){let h=null;try{h=sessionStorage.getItem('nv_after');sessionStorage.removeItem('nv_after')}catch(e){}if(h){go(h);return true}return false}
 </script>

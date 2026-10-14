@@ -12,10 +12,10 @@ const NV_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd
 const NV_T={categories:'nv_categories',conditions:'nv_conditions',rooms:'nv_rooms',types:'nv_types',employees:'nv_employees',schools:'nv_schools',collections:'nv_collections'};
 const NV_ORDER=['categories','conditions','rooms','types','employees','schools','collections'];
 const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','email','created_at'],
-  schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at'],
+  schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at','lat','lng'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
-    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','parent_child','tag','submitted_at','created_at']};
-const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag']);
+    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','parent_child','tag','submitted_at','created_at','geo_dist','review_status','review_note','reviewed_at','reviewed_by']};
+const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag','review_note']);
 const tsNorm=v=>{if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?v:d.toISOString()};
 const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),snap:{},uploaded:new Set(),dirty:new Set(),err:null,syncing:false,again:false,lastPull:0,tablesMissing:false,
   cfg(){try{const o=JSON.parse(localStorage.getItem(NV_CFG_KEY)||'null');if(cfgOk(o))return {url:String(o.url).replace(/\/+$/,''),key:o.key}}catch(e){}return cfgOk(SOLVIX_CFG)?SOLVIX_CFG:null},
@@ -24,7 +24,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
   async sb(){if(this.client)return this.client;if(!(window.supabase&&window.supabase.createClient))await loadScript(NV_LIB);const c=this.cfg();
     this.client=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'solvix-auth'}});return this.client},
   chk({data,error}){if(error)throw new Error(error.message||String(error));return data},
-  canon(t,r){const o={};for(const k of NV_COLS[t]){let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;o[k]=v}return o},
+  canon(t,r){const o={};for(const k of NV_COLS[t]){let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
   key(t,r){return JSON.stringify(this.canon(t,r))},
   /* ---- start-up: who is signed in, and which role he has in Novaro ---- */
   async init(){
@@ -67,7 +67,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
         else for(const [r,row,js] of upd){const o=Object.assign({},row);delete o.id;this.chk(await c.from(NV_T[t]).update(o).eq('id',r.id));snap[r.id]=js;await this.persistSnap()}
         for(let i=0;i<del.length;i+=200){const part=del.slice(i,i+200);this.chk(await c.from(NV_T[t]).delete().in('id',part));for(const id of part)delete snap[id];await this.persistSnap()}
       }
-      if(this.role==='admin'&&['owner','manager'].includes(this.staffRole||'owner')){const st={app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null};const js=JSON.stringify(st);
+      if(this.role==='admin'&&['owner','manager'].includes(this.staffRole||'owner')){const st={app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null,geo:S.settings.geo||null};const js=JSON.stringify(st);
         if(this.snap.settings.data!==js){this.chk(await c.from('nv_settings').update({data:st,updated_at:new Date().toISOString()}).eq('id',1));this.snap.settings.data=js;await this.persistSnap()}}
       await saveNow('collections');this.err=null;
     }catch(e){this.err=e;console.warn('Novaro sync:',e.message);clearTimeout(this._r);this._r=setTimeout(()=>this.sync(),30000);if(!this._shown){this._shown=1;toast('لم تُرسل بعض البيانات بعد: '+e.message,5000)}}
@@ -86,12 +86,12 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
       if(!discard)for(const l of S[t])if(!cloudIds.has(l.id)&&snap[l.id]===undefined)next.push(l);
       S[t]=next;this.snap[t]=ns}
     if(this.role!=='tech'){S.log=(await this.fetchAll('nv_log',r=>r.order('at',{ascending:false}).limit(3000))).slice(0,3000)}else S.log=[];
-    const st=this.chk(await (await this.sb()).from('nv_settings').select('data').eq('id',1).maybeSingle());if(st&&st.data){const d=st.data;Object.assign(S.settings,{app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null});this.snap.settings.data=JSON.stringify({app_name:S.settings.app_name,admin_email:S.settings.admin_email,logo:S.settings.logo,label:S.settings.label})}
+    const st=this.chk(await (await this.sb()).from('nv_settings').select('data').eq('id',1).maybeSingle());if(st&&st.data){const d=st.data;Object.assign(S.settings,{app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null,geo:d.geo||null});this.snap.settings.data=JSON.stringify({app_name:S.settings.app_name,admin_email:S.settings.admin_email,logo:S.settings.logo,label:S.settings.label,geo:S.settings.geo||null})}
     if(this.role==='tech'){try{this.busy=new Set(this.chk(await (await this.sb()).rpc('nv_busy_schools'))||[])}catch(e){}}
     reindex();await saveAll();await this.persistSnap();this.lastPull=Date.now();this.badge();
   },
   async loadPublicSettings(){try{const c=await this.sb();const st=this.chk(await c.from('nv_settings').select('data').eq('id',1).maybeSingle());if(st&&st.data){Object.assign(S.settings,{app_name:st.data.app_name||S.settings.app_name,logo:st.data.logo||S.settings.logo});await saveNow('settings')}}catch(e){}},
-  badge(){const n=this.on&&this.role?this.pendingCount():0;const txt=!this.on?'':this.err&&n?`⚠️ ${n}`:n?`⏳ ${n}`:'☁️';
+  badge(){if(window.nvPendUI)nvPendUI();const n=this.on&&this.role?this.pendingCount():0;const txt=!this.on?'':this.err&&n?`⚠️ ${n}`:n?`⏳ ${n}`:'☁️';
     $$('[data-nv-sync]').forEach(el=>{el.textContent=txt;el.title=n?(this.err?('لم يُرسل: '+this.err.message):'بانتظار المزامنة'):'متزامن مع قاعدة Solvix'})}
 };
 window.Cloud=Cloud;

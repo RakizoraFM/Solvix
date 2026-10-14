@@ -93,8 +93,8 @@ function vCloudLogin(err,emv){const rem=lsGet('nv_remember_all','');
       try{const me=await Cloud.signIn(em,pw);return afterSignIn(me,em)}
       catch(er){return vCloudLogin(/Invalid login/i.test(er.message)?tx('البريد أو كلمة المرور غير صحيحة.','Wrong e-mail or password.'):/Email not confirmed/i.test(er.message)?tx('البريد غير مؤكد بعد — راجع مدير المشروع.','E-mail not confirmed yet.'):/fetch|network|lib/i.test(er.message)?tx('تعذر الاتصال بالخادم — تحقق من الإنترنت.','Cannot reach the server.'):er.message,$('#em').value.trim())}}})}
 async function afterSignIn(me,em){
-  if(me&&me.role==='tech'&&me.emp){await Cloud.pull();setSess({emp:me.emp.id,school:null,coll:null});return go('#employee-data')}
-  if(me&&(me.role==='admin'||me.role==='reader')){clearSess();await Cloud.pull();return go('#admin')}
+  if(me&&me.role==='tech'&&me.emp){await Cloud.pull();setSess({emp:me.emp.id,school:null,coll:null});if(afterLinkGo())return;return go('#employee-data')}
+  if(me&&(me.role==='admin'||me.role==='reader')){clearSess();await Cloud.pull();if(afterLinkGo())return;return go('#admin')}
   await Cloud.signOut();return vCloudLogin(tx('هذا الحساب ليس له صلاحية على Solvix. راجع مدير المشروع.','This account has no access to Solvix.'),em)}
 function vForgot(ok,err){
   authPage({kind:'all',title:tx('استعادة كلمة المرور','Reset your password'),sub:tx('اكتب بريدك الإلكتروني المسجل، وسنرسل لك رابطاً لتعيين كلمة مرور جديدة','Enter your registered e-mail and we will send you a reset link'),err,ok,remember:false,

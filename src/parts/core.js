@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV25',date:'2026-10-13'};
+const NV={version:'NV26',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -186,4 +186,29 @@ const setAdmin=v=>{try{v?sessionStorage.setItem('nv_admin','1'):sessionStorage.r
 const sess=()=>lsGet('nv_session',{});
 const setSess=o=>lsSet('nv_session',Object.assign(sess(),o));
 const clearSess=()=>{try{localStorage.removeItem('nv_session')}catch(e){}};
+/* NV26 — location check, asset link in the QR, nameplate reading */
+const geoCfg=()=>Object.assign({m:300,block:false},S.settings.geo||{});
+/* metres between two [lat,lng] points (haversine) */
+function geoDist(a,b){if(!a||!b||a[0]==null||b[0]==null)return null;const R=6371e3,r=x=>x*Math.PI/180;const dl=r(b[0]-a[0]),dn=r(b[1]-a[1]);
+  const h=Math.sin(dl/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+/* the school's reference point: its own coordinates, else the median of the assets already recorded there (null when none) */
+function schoolRef(sid,skip){const s=get('schools',sid)||{};if(s.lat!=null&&s.lng!=null&&s.lat!==''&&s.lng!=='')return {p:[+s.lat,+s.lng],src:'school'};
+  const L=S.collections.filter(c=>c.school_id===sid&&c!==skip&&c.submitted_at&&c.lat!=null&&c.lng!=null);if(L.length<1)return null;
+  const med=a=>{a=a.slice().sort((x,y)=>x-y);const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2};return {p:[med(L.map(c=>+c.lat)),med(L.map(c=>+c.lng))],src:'assets',n:L.length}}
+const fmtDist=m=>m==null?'':m>=1000?(m/1000).toFixed(1).replace(/\.0$/,'')+' '+tx('كم','km'):Math.round(m)+' '+tx('م','m');
+/* a link that opens the asset (with its photos) after sign-in */
+const assetURL=c=>c&&c.no?location.origin+location.pathname+'#a/'+assetLabel(c):'';
+/* nameplate OCR: Tesseract.js 5.1.1 + English data, all from jsdelivr, loaded only when asked */
+const TESS={lib:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',langPath:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int'};
+async function ocrPlate(blob,progress){if(!window.Tesseract)await loadScript(TESS.lib);
+  const w=await Tesseract.createWorker('eng',1,{workerPath:TESS.workerPath,corePath:TESS.corePath,langPath:TESS.langPath,logger:m=>{if(progress&&m.status==='recognizing text')progress(Math.round(m.progress*100))}});
+  try{const {data}=await w.recognize(blob);return data.text||''}finally{w.terminate().catch(()=>{})}}
+const PLATE_BRANDS=['Carrier','LG','Samsung','Gree','Daikin','York','Trane','Mitsubishi','Midea','Haier','Toshiba','Hitachi','Panasonic','Sharp','Zamil','Alessa','Hisense','TCL','Super General','Westpoint','Whirlpool','Electrolux','Ariston','Rheem','Lennox','Honeywell','Johnson Controls','Siemens','Schneider','ABB','Legrand','Grundfos','Wilo','KSB','Otis','Kone','Schindler','Bosch','Philips','Osram','Sony','HP','Dell','Lenovo','Acer','Asus','Apple','Canon','Epson','Brother','Ricoh','Kyocera','Xerox','Cisco','Hikvision','Dahua'];
+function parsePlate(txt){const T=String(txt||'').replace(/\r/g,'').replace(/[|]/g,'I');const lines=T.split('\n').map(x=>x.trim()).filter(Boolean);const o={};
+  const grab=re=>{for(const l of lines){const m=l.match(re);if(m&&m[1]){const v=m[1].trim().replace(/[.,;:]+$/,'');if(v.length>=3)return v}}return ''};
+  o.serial=grab(/(?:\bS\s*[\/I1l\\]\s*N\b|\bSER(?:IAL)?\.?\s*(?:N[O0O]\.?|NUMBER|#)?|\bSN\b)\s*[:.#=\-]?\s*([A-Z0-9][A-Z0-9\-\/]{3,})/i);
+  o.model=grab(/(?:\bMODEL\b|\bMOD\.|\bM\s*\/\s*N\b|\bTYPE\b)\s*(?:N[O0]\.?|NUMBER|#)?\s*[:.#=\-]?\s*([A-Z0-9][A-Z0-9\-\/\.]{2,})/i);
+  const cap=T.match(/(\d[\d,.]*\s*(?:BTU(?:\s*\/\s*H)?|TONS?\b|\bTR\b|KW\b|KVA\b|HP\b|LITERS?\b|LTR\b|KG\b))/i);if(cap)o.capacity=cap[1].replace(/\s+/g,' ').trim();
+  for(const b of PLATE_BRANDS)if(new RegExp('\\b'+b.replace(/ /g,'\\s*')+'\\b','i').test(T)){o.brand=b;break}
+  for(const k of Object.keys(o))if(!o[k])delete o[k];return o}
 </script>

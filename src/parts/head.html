@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV25">
+<meta name="fm-version" content="NV26">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -26,6 +26,17 @@ body.nv-field.nv-en{font-family:"Inter",sans-serif}
 .nv-shot.ok{border:2px solid #86efac;background:#f0fdf4}.nv-shot.bad{border-color:#fca5a5;background:#fef2f2}.nv-shot input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .nv-shot-pv{height:8.5rem;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:.6rem;background:#fff;margin-bottom:.45rem;color:#2563eb}.nv-shot-pv img{width:100%;height:100%;object-fit:cover}
 .nv-shot b{display:block;font-size:.8rem;color:#1f2937}.nv-shot small{display:block;font-size:.72rem;color:#2563eb;margin-top:.1rem}.nv-shot.ok small{color:#15803d}
+/* NV26 — location line, nameplate reader, upload bar, returned assets */
+.nv-geo{display:block;font-style:normal;font-size:.72rem;color:#475569;margin-top:.15rem;min-height:1em}.nv-geo.far{color:#b91c1c;font-weight:700}
+.nv-ocr{margin-top:.6rem;width:100%;border:1px solid #bfdbfe;background:#fff;color:#1d4ed8;font-weight:700;border-radius:.8rem;padding:.6rem .8rem;font-size:.82rem}.nv-ocr:disabled{opacity:.6}
+.nv-ocr-msg{font-size:.78rem;color:#334155;margin:.35rem 0 0;min-height:1em}.nv-filled{background:#fefce8!important;border-color:#facc15!important}
+.nv-pend{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem;padding:.45rem 1rem;font-size:.82rem;font-weight:700;text-align:center}
+.nv-pend.ok{background:#f0fdf4;color:#15803d}.nv-pend.wait{background:#fffbeb;color:#92400e}.nv-pend.err{background:#fef2f2;color:#b91c1c}.nv-pend.run{background:#eff6ff;color:#1d4ed8}
+.nv-pend button{background:#2563eb;color:#fff;border:0;border-radius:.6rem;padding:.3rem .9rem;font:inherit}
+.nv-ret{border:1px solid #fecaca;background:#fef2f2;border-radius:1rem;padding:.9rem 1rem;color:#991b1b}.nv-ret>b{display:block;margin-bottom:.4rem}.nv-ret small{display:block;font-size:.78rem;color:#7f1d1d}
+.nv-ret a{display:block;background:#fff;border:1px solid #fecaca;border-radius:.7rem;padding:.5rem .7rem;margin-top:.4rem;color:#111827;text-decoration:none;font-size:.85rem}
+.nv-badge{display:inline-block;font-size:.68rem;font-weight:700;border-radius:99px;padding:.05rem .5rem;vertical-align:middle}.nv-badge.r{background:#fee2e2;color:#b91c1c}.nv-badge.g{background:#dcfce7;color:#15803d}
+.nv-kv{display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid #f1f5f9;padding:.45rem 0;font-size:.88rem}.nv-kv span{color:#64748b}
 #map,#location-map{height:300px;width:100%;border-radius:.75rem;border:1px solid #e5e7eb;z-index:1}
 </style>
 <style data-mode="admin" media="not all">
@@ -128,6 +139,11 @@ body.login-page{background:linear-gradient(135deg,#0f172a,#1e3a8a 60%,#4c1d95)!i
 .nvc-plain{background:transparent;height:12px}.nvc-plain span:last-child{border-start-end-radius:4px;border-end-end-radius:4px}.nvc-wide{grid-template-columns:minmax(110px,190px) 1fr 90px}
 .nvd .card-title,.nva .card-title{font-size:.98rem;font-weight:800;color:#0f172a;float:none;display:block}.nvd .sub,.nva .sub{color:#64748b;font-size:.78rem}
 .nv-share{display:flex;align-items:center;gap:.5rem}.nv-share .nvc-track{flex:1;min-width:60px;height:8px}.nv-share small{width:3.2em;text-align:end;color:#64748b;font-variant-numeric:tabular-nums}
+/* NV26 photo review cards */
+.nv-rv-ph{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:#e2e8f0;border-radius:14px 14px 0 0;overflow:hidden}.nv-rv-ph figure{margin:0;position:relative;aspect-ratio:4/3;background:#f8fafc}
+.nv-rv-ph img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}.nv-rv-ph figcaption{position:absolute;bottom:0;inset-inline:0;background:rgba(15,23,42,.6);color:#fff;font-size:.7rem;padding:.1rem .4rem}
+.nv-rv-ph figure.no{display:flex;align-items:center;justify-content:center;text-align:center;color:#b91c1c;font-size:.75rem;background:#fef2f2}
+[data-bs-theme=dark] .nv-rv-ph,[data-bs-theme=dark] .nv-rv-ph figure{background:#1e293b}
 /* empty states */
 .nv-empty{text-align:center;padding:2.6rem 1rem;color:#64748b}.nv-empty .ic{width:56px;height:56px;border-radius:16px;background:#eff6ff;color:#2563eb;display:inline-flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:.6rem}
 .nv-empty b{display:block;color:#0f172a;font-size:1rem;margin-bottom:.2rem}.nv-empty p{margin:0 auto .8rem;max-width:440px;font-size:.85rem}.nv-empty p:last-child{margin-bottom:0}

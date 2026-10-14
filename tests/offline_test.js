@@ -46,7 +46,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.click('.app-main a[href^="#admin/collections/view/"]');await p.waitForSelector('#xl');await p.waitForTimeout(400);await shot('13-group');ok((await p.$$('tbody tr')).length===3,'group rows');ok(!(await p.content()).includes('<b>x</b>'),'escaped');
  await p.click('a[title="عرض التفاصيل"] >> nth=0');await p.waitForSelector('.table-bordered');await p.waitForTimeout(800);await shot('14-show');
  await p.goBack();await p.waitForSelector('#xl');await p.click('a[title="تعديل"] >> nth=2');await p.waitForSelector('[name=brand]');await shot('15-edit');await p.fill('[name=brand]','Samsung');await p.click('button:has-text("حفظ التعديل")');await p.waitForSelector('.alert-success');
- await p.click('.app-sidebar a[href="#admin/log"]');await p.waitForSelector('table');ok((await p.$$('tbody tr')).length===2,'log rows');
+ await p.click('.app-sidebar a[href="#admin/log"]');await p.waitForSelector('.nv-ph h3:has-text("سجل التعديلات")');await p.waitForSelector('table');const lr=await p.$$eval('tbody tr',r=>r.map(x=>x.innerText.replace(/\s+/g,' ').slice(0,160)));ok(lr.length===2,'log rows '+JSON.stringify(lr));
  await p.goto(U+'#admin/schools?status=completed');await p.waitForSelector('#nvt-schools tbody tr');await shot('16-schools');ok((await p.$$('#nvt-schools tbody tr')).length===1,'completed filter');
  await p.goto(U+'#admin/schools');await p.waitForSelector('.pagination');ok((await p.textContent('.card-footer')).includes('من 2170'),'pagination');
  await p.click('[data-nv-tree] >> nth=0');
