@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV32">
+<meta name="fm-version" content="NV33">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -187,6 +187,31 @@ body.login-page{background:linear-gradient(135deg,#0f172a,#1e3a8a 60%,#4c1d95)!i
  .app-main .card-header .input-group{width:100%!important}.app-main .card-header{padding:.7rem .8rem}.app-main .table{font-size:.8rem}.app-main .table td,.app-main .table th{padding:.45rem .4rem}
  .nvc-row,.nvc-wide{grid-template-columns:38% 1fr auto}.nvk-v{font-size:1.6rem}.nvt-wrap{max-height:none}.app-main .pagination{flex-wrap:wrap}}
 </style>
+<style id="nv-nv33" data-mode="admin" media="not all">
+/* NV33 — dashboard: search box, KPI mini columns / rings, donut legends, compact tables, alerts list */
+.nv33-q{min-width:220px;max-width:460px}.nv33-q>i{position:absolute;inset-inline-start:.65rem;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none}.nv33-q input{padding-inline-start:2rem;border-radius:10px}
+.nv33-qr{position:absolute;top:calc(100% + 4px);inset-inline:0;z-index:1060;background:var(--bs-body-bg);border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 28px rgba(15,23,42,.14);max-height:360px;overflow:auto;padding:.3rem}
+.nv33-qr a{display:block;padding:.45rem .6rem;border-radius:8px;color:inherit;text-decoration:none;font-size:.85rem}.nv33-qr a:hover,.nv33-qr a:focus{background:#eff6ff}.nv33-qr small{display:block;color:#64748b}.nv33-qr b{color:#2563eb;margin-inline-end:.3rem}
+.nv33-mini{display:flex;align-items:flex-end;gap:3px;height:38px;width:64px;flex:0 0 auto}.nv33-mini i{flex:1;border-radius:3px 3px 0 0;min-height:3px}
+.nv33-ring{flex:0 0 auto;width:42px;height:42px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p)*1%),#e2e8f0 0);-webkit-mask:radial-gradient(farthest-side,transparent 62%,#000 63%);mask:radial-gradient(farthest-side,transparent 62%,#000 63%)}
+.nv33 .nvk-v{font-size:1.65rem}.nv33 .nvk-s{font-size:.76rem}
+.nv33-lg{display:grid;gap:.25rem;margin-top:.4rem;font-size:.84rem}.nv33-lg>div{display:grid;grid-template-columns:12px 1fr auto 3.4em;gap:.5rem;align-items:center}.nv33-lg i{width:10px;height:10px;border-radius:3px}.nv33-lg small{color:#64748b;text-align:end;font-variant-numeric:tabular-nums}
+.nv33-t{font-size:.82rem}.nv33-t td,.nv33-t th{padding:.42rem .35rem}.nv33-cut{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nv33-b{background:color-mix(in srgb,var(--c) 13%,transparent);color:color-mix(in srgb,var(--c) 75%,#0f172a);font-weight:700;border:1px solid color-mix(in srgb,var(--c) 30%,transparent)}
+.nv33-al{list-style:none;margin:.3rem 0 0;padding:0}.nv33-al li+li{border-top:1px solid #eef2f7}.nv33-al a{display:flex;align-items:center;gap:.6rem;padding:.55rem .1rem;color:inherit;text-decoration:none}.nv33-al a:hover b{text-decoration:underline}
+.nv33-al b{display:block;font-size:.86rem;color:#0f172a}.nv33-al small{color:#64748b;font-size:.75rem}
+.nv33-n{min-width:2rem;padding:.1rem .5rem;border-radius:99px;background:#f1f5f9;font-weight:800;font-size:.82rem;text-align:center;font-variant-numeric:tabular-nums;color:#0f172a}
+.nv33 .card .nvc-row{grid-template-columns:1fr auto;row-gap:.25rem}.nv33 .card .nvc-row>.nvc-track{grid-column:1/-1;grid-row:2}
+.nv33-cols{display:flex;align-items:stretch;gap:6px;height:270px;padding-top:.3rem}.nv33-col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;text-decoration:none;color:inherit}
+.nv33-cb{flex:1;width:100%;max-width:44px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;border-bottom:1px solid #e2e8f0}.nv33-cb i{display:block;width:100%;background:#2a78d6;border-radius:4px 4px 0 0;transition:filter .15s}.nv33-col:hover .nv33-cb i{filter:brightness(.9)}
+.nv33-cv{font-size:.78rem;font-weight:800;color:#0f172a;margin-bottom:.15rem;min-height:1.1em;line-height:1.1}.nv33-cl{height:2.7em;margin-top:.3rem;font-size:.7rem;line-height:1.35;color:#64748b;text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+[data-bs-theme=dark] .nv33-cv{color:#f1f5f9}[data-bs-theme=dark] .nv33-cb{border-color:#334155}
+.nv33-tr .nv33-cl{white-space:nowrap;overflow:visible;height:1.5em;display:block}
+.nv33-lbl>.card{margin-top:0!important;height:100%}
+[data-bs-theme=dark] .nv33-qr{border-color:#1e293b}[data-bs-theme=dark] .nv33-qr a:hover{background:#1e293b}[data-bs-theme=dark] .nv33-ring{background:conic-gradient(var(--c) calc(var(--p)*1%),#1e293b 0)}
+[data-bs-theme=dark] .nv33-al b,[data-bs-theme=dark] .nv33-n{color:#f1f5f9}[data-bs-theme=dark] .nv33-n{background:#1e293b}[data-bs-theme=dark] .nv33-al li+li{border-color:#1e293b}[data-bs-theme=dark] .nv33-b{color:color-mix(in srgb,var(--c) 55%,#fff)}[data-bs-theme=dark] .nv33-lg i.rest{background:#475569!important}
+@media (max-width:576px){.nv33-q{max-width:none;flex-basis:100%}.nv33-kpis .col:last-child{flex-basis:100%;width:100%}.nv33-kpis .card-body{padding:.75rem}.nv33-kpis .nvk-v{font-size:1.35rem}.nv33-kpis .nvk-l{font-size:.78rem}.nv33-cols{gap:3px}.nv33-cut{max-width:90px}}
+</style>
 <style>
 /* NV24 — busy line (cloud refresh) and the start-up skeleton, both modes */
 #nv-busy{position:fixed;top:0;left:0;right:0;height:3px;z-index:5000;overflow:hidden;pointer-events:none}#nv-busy::before{content:'';position:absolute;top:0;bottom:0;width:35%;background:linear-gradient(90deg,#0ea5e9,#2563eb,#7c3aed);animation:nvbusy 1.1s ease-in-out infinite}
@@ -314,7 +339,7 @@ body.sx-body{margin:0;background:#f4f7fb}
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV32',date:'2026-10-13'};
+const NV={version:'NV33',date:'2026-10-14'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -2487,6 +2512,181 @@ function labelPanel(c){if(!c.type_id||!c.submitted_at)return '';const by=String(
   return `<div class="card mt-3"><div class="card-header"><h3 class="card-title">الملصق على الأصل</h3></div><div class="card-body">${c.label_at?`<div class="row g-2 align-items-center"><div class="col-5">${c.label_photo?`<img data-photo="${esc(c.label_photo)}" alt="الملصق على الأصل" class="img-fluid rounded shadow-sm" style="cursor:zoom-in">`:''}</div>
    <div class="col-7 small"><div class="mb-1">${c.label_check==='ok'?'<span class="badge text-bg-success">مُلصق ومؤكد — الرمز مطابق</span>':'<span class="badge text-bg-warning">لم يُقرأ الرمز في الصورة — راجعها</span>'}</div><div>بواسطة: <b>${esc(who||'—')}</b></div><div>في: ${esc(ymdhms(c.label_at))}</div>${c.label_printed_at?`<div class="text-muted">أول طباعة: ${esc(ymdhms(c.label_printed_at))}</div>`:''}</div></div>`
    :c.label_printed_at?`<span class="badge text-bg-warning">طُبع في ${esc(ymdhms(c.label_printed_at))} — بانتظار تأكيد اللصق بصورة</span>`:'<span class="badge text-bg-secondary">لم يُطبع الملصق بعد</span>'}</div></div>`}
+</script>
+<script id="nv-nv33">
+/* NV33 — dashboard in the owner's mockup layout: asset search, 5 KPI cards with 6-month mini columns and a 30-day delta, condition donut,
+   assets per level 1, 12-month trend (or daily for the filter period), assets per city / school, latest assets, install-age donut,
+   top assets by value, assets that need maintenance (weak condition; Solvix has no maintenance schedule) and urgent alerts.
+   The NV23 filters, the schools progress bar, the labels card and the supervisors / cities / value bars stay below. */
+const DASH33={trend:'m',loc:'city'};
+const AGE_C=['#93c5fd','#3b82f6','#1d4ed8','#1e3a8a'],AGE_L=['أقل من سنة','1 – 3 سنوات','4 – 7 سنوات','أكثر من 7 سنوات'];
+const monKey=iso=>String(iso||'').slice(0,7);const fmtMon=k=>new Date(k+'-15T12:00:00').toLocaleDateString('ar-SA-u-ca-gregory',{month:'short',year:'2-digit'});
+function lastMonths(n){const out=[],d=new Date();d.setDate(15);for(let i=n-1;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,15);out.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}return out}
+function ageYears(v){if(v==null||v==='')return null;const s=String(v).trim();let t=null;const y=s.match(/^(19|20)\d{2}$/);if(y)t=new Date(+s,6,1).getTime();else{const d=new Date(s);if(!isNaN(d))t=d.getTime()}if(t==null||t>Date.now()+864e5)return null;return (Date.now()-t)/(365.25*864e5)}
+const ageBucket=a=>a==null?-1:a<1?0:a<=3?1:a<=7?2:3;
+const cval=c=>c.price!=null&&c.price!==''?num(c.quantity)*Number(c.price):0;
+const locOf=c=>{const s=get('schools',c.school_id)||{};const r=(get('rooms',c.room_name_id)||{}).ar||'';return (s.name||'—')+(r?' · '+r:'')};
+function condBadge(c){const n=(get('conditions',c.condition_id)||{}).ar;if(!n)return '<span class="badge nv33-b" style="--c:#94a3b8">غير محدد</span>';return `<span class="badge nv33-b" style="--c:${condColor(c.condition_id,0)}"><i class="bi ${isWeak(c.condition_id)?'bi-wrench':'bi-check-circle'}"></i> ${esc(n)}</span>`}
+/* HTML columns (one hue, 4px rounded tops, value above the column, name under it); rows {l,q,h?,t?,lab?} */
+function cols33(rows,key,qPct,labAll){const mx=Math.max(1,...rows.map(r=>r.q));return `<div class="nv33-cols" data-kpi="${key}" data-val="${rows.map(r=>r.q).join(',')}">${rows.map(r=>{const tag=r.h?'a':'div';return `<${tag} class="nv33-col" ${r.h?`href="${r.h}"`:''} title="${esc(r.t||r.l)}: ${nf(r.q)}${qPct?` (${qPct(r.q)}%)`:''}"><span class="nv33-cb"><span class="nv33-cv num">${labAll||r.lab?nf(r.q):''}</span><i style="height:${r.q?Math.max(2,r.q/mx*100):0}%"></i></span><span class="nv33-cl">${esc(r.l)}</span></${tag}>`}).join('')}</div>`}
+function vDashboard(){
+  destroyCharts();const tok=window.__nvDashTok=(window.__nvDashTok||0)+1;
+  const F=DASH,G=DASH33,since=F.days?Date.now()-F.days*864e5:0;
+  const schools=S.schools.filter(s=>!F.city||s.city===F.city);const schSet=new Set(schools.map(s=>s.id));
+  const coll=S.collections.filter(c=>schSet.has(c.school_id)&&(!F.emp||c.employee_id===F.emp));
+  const st=new Map();for(const c of coll){let x=st.get(c.school_id);if(!x){x={any:0};st.set(c.school_id,x)}x.any++}
+  const scope=F.emp?schools.filter(s=>st.has(s.id)||s.completed_by===F.emp):schools;
+  let comp=0,prog=0,ns=0;for(const s of scope){const k=schoolState(s,st.get(s.id));k==='completed'?comp++:k==='in_progress'?prog++:ns++}
+  const tot=comp+prog+ns||1,pct=x=>Math.round(x/tot*1000)/10;
+  const sub=coll.filter(c=>c.submitted_at&&c.type_id);const inP=sub.filter(c=>!since||new Date(c.submitted_at).getTime()>=since);
+  const Q=l=>l.reduce((a,c)=>a+num(c.quantity),0),V=l=>l.reduce((a,c)=>a+cval(c),0);
+  const qtyAll=Q(sub),qPct=x=>qtyAll?Math.round(x/qtyAll*1000)/10:0;
+  const win=(l,d0,f)=>f(l.filter(c=>{const t=Date.now()-new Date(c.submitted_at).getTime();return t>=d0*864e5&&t<(d0+30)*864e5}));
+  const dl=(l,f)=>{const a=win(l,0,f),b=win(l,30,f);return b?Math.round((a-b)/b*1000)/10:null};
+  const good=sub.filter(c=>c.condition_id&&!isWeak(c.condition_id)),weak=sub.filter(c=>isWeak(c.condition_id));
+  const crit=sub.filter(c=>(get('types',c.type_id)||{}).critical);const critQ=Q(crit),critWeak=Q(crit.filter(c=>isWeak(c.condition_id)));
+  const value=V(sub);const M6=lastMonths(6),mon=(l,f)=>M6.map(k=>f(l.filter(c=>monKey(c.submitted_at)===k)));
+  const cities=[...new Set(S.schools.map(s=>s.city).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const emps=S.employees.slice().sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+  const empty=Cloud.on&&!S.schools.length;
+  const delta=d=>d==null?'<span class="sub">لا جرد في الـ60 يوماً الماضية</span>':`<span class="${d>=0?'up':'down'}">${d>=0?'▲':'▼'} ${Math.abs(d)}%</span> <span class="sub">عن الـ30 يوماً السابقة</span>`;
+  const mini=(vals,c,fmt)=>{const mx=Math.max(1,...vals);return `<div class="nv33-mini" aria-hidden="true">${vals.map((v,i)=>`<i title="${fmtMon(M6[i])}: ${fmt?fmt(v):nf(v)}" style="height:${Math.max(6,v/mx*100)}%;background:${c};opacity:${i===vals.length-1?1:.45}"></i>`).join('')}</div>`};
+  const kpi=(key,icon,tone,label,val,subtxt,extra)=>`<div class="col"><div class="nvk card h-100" data-kpi="${key}" data-val="${esc(String(val).replace(/[^\d.]/g,''))}"><div class="card-body">
+    <div class="d-flex align-items-center gap-2 mb-2"><span class="nvk-ic" style="--c:${tone}"><i class="bi ${icon}"></i></span><span class="nvk-l">${label}</span></div>
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-2"><div class="nvk-v">${val}</div>${extra||''}</div><div class="nvk-s">${subtxt}</div></div></div></div>`;
+  const seg=(k,n,c,l)=>n?`<a class="nvp-seg" href="#admin/schools?status=${k}" style="flex:${n};background:${c}" title="${l}: ${nf(n)} (${pct(n)}%)"></a>`:'';
+  const card=(cls,title,subt,body,tool)=>`<div class="${cls}"><div class="card h-100"><div class="card-body"><div class="d-flex justify-content-between align-items-start gap-2 mb-1"><div><h6 class="card-title mb-0">${title}</h6>${subt?`<div class="sub">${subt}</div>`:''}</div>${tool||''}</div>${body}</div></div></div>`;
+  /* lists */
+  const latest=sub.slice().sort((a,b)=>String(b.submitted_at).localeCompare(String(a.submitted_at))).slice(0,6);
+  const topVal=sub.filter(c=>cval(c)>0).sort((a,b)=>cval(b)-cval(a)).slice(0,6);
+  const isCrit=c=>!!(get('types',c.type_id)||{}).critical;
+  const maint=weak.slice().sort((a,b)=>isCrit(b)-isCrit(a)||cval(b)-cval(a)||String(b.submitted_at).localeCompare(String(a.submitted_at))).slice(0,6);
+  const tname=c=>(get('types',c.type_id)||{}).ar||'—',cname=c=>(get('categories',c.category_id)||{}).ar||'—';
+  const aLink=c=>`#admin/collections/${encodeURIComponent(c.id)}`;
+  const tagCell=c=>`<a href="${aLink(c)}" class="fw-bold text-decoration-none num">${esc(assetLabel(c)||'—')}</a>`;
+  const tbl=(head,rows,cols,emptyT)=>rows.length?`<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 nv33-t"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`:`<div class="text-center text-muted small py-4">${emptyT}</div>`;
+  /* alerts */
+  const Gc=geoCfg();const dupM=new Map();for(const c of sub){const s=String(c.serial||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(s.length>=4)dupM.set(s,(dupM.get(s)||0)+1)}
+  const dups=[...dupM.values()].filter(n=>n>1).reduce((a,n)=>a+n,0);
+  const si=subInfo();
+  const al=[
+    [sub.filter(c=>c.review_status==='returned').length,'bi-arrow-return-left','#d03b3b','أصول مُرجعة لمشرفي الميدان','#admin/review?st=returned','تنتظر تصحيح الصور'],
+    [critWeak?crit.filter(c=>isWeak(c.condition_id)).length:0,'bi-exclamation-octagon','#d03b3b','أصول حرجة بحالة ضعيفة','#admin/analytics?crit=1','تحتاج صيانة عاجلة'],
+    [sub.filter(c=>!c.review_status).length,'bi-hourglass-split','#eda100','صور بانتظار المراجعة','#admin/review?st=pending','اعتمد أو أرجع'],
+    [sub.filter(c=>c.geo_dist!=null&&c.geo_dist>Gc.m).length,'bi-geo-alt','#6250d6','صُوّرت بعيداً عن المدرسة','#admin/review?st=far',`أبعد من ${fmtDist(Gc.m)}`],
+    [sub.filter(c=>!c.label_at&&c.label_printed_at).length,'bi-tag','#eda100','ملصقات طُبعت ولم يُؤكَّد لصقها','#admin/review?st=nolabel','بانتظار صورة الملصق'],
+    [dups,'bi-files','#2a78d6','أرقام تسلسلية مكررة','#admin/review?st=all','راجع الأصول المكررة'],
+  ].filter(x=>x[0]>0);
+  if(si&&si.state!=='ok')al.unshift([1,'bi-calendar-x','#d03b3b',si.state==='over'?'انتهى الاشتراك — قراءة فقط':si.state==='grace'?'الاشتراك في فترة السماح':`ينتهي الاشتراك خلال ${nf(si.days)} يوم`,can('settings')?'#admin/subscription':'#admin','جدّد الاشتراك']);
+  const alertsHtml=al.length?`<ul class="nv33-al">${al.map(([n,ic,c,t,h,s])=>`<li><a href="${h}"><span class="nvk-ic" style="--c:${c}"><i class="bi ${ic}"></i></span><span class="flex-grow-1"><b>${t}</b><small>${s}</small></span>${n>1||!/subscription/.test(h)?`<span class="nv33-n">${nf(n)}</span>`:''}</a></li>`).join('')}</ul>`:'<div class="text-center text-muted small py-4"><i class="bi bi-check2-circle fs-3 d-block mb-1" style="color:#0ca30c"></i>لا توجد تنبيهات عاجلة.</div>';
+  adminShell('dashboard','لوحة التحكم',`
+  <div class="nvd nv33">
+  ${empty?`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2"><div class="flex-grow-1"><strong>لا توجد بيانات في قاعدة Solvix بعد.</strong> حمّل القوائم الجاهزة (المدارس، دليل الأصول، أسماء الغرف، الموظفين) مرة واحدة للبدء.</div>${Cloud.role==='admin'?'<button class="btn btn-warning btn-sm" id="initCloud">تحميل القوائم الجاهزة</button>':''}</div>`:''}
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+   <div class="nv33-q position-relative flex-grow-1"><i class="bi bi-search"></i><input type="search" class="form-control form-control-sm" id="dQ" placeholder="ابحث عن أصل، رقم، مدرسة، مشرف، رقم تسلسلي…" autocomplete="off" aria-label="بحث عن أصل"><div class="nv33-qr d-none" id="dQr"></div></div>
+   <select class="form-select form-select-sm" style="width:auto" id="dCity"><option value="">كل المحافظات</option>${cities.map(c=>`<option ${F.city===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+   <select class="form-select form-select-sm" style="width:auto;max-width:220px" id="dEmp"><option value="">كل مشرفي الميدان</option>${emps.map(e=>`<option value="${esc(e.id)}" ${F.emp===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select>
+   <div class="btn-group btn-group-sm" role="group">${[[7,'7 أيام'],[30,'30 يوماً'],[90,'90 يوماً'],[0,'الكل']].map(([d,l])=>`<button type="button" class="btn ${F.days===d?'btn-primary':'btn-outline-secondary'}" data-days="${d}">${l}</button>`).join('')}</div>
+   ${F.city||F.emp||F.days!==30?'<button type="button" class="btn btn-sm btn-link" id="dReset">إعادة ضبط</button>':''}</div>
+  <div class="row row-cols-2 row-cols-lg-3 row-cols-xxl-5 g-3 nv33-kpis">
+   ${kpi('assets','bi-box-seam','#2a78d6','إجمالي الأصول',nf(qtyAll),delta(dl(sub,Q)),mini(mon(sub,Q),'#2a78d6'))}
+   ${kpi('good','bi-check2-circle','#0ca30c','بحالة جيدة / مناسبة',nf(Q(good)),`${qPct(Q(good))}% من الأصول`,`<span class="nv33-ring" style="--p:${qPct(Q(good))};--c:#0ca30c"></span>`)}
+   ${kpi('weak','bi-wrench-adjustable','#eda100','تحتاج صيانة',nf(Q(weak)),`${qPct(Q(weak))}% من الأصول (حالة ضعيفة)`,mini(mon(weak,Q),'#eda100'))}
+   ${kpi('critical','bi-exclamation-triangle',critWeak?'#d03b3b':'#6250d6','الأصول الحرجة',nf(critQ),critQ?(critWeak?`<span class="down">${nf(critWeak)} بحالة ضعيفة</span>`:'لا يوجد منها بحالة ضعيفة'):'لم تُجرد أصول حرجة بعد',`<span class="nv33-ring" style="--p:${qPct(critQ)};--c:${critWeak?'#d03b3b':'#6250d6'}"></span>`)}
+   ${kpi('value','bi-cash-coin','#6250d6','القيمة التقديرية (ريال)',sar(value),delta(dl(sub,V)),mini(mon(sub,V),'#6250d6',sar))}
+  </div>
+  <div class="row g-3 mt-0">
+   ${card('col-xl-4 col-lg-6','حالة الأصول','الكمية حسب الحالة الفنية',`<div id="chCond" class="mt-1">${skel(220)}</div><div id="lgCond"></div>`)}
+   ${card('col-xl-4 col-lg-6','الأصول حسب الفئة الرئيسية','الكمية في المستوى الأول — اضغط للتحليل',`<div id="chCat" class="mt-2"></div>`)}
+   ${card('col-xl-4','اتجاه الأصول المجرودة',G.trend==='m'?'الكمية المجرودة كل شهر':`يومياً ${F.days?`— آخر ${F.days} يوماً`:''}، والخط = متوسط 7 أيام`,`<div id="chDaily" class="mt-1">${G.trend==='m'?'':skel(260)}</div>`,`<select class="form-select form-select-sm w-auto" id="dTrend"><option value="m" ${G.trend==='m'?'selected':''}>آخر 12 شهراً</option><option value="d" ${G.trend==='d'?'selected':''}>يومي — فترة الفلتر</option></select>`)}
+  </div>
+  <div class="row g-3 mt-0">
+   ${card('col-xl-3 col-lg-6','الأصول حسب الموقع',G.loc==='city'?'الكمية في كل محافظة':'أعلى المدارس بالكمية',`<div id="byLoc" class="mt-2"></div>`,`<select class="form-select form-select-sm w-auto" id="dLoc"><option value="city" ${G.loc==='city'?'selected':''}>حسب المحافظة</option><option value="school" ${G.loc==='school'?'selected':''}>حسب المدرسة</option></select>`)}
+   ${card('col-xl-6 col-lg-12 order-lg-last order-xl-0','أحدث الأصول المضافة','',tbl(['رقم الأصل','الأصل / الفئة','الموقع','التاريخ','الحالة',''],latest.map(c=>`<tr><td>${tagCell(c)}</td><td class="nv33-cut" title="${esc(tname(c))} — ${esc(cname(c))}">${esc(tname(c))}<small class="d-block text-muted">${esc(cname(c))}</small></td><td class="nv33-cut" title="${esc(locOf(c))}">${esc(locOf(c))}</td><td class="num">${esc(String(c.submitted_at).slice(0,10))}</td><td>${condBadge(c)}</td><td><a href="${aLink(c)}" class="btn btn-sm btn-light border rounded-circle" title="عرض"><i class="bi bi-eye text-primary"></i></a></td></tr>`),7,'لا توجد أصول مجرودة بعد.'),`<a href="#admin/collections" class="btn btn-sm btn-outline-primary">عرض الكل</a>`)}
+   ${card('col-xl-3 col-lg-6','الأصول حسب العمر','من تاريخ التركيب (إن وجد)',`<div id="chAge" class="mt-1">${skel(220)}</div><div id="lgAge"></div>`)}
+  </div>
+  <div class="row g-3 mt-0">
+   ${card('col-xl-4 col-lg-6','أعلى الأصول قيمة','الكمية × السعر (ريال)',tbl(['رقم الأصل','الأصل','المدرسة','الكمية','القيمة'],topVal.map(c=>`<tr><td>${tagCell(c)}</td><td class="nv33-cut" title="${esc(tname(c))}">${esc(tname(c))}</td><td class="nv33-cut">${esc((get('schools',c.school_id)||{}).name||'—')}</td><td class="num">${nf(num(c.quantity))}</td><td class="num"><b>${sar(cval(c))}</b></td></tr>`),5,'لا توجد أسعار مسجلة بعد.'),`<a href="#admin/analytics?sort=cost" class="btn btn-sm btn-outline-primary">التحليل</a>`)}
+   ${card('col-xl-4 col-lg-6','أصول تحتاج صيانة','بحالة ضعيفة — الحرجة أولاً',tbl(['رقم الأصل','الأصل','المدرسة','الأولوية'],maint.map(c=>`<tr><td>${tagCell(c)}</td><td class="nv33-cut" title="${esc(tname(c))}">${esc(tname(c))}</td><td class="nv33-cut">${esc((get('schools',c.school_id)||{}).name||'—')}</td><td>${isCrit(c)?'<span class="badge nv33-b" style="--c:#d03b3b"><i class="bi bi-exclamation-octagon"></i> عالية — حرج</span>':'<span class="badge nv33-b" style="--c:#eda100"><i class="bi bi-wrench"></i> متوسطة</span>'}</td></tr>`),4,'لا توجد أصول بحالة ضعيفة.'),weak.length?`<span class="nv33-n" title="عدد السجلات">${nf(weak.length)}</span>`:'')}
+   ${card('col-xl-4','التنبيهات والمهام العاجلة','',alertsHtml)}
+  </div>
+  <div class="row g-3 mt-0"><div class="col-lg-6"><div class="card h-100"><div class="card-body"><div class="d-flex flex-wrap justify-content-between align-items-baseline mb-2"><h6 class="card-title mb-0">حالة الجرد في المدارس</h6><span class="sub" data-kpi="pct" data-val="${pct(comp)}">الإنجاز <b>${pct(comp)}%</b> · ${F.city?esc(F.city)+' · ':''}${nf(comp+prog+ns)} مدرسة</span></div>
+   <div class="nvp" data-kpi="bar" data-val="${comp},${prog},${ns}">${seg('completed',comp,DC.done,'مكتملة')}${seg('in_progress',prog,DC.prog,'قيد التنفيذ')}${seg('not_started',ns,DC.rest,'لم تبدأ').replace('class="nvp-seg"','class="nvp-seg rest"')}</div>
+   <div class="nvlg"><span><i style="background:${DC.done}"></i>مكتملة <b>${nf(comp)}</b> <span class="sub">(${pct(comp)}%)</span></span><span><i style="background:${DC.prog}"></i>قيد التنفيذ <b>${nf(prog)}</b> <span class="sub">(${pct(prog)}%)</span></span><span><i class="rest" style="background:${DC.rest}"></i>لم تبدأ <b>${nf(ns)}</b> <span class="sub">(${pct(ns)}%)</span></span></div></div></div></div>
+   <div class="col-lg-6 nv33-lbl">${labelsCard(sub)}</div></div>
+  <div class="row g-3 mt-0">
+   ${card('col-lg-4','أداء مشرفي الميدان','عدد المدارس لكل مشرف',`<div id="chEmp"></div>`)}
+   ${card('col-lg-4','الإنجاز حسب المحافظة','المكتمل والجاري من مدارس كل محافظة',`<div id="byCity" class="mt-2"></div>`)}
+   ${card('col-lg-4','القيمة التقديرية حسب المستوى الأول','ريال — اضغط للتحليل',`<div id="chValue"></div>`)}
+  </div></div>`);
+  /* filters */
+  $('#dCity').onchange=e=>{F.city=e.target.value;vDashboard()};$('#dEmp').onchange=e=>{F.emp=e.target.value;vDashboard()};
+  $$('[data-days]').forEach(b=>b.onclick=()=>{F.days=+b.dataset.days;vDashboard()});if($('#dReset'))$('#dReset').onclick=()=>{Object.assign(F,{city:'',emp:'',days:30});vDashboard()};
+  $('#dTrend').onchange=e=>{G.trend=e.target.value;vDashboard()};$('#dLoc').onchange=e=>{G.loc=e.target.value;vDashboard()};
+  if($('#initCloud'))$('#initCloud').onclick=()=>initCloudLists();
+  /* asset search: tag number, asset, school, supervisor, serial, room */
+  const qi=$('#dQ'),qr=$('#dQr');const hay=c=>norm([assetLabel(c),tname(c),cname(c),locOf(c),empName(c.employee_id),c.serial,c.model,c.brand,(get('schools',c.school_id)||{}).moe].join(' '));
+  const qRun=()=>{const q=norm(qi.value.trim());if(!q){qr.classList.add('d-none');return}const d=q.replace(/\D/g,'');
+    const hits=sub.filter(c=>hay(c).includes(q)||(d.length>=3&&assetLabel(c).endsWith(d))).slice(0,8);
+    qr.innerHTML=hits.length?hits.map(c=>`<a href="${aLink(c)}"><b class="num">${esc(assetLabel(c))}</b> ${esc(tname(c))}<small>${esc(locOf(c))} · ${esc(empName(c.employee_id))}</small></a>`).join(''):'<div class="text-muted small p-2">لا توجد نتائج.</div>';qr.classList.remove('d-none')};
+  qi.oninput=qRun;qi.onkeydown=e=>{if(e.key==='Enter'){const a=qr.querySelector('a');if(a){e.preventDefault();location.hash=a.getAttribute('href')}}else if(e.key==='Escape'){qi.value='';qRun()}};
+  qi.onblur=()=>setTimeout(()=>qr.classList.add('d-none'),200);qi.onfocus=qRun;
+  /* assets per city / school (HTML bars, one hue) */
+  const lm=new Map();for(const c of sub){const s=get('schools',c.school_id)||{};const k=G.loc==='city'?(s.city||'غير محدد'):(s.name||'—');const x=lm.get(k)||{q:0,id:s.id};x.q+=num(c.quantity);lm.set(k,x)}
+  const lr=[...lm.entries()].sort((a,b)=>b[1].q-a[1].q);const lmax=Math.max(1,...lr.map(x=>x[1].q));
+  $('#byLoc').innerHTML=lr.length?lr.slice(0,8).map(([k,x])=>`<div class="nvc-row" title="${esc(k)}: ${nf(x.q)}"><a href="${G.loc==='city'?'#admin/analytics?city='+encodeURIComponent(k):'#admin/schools?search='+encodeURIComponent(k)}">${esc(k)}</a><div class="nvc-track nvc-plain"><span style="width:${x.q/lmax*100}%;background:#2a78d6"></span></div><span class="num"><b>${nf(x.q)}</b> <small>${qPct(x.q)}%</small></span></div>`).join('')+(lr.length>8?`<div class="sub mt-1">و${nf(lr.length-8)} أخرى</div>`:''):'<div class="text-center text-muted small py-4">لا توجد أصول مجرودة بعد.</div>';
+  /* completion per city, supervisors, value per level 1 — as in NV23 */
+  const cm=new Map();for(const s of scope){const k=s.city||'غير محدد';const x=cm.get(k)||{n:0,c:0,p:0};x.n++;const t=schoolState(s,st.get(s.id));if(t==='completed')x.c++;else if(t==='in_progress')x.p++;cm.set(k,x)}
+  const cr=[...cm.entries()].sort((a,b)=>(b[1].c+b[1].p)/b[1].n-(a[1].c+a[1].p)/a[1].n||b[1].n-a[1].n);
+  const cityRows=n=>cr.slice(0,n).map(([k,x])=>`<div class="nvc-row"><a href="#admin/schools?search=${encodeURIComponent(k)}" title="${esc(k)}">${esc(k)}</a><div class="nvc-track" title="مكتملة ${x.c} · قيد التنفيذ ${x.p} · لم تبدأ ${x.n-x.c-x.p}"><span style="width:${x.c/x.n*100}%;background:${DC.done}"></span><span style="width:${x.p/x.n*100}%;background:${DC.prog}"></span></div><span class="num"><b>${x.c+x.p}</b> من ${x.n}</span></div>`).join('');
+  $('#byCity').innerHTML=cr.length?cityRows(8)+(cr.length>8?`<button class="btn btn-sm btn-link px-0" id="moreCity">عرض كل المحافظات (${cr.length})</button>`:''):'<p class="text-muted small mb-0">لا توجد مدارس.</p>';
+  if($('#moreCity'))$('#moreCity').onclick=()=>{$('#byCity').innerHTML=cityRows(cr.length)};
+  const tm=new Map();for(const c of coll){let x=tm.get(c.employee_id);if(!x){x={d:new Set(),p:new Set()};tm.set(c.employee_id,x)}const s=get('schools',c.school_id);(s&&s.completed_at?x.d:x.p).add(c.school_id)}
+  const tr=[...tm.entries()].map(([id,x])=>({id,name:empName(id),d:x.d.size,p:x.p.size})).filter(r=>r.d+r.p).sort((a,b)=>b.d+b.p-(a.d+a.p)||b.d-a.d);const tmax=Math.max(1,...tr.map(r=>r.d+r.p));
+  const lgE=`<div class="nvlg mt-1 mb-2"><span><i style="background:${DC.done}"></i>مكتملة</span><span><i style="background:${DC.prog}"></i>قيد التنفيذ</span></div>`;
+  const empRows=n=>tr.slice(0,n).map(r=>`<div class="nvc-row" title="${esc(r.name)} — مكتملة ${r.d} · قيد التنفيذ ${r.p}"><a href="#admin/collections?employee_id=${encodeURIComponent(r.id)}">${esc(r.name)}</a><div class="nvc-track nvc-plain"><span style="width:${r.d/tmax*100}%;background:${DC.done}"></span><span style="width:${r.p/tmax*100}%;background:${DC.prog}"></span></div><span class="num"><b>${r.d+r.p}</b> <small>مكتملة ${r.d}</small></span></div>`).join('');
+  $('#chEmp').innerHTML=tr.length?lgE+empRows(8)+(tr.length>8?`<button class="btn btn-sm btn-link px-0" id="moreEmp">عرض الكل (${tr.length})</button>`:''):'<div class="text-center text-muted small py-5">لا يوجد عمل لمشرفي الميدان بعد.</div>';
+  if($('#moreEmp'))$('#moreEmp').onclick=()=>{$('#chEmp').innerHTML=lgE+empRows(tr.length)};
+  const vm=new Map();for(const c of sub){if(c.price==null||c.price==='')continue;const k=c.category_id||'none';vm.set(k,(vm.get(k)||0)+cval(c))}
+  const vr=[...vm.entries()].sort((a,b)=>b[1]-a[1]);const vmax=Math.max(1,...vr.map(x=>x[1]));
+  $('#chValue').innerHTML=vr.length?'<div class="mt-2"></div>'+vr.slice(0,8).map(([k,v])=>{const nm=(get('categories',k)||{}).ar||'غير محدد';return `<div class="nvc-row nvc-wide" title="${esc(nm)}: ${sar(v)} ريال"><a href="#admin/analytics?cat=${encodeURIComponent(k)}">${esc(nm)}</a><div class="nvc-track nvc-plain"><span style="width:${v/vmax*100}%;background:#6250d6"></span></div><span class="num">${sar(v)}</span></div>`}).join(''):'<div class="text-center text-muted small py-5">لا توجد أسعار مسجلة بعد.</div>';
+  /* donut legends (HTML: name, quantity, share) */
+  const cgm=new Map();for(const c of sub){const k=c.condition_id&&get('conditions',c.condition_id)?c.condition_id:'none';cgm.set(k,(cgm.get(k)||0)+num(c.quantity))}
+  const cg=[...cgm.entries()].sort((a,b)=>(a[0]==='none')-(b[0]==='none')||b[1]-a[1]).map(([k,q],i)=>({k,q,n:k==='none'?'غير محدد':(get('conditions',k)||{}).ar,c:condColor(k,i)}));
+  const ag=[0,0,0,0,0];for(const c of sub){const b=ageBucket(ageYears(c.install_date));ag[b<0?4:b]+=num(c.quantity)}
+  const ages=AGE_L.map((n,i)=>({n,q:ag[i],c:AGE_C[i]})).concat([{n:'غير محدد',q:ag[4],c:'#cbd5e1',rest:1}]);
+  const lg=(rows,id)=>`<div class="nv33-lg" data-kpi="${id}" data-val="${rows.map(r=>r.q).join(',')}">${rows.filter(r=>r.q).map(r=>`<div><i class="${r.rest?'rest':''}" style="background:${r.c}"></i><span>${esc(r.n)}</span><b class="num">${nf(r.q)}</b><small>${qPct(r.q)}%</small></div>`).join('')}</div>`;
+  /* assets per level 1: HTML columns (one hue, value on top, the name under each column; Apex rotated labels ran into the bars in RTL) */
+  const km=new Map();for(const c of sub){const k=c.category_id||'none';km.set(k,(km.get(k)||0)+num(c.quantity))}
+  let kr=[...km.entries()].sort((a,b)=>b[1]-a[1]);if(kr.length>8){const o=kr.slice(7).reduce((a,x)=>a+x[1],0);kr=kr.slice(0,7).concat([['__o',o]])}
+  const kn=k=>k==='__o'?'أخرى':(get('categories',k)||{}).ar||'غير محدد';const kmax=Math.max(1,...kr.map(x=>x[1]));
+  $('#chCat').innerHTML=kr.length?cols33(kr.map(([k,q])=>({l:kn(k),q,h:k!=='__o'&&k!=='none'?'#admin/analytics?cat='+encodeURIComponent(k):''})),'cat',qPct,true):'<div class="text-center text-muted small py-5">لا توجد أصول مجرودة بعد.</div>';
+  /* 12-month trend: HTML columns too (Apex 3.37.1 draws NaN paths for a zero column with rounded corners); the value is shown on the latest and the highest month */
+  if(G.trend==='m'){const M=lastMonths(12),mm=new Map(M.map(k=>[k,0]));for(const c of sub){const k=monKey(c.submitted_at);if(mm.has(k))mm.set(k,mm.get(k)+num(c.quantity))}
+    const mv=M.map(k=>mm.get(k)),top=Math.max(...mv);$('#chDaily').innerHTML=sub.length?cols33(M.map((k,j)=>({l:+k.slice(5)+(j===0||k.slice(5)==='01'?'/'+k.slice(2,4):''),t:fmtMon(k),q:mv[j],lab:mv[j]&&(j===11||mv[j]===top),h:'#admin/collections'})),'trend').replace('class="nv33-cols"','class="nv33-cols nv33-tr"'):'<div class="text-center text-muted small py-5">لا يوجد جرد بعد.</div>'}
+  $('#lgCond').innerHTML=cg.length?lg(cg,'cond'):'';$('#lgAge').innerHTML=qtyAll?lg(ages,'age'):'';
+  /* charts */
+  needAdminLibs().then(()=>{if(routePath()!=='admin'&&routePath()!=='admin/')return;if(tok!==window.__nvDashTok||!$('#chCond'))return;
+    const dark=document.documentElement.getAttribute('data-bs-theme')==='dark',fg=dark?'#cbd5e1':'#475569',grid=dark?'#1e293b':'#eef2f7',surf=dark?'#0f172a':'#ffffff',ink=dark?'#f1f5f9':'#0f172a';
+    const base={chart:{fontFamily:'Cairo, Tahoma, sans-serif',foreColor:fg,toolbar:{show:false},zoom:{enabled:false}},grid:{borderColor:grid,strokeDashArray:3},tooltip:{theme:dark?'dark':'light'},dataLabels:{enabled:false},legend:{show:false}};
+    const emptyNote=(el,t)=>{if(el)el.innerHTML=`<div class="text-center text-muted small py-5">${t}</div>`};
+    const donut=(el,rows,label)=>{const r=rows.filter(x=>x.q);if(!r.length)return emptyNote(el,'لا توجد أصول مجرودة بعد.');
+      chart(el,{...base,series:r.map(x=>x.q),labels:r.map(x=>x.n),colors:r.map(x=>x.c),chart:{...base.chart,type:'donut',height:220},stroke:{width:2,colors:[surf]},
+        plotOptions:{pie:{expandOnClick:false,donut:{size:'68%',labels:{show:true,name:{offsetY:18,fontSize:'12px',color:fg},value:{offsetY:-12,fontSize:'24px',fontWeight:800,color:ink,formatter:v=>nf(+v)},total:{show:true,showAlways:true,label,fontSize:'12px',color:fg,formatter:w=>nf(w.globals.seriesTotals.reduce((a,b)=>a+b,0))}}}}},
+        tooltip:{...base.tooltip,y:{formatter:v=>`${nf(v)} (${qPct(v)}%)`}}})};
+    donut($('#chCond'),cg,'إجمالي الأصول');donut($('#chAge'),ages,'إجمالي الأصول');
+    /* trend: 12 months (columns) or daily for the filter period (columns + 7-day average, same unit) */
+    const el=$('#chDaily');
+    if(G.trend!=='m'){const days=F.days||Math.max(14,Math.min(120,Math.ceil((Date.now()-Math.min(...sub.map(c=>new Date(c.submitted_at).getTime()),Date.now()))/864e5)+1));
+      const keys=[];for(let i=days-1;i>=0;i--)keys.push(dayKey(new Date(Date.now()-i*864e5).toISOString()));
+      const dm=new Map(keys.map(k=>[k,0]));for(const c of sub){const k=dayKey(c.submitted_at);if(dm.has(k))dm.set(k,dm.get(k)+num(c.quantity))}
+      const vals=keys.map(k=>dm.get(k)),avg=vals.map((v,i)=>{const w=vals.slice(Math.max(0,i-6),i+1);return Math.round(w.reduce((a,b)=>a+b,0)/w.length*10)/10});
+      if(!inP.length)emptyNote(el,'لا يوجد جرد في هذه الفترة.');
+      else chart(el,{...base,legend:{show:true,position:'top',horizontalAlign:'right',markers:{radius:3}},series:[{name:'الأصول المجرودة',type:'column',data:vals},{name:'متوسط 7 أيام',type:'line',data:avg}],chart:{...base.chart,height:260,type:'line',events:{dataPointSelection:(e,c,cfg)=>{location.hash='#admin/collections?date='+keys[cfg.dataPointIndex]}}},
+        colors:['#2a78d6',DC.avg],stroke:{width:[0,2],curve:'smooth'},plotOptions:{bar:{columnWidth:days>45?'80%':'55%',borderRadius:vals.some(v=>!v)?0:4,borderRadiusApplication:'end'}},markers:{size:0,hover:{size:5}},
+        xaxis:{categories:keys.map(fmtDay),tickAmount:Math.min(innerWidth<600?4:8,days),labels:{rotate:0,hideOverlappingLabels:true,style:{fontSize:'11px'}},axisBorder:{show:false},axisTicks:{show:false}},yaxis:{labels:{formatter:v=>nf(Math.round(v))}},tooltip:{...base.tooltip,shared:true,intersect:false,y:{formatter:v=>nf(v)}}})}
+  }).catch(()=>{});
+}
 </script>
 <script id="nv-boot">
 /* Hash router and start-up */

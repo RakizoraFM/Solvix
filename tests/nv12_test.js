@@ -16,6 +16,11 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
    return {e1:e1.id,s1:s1.id,s1moe:s1.moe,s1ident:s1.ident,c0:L[0].id,cat0:ty[0].cat,e1num:e1.number,s2ident:s2.ident,type0:ty[0]}});
  // NV23: dashboard KPIs, progress bar, filters
  await p.goto(U+'#admin');await p.evaluate(()=>route());await p.waitForSelector('[data-kpi=bar]');const kb=await p.getAttribute('[data-kpi=bar]','data-val'),ka=await p.getAttribute('[data-kpi=assets]','data-val');ok(kb==='1,1,2168'&&ka==='11','dashboard: '+kb+' / '+ka);
+ // NV33: condition donut legend, level-1 columns, latest table, asset search
+ await p.waitForSelector('#chCond .apexcharts-svg');const cv=await p.getAttribute('[data-kpi=cond]','data-val');ok(cv.split(',').reduce((x,y)=>x+ +y,0)===11,'NV33 condition legend sums to 11 ('+cv+')');
+ ok((await p.getAttribute('[data-kpi=cat]','data-val')).split(',').length===2&&+(await p.getAttribute('[data-kpi=trend]','data-val')).split(',')[11]===11&&(await p.$$('.nv33 .nv33-t tbody tr')).length>=5,'NV33 level-1 columns (2), 12-month trend (11 this month) and latest assets table');
+ await p.fill('#dQ',await p.evaluate(()=>assetLabel(S.collections.find(c=>c.submitted_at))));await p.waitForSelector('#dQr a');await p.press('#dQ','Enter');await p.waitForFunction(()=>/^#admin\/collections\/./.test(location.hash));ok(true,'NV33 search by Tag Number opens the asset');
+ await p.goto(U+'#admin');await p.evaluate(()=>route());await p.waitForSelector('[data-kpi=bar]');
  const sc=await p.evaluate(()=>S.schools[0].city);await p.selectOption('#dCity',sc);await p.waitForFunction(c=>document.querySelector('[data-kpi=bar]')&&document.querySelector('[data-kpi=bar]').dataset.val.split(',').reduce((a,b)=>a+ +b,0)===S.schools.filter(s=>s.city===c).length,sc);ok(true,'city filter narrows the schools');
  await p.selectOption('#dEmp',ids.e1);await p.waitForFunction(()=>document.querySelector('[data-kpi=assets]').dataset.val==='7');ok(true,'supervisor filter: his 7 assets');
  ok((await p.$$('#chEmp .nvc-row')).length===1&&(await p.$$('#byCity .nvc-row')).length>=1&&(await p.$$('#chValue .nvc-row')).length>=1,'supervisors / cities / value bars rendered');await p.click('#dReset');
