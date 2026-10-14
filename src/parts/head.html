@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV29">
+<meta name="fm-version" content="NV30">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -40,6 +40,16 @@ body.nv-field.nv-en{font-family:"Inter",sans-serif}
 .nv-src{display:flex;gap:.35rem;margin-top:.45rem}.nv-src label{flex:1;cursor:pointer;background:#fff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:.55rem;padding:.35rem .2rem;font-size:.75rem;font-weight:700;position:relative}
 .nv-src label:active{background:#dbeafe}.nv-extra{grid-template-columns:repeat(3,1fr)}.nv-extra .nv-shot-pv{height:5.5rem}.nv-plus .nv-shot-pv{font-size:2rem;color:#2563eb;font-weight:300}
 .nv-x{position:absolute;top:.3rem;inset-inline-end:.3rem;width:1.7rem;height:1.7rem;border-radius:99px;border:0;background:rgba(15,23,42,.7);color:#fff;font-size:.8rem;line-height:1}
+.nv-tpl{border:1px solid #c7d2fe;background:#eef2ff;border-radius:1rem;padding:.9rem 1rem}.nv-tplrow{display:flex;align-items:center;gap:.6rem;background:#fff;border:1px solid #e0e7ff;border-radius:.7rem;padding:.45rem .6rem;margin-top:.35rem;font-size:.88rem;cursor:pointer}
+.nv-tplrow span{flex:1}.nv-tplrow em{font-style:normal}.nv-tplrow input[type=checkbox]{width:1.2rem;height:1.2rem}.nv-tplrow input[type=number]{width:4.2rem;border:1px solid #cbd5e1;border-radius:.5rem;padding:.25rem .4rem;text-align:center}
+.nv-tplgo{margin-top:.7rem;width:100%;background:#4f46e5;color:#fff;font-weight:700;border:0;border-radius:.75rem;padding:.65rem}.nv-tplgo:disabled{opacity:.5}
+.nv-tplnote{margin-bottom:1rem;background:#eef2ff;color:#3730a3;border-radius:.75rem;padding:.5rem .8rem;font-size:.85rem;font-weight:700}
+.nv-tplnext{background:#4f46e5;color:#fff;font-weight:700;padding:1rem;border-radius:.75rem;text-align:center}.nv-tplnext small{font-weight:400;opacity:.85}
+.nv-like{background:#fff;border:2px solid #86efac;color:#15803d;font-weight:700;padding:.9rem;border-radius:.75rem;text-align:center}.nv-like small{display:block;font-weight:400;color:#475569}
+.nv-scanbtn{background:#fff;border:1px solid #bfdbfe;color:#1d4ed8;font-weight:700;padding:.45rem .8rem;border-radius:.6rem;margin-inline-end:.5rem;font-size:.9rem;white-space:nowrap}
+#nvScan{position:fixed;inset:0;z-index:5000;background:rgba(2,6,23,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;color:#fff;font-family:Cairo,Tahoma,sans-serif;padding:1rem;text-align:center}
+.nv-scan-box{position:relative;width:min(88vw,420px);aspect-ratio:1;border-radius:1rem;overflow:hidden;background:#000}.nv-scan-box video{width:100%;height:100%;object-fit:cover}
+.nv-scan-frame{position:absolute;inset:14%;border:3px solid #22d3ee;border-radius:.8rem;box-shadow:0 0 0 999px rgba(0,0,0,.35)}.nv-scan-act{display:flex;gap:.6rem}.nv-scan-act button{background:#fff;color:#0f172a;border:0;border-radius:.6rem;padding:.55rem 1.1rem;font:700 .9rem Cairo,Tahoma,sans-serif}
 .nv-kv{display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid #f1f5f9;padding:.45rem 0;font-size:.88rem}.nv-kv span{color:#64748b}
 #map,#location-map{height:300px;width:100%;border-radius:.75rem;border:1px solid #e5e7eb;z-index:1}
 </style>

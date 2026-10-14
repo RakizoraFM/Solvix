@@ -16,7 +16,7 @@ function route(){
     if(a==='schools'){if(!b)return vSchools();if(b==='create')return vSchoolForm(null);return vSchoolForm(b)}
     if(a==='employees'){if(!b)return vEmployees();if(b==='create')return vEmployeeForm(null);return vEmployeeForm(b)}
     if(LK[a]){if(!b)return vLookup(a);if(b==='create')return vLookupForm(a,null);return vLookupForm(a,b)}
-    if(a==='analytics')return vAnalytics();if(a==='system')return vSystem();if(a==='subscription')return vSubscription();if(a==='review')return vReview();if(a==='label')return vLabelSettings();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
+    if(a==='analytics')return vAnalytics();if(a==='system')return vSystem();if(a==='subscription')return vSubscription();if(a==='room-templates')return vRoomTpl();if(a==='review')return vReview();if(a==='label')return vLabelSettings();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
     return vDashboard();
   }
   destroyCharts();setMode('field');

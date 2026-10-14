@@ -77,3 +77,9 @@ select 'second request (expect error)'; select public.nv_renew_request('x');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1'); select 'Admin renew request (expect error)'; select public.nv_renew_request('x');
 reset role; update nv_subscription set ends_at = now() + interval '3 months', grace_days = 7;
 
+-- NV30: the same serial number on another asset (normalised: «sn 1234x» = «SN-1234X»)
+insert into nv_categories(id,ar) values ('gz','cat') on conflict do nothing; insert into nv_types(id,cat,ar) values ('tz','gz','t') on conflict do nothing;
+update nv_collections set type_id='tz', serial='SN-1234X' where id='rc';
+set role authenticated; select pg_temp.as_user(:ek);
+select 'serial dupes', jsonb_array_length(public.nv_serial_dupes('sn 1234x')), jsonb_array_length(public.nv_serial_dupes('sn 1234x','rc')), jsonb_array_length(public.nv_serial_dupes('ab'));
+reset role;

@@ -74,7 +74,7 @@ function adminShell(active,title,content){
     ${navTree('bi-building','المدارس',A('schools')||A('schools.create')||A('schools.edit'),[navItem('#admin/schools','bi-list','كل المدارس',A('schools')),navItem('#admin/schools/create','bi-plus-circle','إضافة مدرسة',A('schools.create'))])}
     ${navItem('#admin/employees','bi-people','المستخدمون',active.startsWith('employees')||A('users'))}
     <li class="nav-header">النظام</li>
-    ${navItem(isSys()?'#admin/system':can('settings')?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||A('label')||A('system')||A('subscription')||!!LK[active.split('.')[0]])}
+    ${navItem(isSys()?'#admin/system':can('settings')?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||A('label')||A('system')||A('subscription')||A('room-templates')||!!LK[active.split('.')[0]])}
     ${can('backup')||can('export')||can('import')?navItem('#admin/data','bi-database','البيانات والنسخ',A('data')):''}
     ${navItem('#admin/log','bi-journal-text','سجل التعديلات',A('log'))}
     <li class="nav-item"><a href="javascript:void 0" class="nav-link" data-nv-logout><i class="nav-icon bi bi-box-arrow-right"></i><p>تسجيل الخروج</p></a></li>
@@ -97,8 +97,8 @@ document.addEventListener('click',e=>{
   const nl=e.target.closest('.app-sidebar a.nav-link[href^="#"]');if(nl&&window.innerWidth<992)document.body.classList.remove('sidebar-open');
 });
 /* NV10 — the reference lists live under «الإعدادات» as tabs */
-function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&k!=='system'&&k!=='subscription'&&!LK[k])return '';
-  const T=[...(isSys()?[['system','bi-shield-lock','إدارة النظام (Admin)']]:Cloud.on?[['subscription','bi-patch-check','الاشتراك والاستخدام']]:[]),...(can('settings')?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],['asset-conditions','bi-shield-check','حالات الأصول']];
+function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&k!=='system'&&k!=='subscription'&&k!=='room-templates'&&!LK[k])return '';
+  const T=[...(isSys()?[['system','bi-shield-lock','إدارة النظام (Admin)']]:Cloud.on?[['subscription','bi-patch-check','الاشتراك والاستخدام']]:[]),...(can('settings')?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],...(can('settings')?[['room-templates','bi-ui-checks-grid','قوالب الغرف']]:[]),['asset-conditions','bi-shield-check','حالات الأصول']];
   return `<ul class="nav nav-pills nv-set-tabs flex-nowrap overflow-auto gap-1 mb-3 pb-1">${T.map(([id,ic,l])=>`<li class="nav-item"><a class="nav-link text-nowrap ${k===id?'active':''}" href="#admin/${id}"><i class="bi ${ic} me-1"></i>${l}</a></li>`).join('')}</ul>`}
 const iconBtn=(href,icon,title)=>`<a href="${href}" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle"${title?` title="${title}"`:''}><i class="bi ${icon}"></i></a>`;
 
@@ -1040,7 +1040,7 @@ function parseGeo(v){v=String(v||'').trim();if(!v)return null;const m=v.match(/(
 const reviewer=()=>Cloud.on?((Cloud.user&&Cloud.user.email)||'admin'):((S.settings.admin_login||{}).email||'admin');
 function setReview(list,status,note){const t=now(),by=reviewer();for(const c of list)Object.assign(c,{review_status:status,review_note:status==='returned'?note:(c.review_note||''),reviewed_at:t,reviewed_by:by});save('collections')}
 function vReview(){const p=qp(),sid=p.get('school'),st=p.get('st')||'pending',G=geoCfg(),ro=Cloud.on&&(Cloud.role==='reader'||!can('review'));
-  const all=reviewable();const far=c=>c.geo_dist!=null&&c.geo_dist>G.m;
+  const all=reviewable();const far=c=>c.geo_dist!=null&&c.geo_dist>G.m;const snN=new Map();for(const x of S.collections){const k=normSN(x.serial);if(k.length>=4&&x.type_id)snN.set(k,(snN.get(k)||0)+1)}
   const pass={pending:c=>!c.review_status,returned:c=>c.review_status==='returned',ok:c=>c.review_status==='ok',far,all:()=>true};
   const cnt=L=>({pending:L.filter(pass.pending).length,returned:L.filter(pass.returned).length,ok:L.filter(pass.ok).length,far:L.filter(far).length,all:L.length});
   const kpi=(key,icon,tone,label,val,sub)=>`<div class="col-xl-3 col-6"><div class="nvk card h-100" data-kpi="${key}" data-val="${val}"><div class="card-body"><div class="d-flex align-items-center gap-2 mb-2"><span class="nvk-ic" style="--c:${tone}"><i class="bi ${icon}"></i></span><span class="nvk-l">${label}</span></div><div class="nvk-v">${nf(val)}</div><div class="nvk-s">${sub}</div></div></div></div>`;
@@ -1063,6 +1063,7 @@ function vReview(){const p=qp(),sid=p.get('school'),st=p.get('st')||'pending',G=
      <div class="small text-muted mt-1">${esc(assetLabel(c))} · ${esc([c.floor,rm.ar,c.room_number].filter(Boolean).join(' · '))}</div>
      <div class="small mt-1">${esc((get('conditions',c.condition_id)||{}).ar||'')}${c.serial?' · S/N '+esc(c.serial):''} · ${esc(empName(c.employee_id))}</div>
      ${c.geo_dist!=null?`<div class="small mt-1 ${c.geo_dist>G.m?'text-danger fw-bold':'text-success'}"><i class="bi bi-geo-alt"></i> صُوِّر على بعد ${fmtDist(c.geo_dist)} من المدرسة</div>`:'<div class="small mt-1 text-muted"><i class="bi bi-geo"></i> لا توجد مسافة مسجلة</div>'}
+     ${(snN.get(normSN(c.serial))||0)>1?`<div class="small mt-1 text-danger fw-bold" data-dup><i class="bi bi-files"></i> رقم تسلسلي مكرر في ${snN.get(normSN(c.serial))} أصول</div>`:''}
      ${(c.extra_images||[]).length?`<div class="small mt-1 text-primary"><i class="bi bi-images"></i> ${c.extra_images.length} صورة إضافية — في التفاصيل</div>`:''}
      ${c.review_status==='returned'&&c.review_note?`<div class="alert alert-danger py-1 px-2 small mt-2 mb-0">${esc(c.review_note)}</div>`:''}</div>
     <div class="card-footer d-flex gap-2 flex-wrap">${ro?'':`<button type="button" class="btn btn-sm btn-success" data-ok="${esc(c.id)}"${c.review_status==='ok'?' disabled':''}><i class="bi bi-check2"></i> اعتماد</button><button type="button" class="btn btn-sm btn-outline-danger" data-ret="${esc(c.id)}"><i class="bi bi-arrow-return-left"></i> إرجاع</button>`}<a class="btn btn-sm btn-light border ms-auto" href="#admin/collections/${encodeURIComponent(c.id)}">التفاصيل</a></div></div></div>`};
@@ -1191,4 +1192,32 @@ async function vSubscription(){if(!Cloud.on)return go('#admin');if(isSys())retur
    ${near.length?`<div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>اقتربت من حد: ${near.map(k=>LIM_L[k]).join('، ')}. اطلب ترقية الباقة قبل أن تتوقف الإضافة.</div>`:''}
    <div class="row g-3">${['schools','field','staff','assets'].map(card).join('')}</div>
    <p class="small text-muted mt-3 mb-0">بعد تاريخ الانتهاء وفترة السماح (${esc(s.grace_days)} أيام) يصبح النظام للقراءة فقط: يبقى العرض والتصدير، ولا يُحذف أي شيء، ويعود كل شيء فور التجديد. تصلك رسالة تذكير بالبريد قبل الانتهاء بأربعة عشر يوماً، ثم بسبعة أيام، ثم بيوم واحد.</p>`}
+</script>
+<script id="nv-nv30">
+/* NV30 — «قوالب الغرف»: the usual assets of each room name (S.settings.room_tpl = {roomId: [{t: typeId, q: qty}]}, synced in nv_settings.data.room_tpl).
+   The field app offers them on a new asset in that room; without a template it suggests the types most often recorded there. */
+PAGE_META['room-templates']=['bi-ui-checks-grid','الأصول المعتادة في كل غرفة — يختار منها مشرف الميدان بدل إدخال كل أصل من الصفر'];
+function vRoomTpl(){if(!can('settings'))return go('#admin/asset-types');const p=qp();const rooms=S.rooms.slice().sort((a,b)=>a.ar.localeCompare(b.ar,'ar'));const T=S.settings.room_tpl||{};
+  const rid=p.get('room')&&get('rooms',p.get('room'))?p.get('room'):(rooms.find(r=>(T[r.id]||[]).length)||rooms[0]||{}).id;let items=(T[rid]||[]).map(x=>Object.assign({},x)).filter(x=>get('types',x.t));
+  const types=(isCatalog()?S.types.filter(t=>t.code):S.types).slice().sort((a,b)=>a.ar.localeCompare(b.ar,'ar'));const tl=t=>`${t.ar}${t.code?' — '+t.code:''}`;
+  adminShell('room-templates','قوالب الغرف',`<div class="row g-3"><div class="col-lg-4"><div class="card h-100"><div class="card-header py-3"><h3 class="card-title mb-0 float-none">الغرف</h3><small class="text-muted d-block">${Object.values(T).filter(x=>(x||[]).length).length} غرفة لها قالب</small></div>
+    <div class="list-group list-group-flush" style="max-height:62vh;overflow:auto">${rooms.map(r=>`<a href="#admin/room-templates?room=${encodeURIComponent(r.id)}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${r.id===rid?'active':''}">${esc(r.ar)}${(T[r.id]||[]).length?`<span class="badge ${r.id===rid?'text-bg-light':'text-bg-primary'}">${T[r.id].length}</span>`:''}</a>`).join('')||emptyBox('bi-door-open','لا توجد أسماء غرف')}</div></div></div>
+   <div class="col-lg-8"><div class="card"><div class="card-header py-3 d-flex flex-wrap gap-2 align-items-center"><h3 class="card-title mb-0 me-auto float-none">قالب: ${esc((get('rooms',rid)||{}).ar||'—')}</h3><button type="button" class="btn btn-sm btn-outline-secondary" id="rtSuggest"><i class="bi bi-magic me-1"></i>اقتراح من البيانات المسجلة</button></div>
+    <div class="card-body"><div class="input-group mb-3"><input class="form-control" id="rtAdd" list="rtTypes" placeholder="ابحث في دليل الأصول وأضف أصلاً للقالب…"><button class="btn btn-primary" type="button" id="rtAddBtn"><i class="bi bi-plus-lg"></i> إضافة</button></div>
+     <datalist id="rtTypes">${types.map(t=>`<option value="${esc(tl(t))}">`).join('')}</datalist>
+     <div id="rtList"></div>
+     <div class="d-flex gap-2 mt-3"><button type="button" class="btn btn-success" id="rtSave"><i class="bi bi-check2 me-1"></i>حفظ القالب</button><button type="button" class="btn btn-outline-danger ms-auto" id="rtClear">إفراغ القالب</button></div>
+     <p class="small text-muted mt-3 mb-0">عند اختيار هذه الغرفة في تطبيق الجوال تظهر هذه الأصول ليعلّم المشرف الموجود منها ويعدّل الكمية، ثم تُفتح واحداً بعد الآخر جاهزة (يضيف الصور والحالة فقط). بدون قالب يقترح التطبيق الأصول الأكثر تسجيلاً في غرف بنفس الاسم.</p></div></div></div></div>`);
+  const draw=()=>{$('#rtList').innerHTML=items.length?`<table class="table table-sm align-middle mb-0"><thead><tr><th>الأصل</th><th style="width:110px" class="text-center">الكمية المعتادة</th><th style="width:44px"></th></tr></thead><tbody>${items.map((x,i)=>{const t=get('types',x.t)||{};
+      return `<tr><td><b>${esc(t.ar||'')}</b>${t.critical?' <span class="badge text-bg-danger">حرج</span>':''}<div class="small text-muted">${esc([t.code,(get('categories',t.cat)||{}).ar].filter(Boolean).join(' · '))}</div></td><td><input type="number" min="1" class="form-control form-control-sm text-center" data-rq="${i}" value="${esc(x.q||1)}"></td><td><button type="button" class="btn btn-sm btn-light border" data-rdel="${i}" title="حذف"><i class="bi bi-x-lg"></i></button></td></tr>`}).join('')}</tbody></table>`:emptyBox('bi-ui-checks-grid','القالب فارغ','أضف الأصول المعتادة في هذه الغرفة، أو اضغط «اقتراح من البيانات المسجلة».');
+    $$('[data-rq]').forEach(x=>x.oninput=()=>{items[+x.dataset.rq].q=Math.max(1,Math.round(+x.value||1))});$$('[data-rdel]').forEach(b=>b.onclick=()=>{items.splice(+b.dataset.rdel,1);draw()})};draw();
+  const addT=()=>{const v=$('#rtAdd').value.trim();const t=types.find(x=>tl(x)===v)||types.find(x=>x.ar===v)||types.find(x=>x.code&&v.endsWith(x.code));if(!t)return toast('اختر أصلاً من القائمة.',2500);if(!items.some(x=>x.t===t.id))items.push({t:t.id,q:1});$('#rtAdd').value='';draw()};
+  $('#rtAddBtn').onclick=addT;$('#rtAdd').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addT()}};
+  $('#rtSuggest').onclick=()=>{const m=new Map();for(const c of S.collections)if(c.room_name_id===rid&&c.submitted_at&&c.type_id){const x=m.get(c.type_id)||{t:c.type_id,n:0,q:[]};x.n++;x.q.push(num(c.quantity)||1);m.set(c.type_id,x)}
+    const sug=[...m.values()].sort((a,b)=>b.n-a.n).slice(0,12).filter(x=>!items.some(y=>y.t===x.t));if(!sug.length)return toast('لا توجد بيانات مسجلة كافية لهذه الغرفة بعد.',3000);
+    for(const x of sug)items.push({t:x.t,q:x.q.sort((a,b)=>a-b)[x.q.length>>1]});draw();toast(`أُضيف ${sug.length} أصل مقترح — راجعها ثم احفظ.`,3000)};
+  $('#rtClear').onclick=()=>{if(items.length&&confirm('إفراغ قالب هذه الغرفة؟')){items=[];draw()}};
+  $('#rtSave').onclick=async()=>{const all=Object.assign({},S.settings.room_tpl||{});if(items.length)all[rid]=items.map(x=>({t:x.t,q:Math.max(1,Math.round(+x.q||1))}));else delete all[rid];S.settings.room_tpl=all;await saveNow('settings');
+    if(Cloud.on){Cloud.dirty.add('settings');await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vRoomTpl()}}setAFlash('تم حفظ قالب الغرفة.');vRoomTpl()};
+}
 </script>

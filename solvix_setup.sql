@@ -509,6 +509,18 @@ end $$;
 revoke all on function public.nv_renew_request(text) from public, anon;
 grant execute on function public.nv_renew_request(text) to authenticated;
 
+-- =====================================================================
+-- NV30 — the same serial number on another asset (a supervisor reads only his own records, so the check runs here)
+-- =====================================================================
+create or replace function public.nv_serial_dupes(p_serial text, p_id text default null) returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object('label', '101' || lpad(c.no::text, 8, '0'), 'school', s.name, 'mine', c.employee_id = public.nv_my_emp()) order by c.no), '[]')
+  from (select * from public.nv_collections c0
+         where public.nv_member() and length(regexp_replace(upper(coalesce(p_serial,'')), '[^A-Z0-9]', '', 'g')) >= 4 and c0.id is distinct from p_id and c0.type_id is not null
+           and regexp_replace(upper(c0.serial), '[^A-Z0-9]', '', 'g') = regexp_replace(upper(p_serial), '[^A-Z0-9]', '', 'g') limit 5) c
+  left join public.nv_schools s on s.id = c.school_id $$;
+revoke all on function public.nv_serial_dupes(text,text) from public, anon;
+grant execute on function public.nv_serial_dupes(text,text) to authenticated;
+
 -- photos: private bucket nv-photos, flat names <random key>.jpg; members upload and read, admins delete
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('nv-photos','nv-photos',false,8388608,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
 do $do$ begin
