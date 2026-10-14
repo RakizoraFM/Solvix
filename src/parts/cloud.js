@@ -96,7 +96,7 @@ const Cloud={skip:new Set(),on:false,client:null,role:null,emp:null,user:null,bu
     reindex();await saveAll();await this.persistSnap();this.lastPull=Date.now();this.badge();
   },
   async loadPublicSettings(){try{const c=await this.sb();const st=this.chk(await c.from('nv_settings').select('data').eq('id',1).maybeSingle());if(st&&st.data){Object.assign(S.settings,{app_name:st.data.app_name||S.settings.app_name,logo:st.data.logo||S.settings.logo});await saveNow('settings')}}catch(e){}},
-  badge(){if(window.nvPendUI)nvPendUI();const n=this.on&&this.role?this.pendingCount():0;const txt=!this.on?'':this.err&&n?`⚠️ ${n}`:n?`⏳ ${n}`:'☁️';
+  badge(){if(window.nvPendUI)nvPendUI();if(window.nvLabelRefresh)setTimeout(nvLabelRefresh,0);const n=this.on&&this.role?this.pendingCount():0;const txt=!this.on?'':this.err&&n?`⚠️ ${n}`:n?`⏳ ${n}`:'☁️';
     $$('[data-nv-sync]').forEach(el=>{el.textContent=txt;el.title=n?(this.err?('لم يُرسل: '+this.err.message):'بانتظار المزامنة'):'متزامن مع قاعدة Solvix'})}
 };
 window.Cloud=Cloud;

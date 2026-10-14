@@ -35,10 +35,11 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  // offline: the next asset waits on the phone, then goes when the connection returns
  await T.ctx.setOffline(true);await t.evaluate(()=>{window.__mockCallSaved=window.__mockCall;window.__mockCall=()=>Promise.reject(new Error('Failed to fetch'))});
  await t.click('#same');await t.waitForSelector('#a_category_id');await fill(2);await t.click('#sb');await t.waitForSelector('#same');await t.waitForTimeout(800);
- ok(M.db.nv_collections.filter(c=>c.submitted_at).length===1,'offline: not sent yet');ok((await t.textContent('[data-nv-sync]')).includes('1')||(await t.textContent('[data-nv-sync]')).includes('2'),'pending badge '+(await t.textContent('[data-nv-sync]')));
+ ok(M.db.nv_collections.filter(c=>c.submitted_at).length===1,'offline: not sent yet');ok(!!(await t.$('#lblCard[data-wait]'))&&!(await t.$('#lblPrev')),'NV31: offline — the label waits for the upload (no number yet)');ok((await t.textContent('[data-nv-sync]')).includes('1')||(await t.textContent('[data-nv-sync]')).includes('2'),'pending badge '+(await t.textContent('[data-nv-sync]')));
  await t.evaluate(()=>nvPendUI());await t.waitForTimeout(300);const pb=await t.$eval('#nvPend',e=>({c:e.className,r:+e.dataset.recs,ph:+e.dataset.ph,tx:e.textContent}));ok(/wait|err/.test(pb.c)&&pb.r>=1&&pb.ph>=2&&pb.tx.includes('إرسال الآن'),'NV26 upload bar while offline: '+JSON.stringify(pb));
  await t.evaluate(()=>{window.__mockCall=window.__mockCallSaved});await T.ctx.setOffline(false);await t.evaluate(()=>window.dispatchEvent(new Event('online')));await t.waitForTimeout(2500);
  ok(M.db.nv_collections.filter(c=>c.submitted_at).length===2,'online again: sent ('+M.db.nv_collections.filter(c=>c.submitted_at).length+')');
+ await t.waitForSelector('#lblCard:not([data-wait]) #lblPrev .lb svg',{timeout:15000});{const no=M.db.nv_collections.filter(c=>c.submitted_at).map(c=>c.no).sort((a,b)=>b-a)[0];ok((await t.textContent('#lblCard')).includes('101'+String(no).padStart(8,'0')),'NV31: after the upload the label appears with the database number '+no)}
  await t.evaluate(()=>nvPendUI());await t.waitForTimeout(500);const pb2=await t.$eval('#nvPend',e=>({c:e.className,tx:e.textContent}));ok(/\bok\b/.test(pb2.c)&&pb2.tx.includes('مرفوعة'),'NV26 upload bar after sending: '+JSON.stringify(pb2));
  const school=M.db.nv_collections[0].school_id;
  // second technician cannot take a school the first one is working on
