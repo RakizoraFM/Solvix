@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV31',date:'2026-10-13'};
+const NV={version:'NV32',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -96,8 +96,8 @@ async function stampPhoto(blob,lines){const u=URL.createObjectURL(blob);try{cons
   const fs=Math.max(13,Math.round(w/48)),lh=Math.round(fs*1.4),pad=Math.round(fs*.6),bh=lines.length*lh+pad*2;x.fillStyle='rgba(15,23,42,.66)';x.fillRect(0,h-bh,w,bh);
   x.fillStyle='#fff';x.font=`700 ${fs}px Cairo, Tahoma, sans-serif`;x.direction='rtl';x.textAlign='right';x.textBaseline='top';lines.forEach((l,i)=>x.fillText(l,w-pad,h-bh+pad+i*lh,w-pad*2));
   return await new Promise(r=>c.toBlob(b=>r(b||blob),'image/jpeg',.85))}catch(e){return blob}finally{URL.revokeObjectURL(u)}}
-const PHOTO_KEYS=['school_image','asset_image','asset_image2'];const photoKeys=c=>PHOTO_KEYS.map(k=>c[k]).concat(Array.isArray(c.extra_images)?c.extra_images:[]).filter(Boolean);
-async function deletePhoto(key){if(!key)return;if(S.collections.some(c=>c.school_image===key||c.asset_image===key||c.asset_image2===key||(c.extra_images||[]).includes(key)))return;await IDB.del('photos',key).catch(()=>{});const u=urlCache.get(key);if(u){URL.revokeObjectURL(u);urlCache.delete(key)}}
+const PHOTO_KEYS=['school_image','asset_image','asset_image2','label_photo'];const photoKeys=c=>PHOTO_KEYS.map(k=>c[k]).concat(Array.isArray(c.extra_images)?c.extra_images:[]).filter(Boolean);
+async function deletePhoto(key){if(!key)return;if(S.collections.some(c=>c.school_image===key||c.asset_image===key||c.asset_image2===key||c.label_photo===key||(c.extra_images||[]).includes(key)))return;await IDB.del('photos',key).catch(()=>{});const u=urlCache.get(key);if(u){URL.revokeObjectURL(u);urlCache.delete(key)}}
 async function hydratePhotos(root=document){for(const el of $$('img[data-photo]',root)){const u=await photoURL(el.dataset.photo);if(u){el.src=u;if(!el.onclick)el.onclick=()=>(window.openPhoto||lightbox)(u)}}}
 function lightbox(u){window.open(u,'_blank')}
 
@@ -142,7 +142,7 @@ const EXPORT_COLS=[['ID',(c)=>c.no||''],['Employee',(c,e)=>e.name||''],['Employe
   ['Category',c=>(get('categories',c.category_id)||{}).ar||''],['Asset Type',(c,e,s,t)=>t.ar||''],['Level 2',(c,e,s,t)=>t.l2||''],['Level 3',(c,e,s,t)=>t.l3||''],['Asset Code',(c,e,s,t)=>t.code||''],['Critical',(c,e,s,t)=>c.type_id?(t.critical?'حرج':'غير حرج'):''],
   ['Condition',c=>(get('conditions',c.condition_id)||{}).ar||''],['Quantity',c=>num(c.quantity)],['Price',c=>c.price??''],['Manufacturer',c=>c.manufacturer||''],['Brand',c=>c.brand||''],['Model',c=>c.model||''],['Capacity',c=>c.capacity||''],
   ['Serial Number',c=>c.serial||''],['Agency',c=>c.agency||''],['Warranty',c=>c.warranty||''],['Installation Date',c=>c.install_date||''],['Tag Number',c=>assetLabel(c)],['Parent/Child',c=>c.parent_child||''],
-  ['Notes',c=>c.notes||''],['School Image URL',c=>c.school_image?c.school_image+'.jpg':''],['Location Diagram URL',()=>''],['Asset Image URL',c=>c.asset_image?c.asset_image+'.jpg':''],['Asset Image 2 URL',c=>c.asset_image2?c.asset_image2+'.jpg':''],['Submitted At',c=>ymdhms(c.submitted_at)],['Created At',c=>ymdhms(c.created_at)],['Label Number',c=>assetLabel(c)]];
+  ['Notes',c=>c.notes||''],['School Image URL',c=>c.school_image?c.school_image+'.jpg':''],['Location Diagram URL',()=>''],['Asset Image URL',c=>c.asset_image?c.asset_image+'.jpg':''],['Asset Image 2 URL',c=>c.asset_image2?c.asset_image2+'.jpg':''],['Submitted At',c=>ymdhms(c.submitted_at)],['Created At',c=>ymdhms(c.created_at)],['Label Number',c=>assetLabel(c)],['Label Confirmed At',c=>c.label_at?ymdhms(c.label_at)+(c.label_check==='unread'?' (QR unread)':''):'']];
 const EXPORT_HEAD=EXPORT_COLS.map(x=>x[0]);
 const ymdhms=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
 function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{},t=get('types',c.type_id)||{};return EXPORT_COLS.map(x=>x[1](c,e,s,t))}

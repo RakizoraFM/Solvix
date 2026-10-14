@@ -26,6 +26,9 @@ module.exports=function(){
    case 'nv_staff_list':return {data:me.sys?db.nv_staff.concat([{user_id:'u-sys',email:'sys@x.com',name:'System',role:'sysadmin',active:true}]):[],error:null};
    case 'nv_staff_perms':{if(!me.sys)return err('only the system Admin');const u=db.nv_staff.find(x=>x.user_id===a.p_user);if(!u)return err('user not found');u.perms=a.p_perms;return {data:null,error:null}}
    case 'nv_emp_perms':{if(!me.sys)return err('only the system Admin');const e=db.nv_employees.find(x=>x.id===a.p_emp);if(!e)return err('employee not found');e.perms=a.p_perms;return {data:null,error:null}}
+   case 'nv_label_printed':{if(!me.role)return err('not allowed');let n=0;for(const c of db.nv_collections)if((a.p_ids||[]).includes(c.id)&&c.submitted_at&&(me.role==='admin'||(me.emp&&c.employee_id===me.emp.id))){c.label_printed_at=c.label_printed_at||new Date().toISOString();n++}return {data:n,error:null}}
+   case 'nv_label_confirm':{const c=db.nv_collections.find(x=>x.id===a.p_id);if(!c)return err('asset not found');if(!(me.role==='admin'||(me.emp&&c.employee_id===me.emp.id)))return err('not allowed');if(!a.p_photo)return err('label photo required');
+     Object.assign(c,{label_photo:a.p_photo,label_at:new Date().toISOString(),label_by:me.emp?'emp:'+me.emp.id:'admin',label_check:a.p_check==='ok'?'ok':'unread',label_printed_at:c.label_printed_at||new Date().toISOString()});return {data:{label_at:c.label_at,label_check:c.label_check},error:null}}
    case 'nv_busy_schools':return {data:[...new Set(db.nv_collections.filter(c=>!me.emp||c.employee_id!==me.emp.id).map(c=>c.school_id))],error:null};
    case 'nv_emp_logins':return {data:db.nv_employees.map(e=>({id:e.id,has_login:!!e.user_id})),error:null};
    case 'nv_emp_set_login':{if(me.role!=='admin')return err('not allowed');if((a.p_password||'').length<8)return err('password too short');const e=db.nv_employees.find(x=>x.id===a.p_emp);if(!e)return err('employee not found');

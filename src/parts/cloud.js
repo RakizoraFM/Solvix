@@ -14,7 +14,7 @@ const NV_ORDER=['categories','conditions','rooms','types','employees','schools',
 const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','email','created_at'],
   schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at','lat','lng'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
-    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','submitted_at','created_at','geo_dist','review_status','review_note','reviewed_at','reviewed_by']};
+    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','submitted_at','created_at','geo_dist','review_status','review_note','reviewed_at','reviewed_by','label_photo','label_at','label_by','label_check','label_printed_at']};
 const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag','review_note']);
 const tsNorm=v=>{if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?v:d.toISOString()};
 const Cloud={skip:new Set(),on:false,client:null,role:null,emp:null,user:null,busy:new Set(),snap:{},uploaded:new Set(),dirty:new Set(),err:null,syncing:false,again:false,lastPull:0,tablesMissing:false,
@@ -24,7 +24,7 @@ const Cloud={skip:new Set(),on:false,client:null,role:null,emp:null,user:null,bu
   async sb(){if(this.client)return this.client;if(!(window.supabase&&window.supabase.createClient))await loadScript(NV_LIB);const c=this.cfg();
     this.client=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'solvix-auth'}});return this.client},
   chk({data,error}){if(error)throw new Error(error.message||String(error));return data},
-  canon(t,r){const o={};for(const k of NV_COLS[t]){if(this.skip.has(t+'.'+k))continue;let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='extra_images')v=Array.isArray(v)?v.filter(Boolean):[];if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
+  canon(t,r){const o={};for(const k of NV_COLS[t]){if(this.skip.has(t+'.'+k))continue;if(t==='collections'&&this.role==='tech'&&/^label_/.test(k))continue;let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='extra_images')v=Array.isArray(v)?v.filter(Boolean):[];if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
   key(t,r){return JSON.stringify(this.canon(t,r))},
   /* ---- start-up: who is signed in, and which role he has in Novaro ---- */
   async init(){
@@ -60,7 +60,7 @@ const Cloud={skip:new Set(),on:false,client:null,role:null,emp:null,user:null,bu
         if(t==='schools'&&this.role==='tech'){/* a technician only finishes a school, through the server function */
           for(const [r,row,js] of upd){const was=JSON.parse(snap[r.id]);if(row.completed_at&&!was.completed_at){this.chk(await c.rpc('nv_complete_school',{p_school:r.id}))}snap[r.id]=js}
           await this.persistSnap();continue}
-        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image);await this.uploadPhoto(r.asset_image2);for(const x of r.extra_images||[])await this.uploadPhoto(x)}
+        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image);await this.uploadPhoto(r.asset_image2);await this.uploadPhoto(r.label_photo);for(const x of r.extra_images||[])await this.uploadPhoto(x)}
         for(let i=0;i<ins.length;i+=300){const part=ins.slice(i,i+300);const back=this.chk(await c.from(NV_T[t]).insert(part.map(x=>x[1])).select(t==='collections'?'id,no':'id'));
           for(const [r,,js] of part){snap[r.id]=js}if(t==='collections')for(const b of back||[]){const r=S.collections.find(x=>x.id===b.id);if(r)r.no=b.no}await this.persistSnap()}
         if(this.role==='admin'){for(let i=0;i<upd.length;i+=300){const part=upd.slice(i,i+300);this.chk(await c.from(NV_T[t]).upsert(part.map(x=>x[1]),{onConflict:'id'}));for(const [r,,js] of part)snap[r.id]=js;await this.persistSnap()}}
@@ -96,7 +96,7 @@ const Cloud={skip:new Set(),on:false,client:null,role:null,emp:null,user:null,bu
     reindex();await saveAll();await this.persistSnap();this.lastPull=Date.now();this.badge();
   },
   async loadPublicSettings(){try{const c=await this.sb();const st=this.chk(await c.from('nv_settings').select('data').eq('id',1).maybeSingle());if(st&&st.data){Object.assign(S.settings,{app_name:st.data.app_name||S.settings.app_name,logo:st.data.logo||S.settings.logo});await saveNow('settings')}}catch(e){}},
-  badge(){if(window.nvPendUI)nvPendUI();if(window.nvLabelRefresh)setTimeout(nvLabelRefresh,0);const n=this.on&&this.role?this.pendingCount():0;const txt=!this.on?'':this.err&&n?`⚠️ ${n}`:n?`⏳ ${n}`:'☁️';
+  badge(){if(window.nvPendUI)nvPendUI();if(window.flushLabels&&!this.syncing)setTimeout(flushLabels,0);if(window.nvLabelRefresh)setTimeout(nvLabelRefresh,0);const n=this.on&&this.role?this.pendingCount():0;const txt=!this.on?'':this.err&&n?`⚠️ ${n}`:n?`⏳ ${n}`:'☁️';
     $$('[data-nv-sync]').forEach(el=>{el.textContent=txt;el.title=n?(this.err?('لم يُرسل: '+this.err.message):'بانتظار المزامنة'):'متزامن مع قاعدة Solvix'})}
 };
 window.Cloud=Cloud;

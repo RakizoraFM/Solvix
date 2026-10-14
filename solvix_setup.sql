@@ -167,6 +167,7 @@ create or replace function public.nv_coll_trg() returns trigger language plpgsql
 declare ch jsonb := '{}'; k text; o jsonb; n jsonb;
 begin
   new.updated_at := now();
+  if tg_op = 'UPDATE' and public.nv_label_only(old, new) then return new; end if;
   -- NV26: only the management reviews photos. A supervisor's insert starts unreviewed; his edit sends the asset back to review
   -- (status cleared) and keeps the reviewer's note / name / time.
   if not public.nv_perm('review') then
@@ -520,6 +521,44 @@ create or replace function public.nv_serial_dupes(p_serial text, p_id text defau
   left join public.nv_schools s on s.id = c.school_id $$;
 revoke all on function public.nv_serial_dupes(text,text) from public, anon;
 grant execute on function public.nv_serial_dupes(text,text) to authenticated;
+
+-- =====================================================================
+-- NV32 — the supervisor confirms the label is stuck on the asset, with a photo of it (QR read from the photo: ok / unread)
+-- =====================================================================
+alter table public.nv_collections add column if not exists label_photo text;
+alter table public.nv_collections add column if not exists label_at timestamptz;
+alter table public.nv_collections add column if not exists label_by text;
+alter table public.nv_collections add column if not exists label_check text;
+alter table public.nv_collections add column if not exists label_printed_at timestamptz;
+do $c$ begin alter table public.nv_collections add constraint nv_coll_label_chk check (label_check is null or label_check in ('ok','unread')); exception when duplicate_object then null; end $c$;
+-- only the label fields changed → not an edit of the asset: no change-log line and the photo review stays as it was
+create or replace function public.nv_label_only(o public.nv_collections, n public.nv_collections) returns boolean language sql immutable as $$
+  select (to_jsonb(o) - array['label_photo','label_at','label_by','label_check','label_printed_at','updated_at']) = (to_jsonb(n) - array['label_photo','label_at','label_by','label_check','label_printed_at','updated_at']) $$;
+create or replace function public.nv_label_confirm(p_id text, p_photo text, p_check text) returns jsonb language plpgsql security definer set search_path = public as $$
+declare c public.nv_collections; me text := public.nv_my_emp(); who text;
+begin
+  select * into c from public.nv_collections where id = p_id;
+  if c.id is null then raise exception 'asset not found'; end if;
+  if not (public.nv_perm('edit') or (me is not null and c.employee_id = me and public.nv_sub_ok())) then raise exception 'not allowed' using errcode = '42501'; end if;
+  if c.submitted_at is null or c.type_id is null then raise exception 'asset not submitted'; end if;
+  if coalesce(p_photo,'') = '' then raise exception 'label photo required'; end if;
+  who := case when me is not null then 'emp:' || me else coalesce((select email from public.nv_staff where user_id = auth.uid()), 'admin') end;
+  update public.nv_collections set label_photo = p_photo, label_at = now(), label_by = who, label_printed_at = coalesce(label_printed_at, now()), label_check = case when p_check = 'ok' then 'ok' else 'unread' end where id = p_id;
+  return (select jsonb_build_object('label_at', label_at, 'label_by', label_by, 'label_check', label_check) from public.nv_collections where id = p_id);
+end $$;
+-- the label was printed (first print time kept); the supervisor's own assets, or anyone with «edit»
+create or replace function public.nv_label_printed(p_ids text[]) returns int language plpgsql security definer set search_path = public as $$
+declare me text := public.nv_my_emp(); n int;
+begin
+  if not (public.nv_perm('edit') or (me is not null and public.nv_sub_ok())) then raise exception 'not allowed' using errcode = '42501'; end if;
+  update public.nv_collections set label_printed_at = coalesce(label_printed_at, now())
+   where id = any(p_ids) and submitted_at is not null and type_id is not null and (public.nv_perm('edit') or employee_id = me);
+  get diagnostics n = row_count; return n;
+end $$;
+revoke all on function public.nv_label_printed(text[]) from public, anon;
+grant execute on function public.nv_label_printed(text[]) to authenticated;
+revoke all on function public.nv_label_confirm(text,text,text), public.nv_label_only(public.nv_collections, public.nv_collections) from public, anon;
+grant execute on function public.nv_label_confirm(text,text,text) to authenticated;
 
 -- photos: private bucket nv-photos, flat names <random key>.jpg; members upload and read, admins delete
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('nv-photos','nv-photos',false,8388608,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;

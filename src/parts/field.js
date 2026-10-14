@@ -326,7 +326,8 @@ function vSuccess(){
   if($('#like'))$('#like').onclick=()=>{const b=curColl();const x={};for(const k of LIKE_KEYS)x[k]=b[k];x._msg=tx('نُسخت بيانات الأصل السابق — أضف الصور والرقم التسلسلي وراجع الحالة.','The previous asset was copied — add the photos and the serial number, and check the condition.');add(true,x)};
   if($('#tplNext'))$('#tplNext').onclick=()=>{const q=tplQ();const it=q.shift();setSess({tq:q});const ty=get('types',it.t)||{};add(true,{category_id:ty.cat||null,type_id:it.t,quantity:it.q||1,_msg:tx(`من قالب الغرفة: ${ty.ar||''} — أضف الصور والحالة.`,`From the room template: ${ty.ar||''} — add the photos and the condition.`)})};
   if($('#tplStop'))$('#tplStop').onclick=()=>{setSess({tq:[]});route()};
-  $('#fin').onclick=()=>{if(!confirm(tx('إنهاء جرد هذه المدرسة؟ لن يمكن إضافة أصول لها بعد ذلك.','Finish this school? No more assets can be added after that.')))return;
+  $('#fin').onclick=()=>{const nl=list.filter(a=>a.employee_id===e.id&&a.type_id&&!labelOf(a)).length;if(nl&&!confirm(tx(`${nl} أصل لم يُؤكَّد لصق ملصقه بصورة بعد. إنهاء المدرسة رغم ذلك؟`,`${nl} assets have no confirmed label photo yet. Finish anyway?`)))return;
+    if(!confirm(tx('إنهاء جرد هذه المدرسة؟ لن يمكن إضافة أصول لها بعد ذلك.','Finish this school? No more assets can be added after that.')))return;
     S.collections=S.collections.filter(x=>!(x.school_id===sc.id&&x.employee_id===e.id&&!x.submitted_at));
     Object.assign(sc,{completed_at:now(),completed_by:e.id,status:'inactive'});save('schools');save('collections');setSess({school:null,coll:null,tq:[]});if(Cloud.on)queueSchoolMail(sc.id,e.id);go('#job-completed')};
 }
@@ -353,7 +354,7 @@ function vHistory(){
     <td class="px-6 py-4"><div class="font-bold text-gray-900">${esc((get('schools',a.school_id)||{}).name||'')}</div><div class="text-xs text-gray-500 flex items-center gap-1 mt-1"><i class="bi bi-geo-alt"></i>${esc(a.floor||'')} • ${esc(roomName(a)??'N/A')}</div></td>
     <td class="px-6 py-4"><div class="text-gray-900 font-medium">${esc((get('types',a.type_id)||{}).ar||'')}${a.review_status==='returned'?` <span class="nv-badge r">${tx('مُرجع','Returned')}</span>`:a.review_status==='ok'?` <span class="nv-badge g">${tx('معتمد','Approved')}</span>`:''}</div><div class="text-xs text-gray-500">${esc((get('categories',a.category_id)||{}).ar||'')}</div></td>
     <td class="px-6 py-4"><div class="text-gray-700 text-xs">${ymd(a.submitted_at)}</div><div class="text-gray-400 text-xs">${hiA(a.submitted_at)}</div></td>
-    <td class="px-6 py-4 text-right whitespace-nowrap">${lblReady(a)?`<a href="javascript:void 0" data-pl="${esc(a.id)}" class="nv-plbtn" title="${tx('طباعة الملصق','Print the label')}">🖨️</a> `:''}${!can('edit_sent')||(Cloud.sub&&Cloud.sub.ok===false)?'':`<a href="javascript:void 0" data-ed="${esc(a.id)}" class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg font-bold transition-all text-xs"><i class="bi bi-pencil-square"></i>${t('Edit')}</a>`}</td></tr>`).join('')}
+    <td class="px-6 py-4 text-right whitespace-nowrap">${lblReady(a)?`<a href="javascript:void 0" data-pl="${esc(a.id)}" class="nv-plbtn" title="${tx('طباعة الملصق','Print the label')}">🖨️</a> ${labelOf(a)?`<span class="nv-badge g" title="${tx('الملصق مُلصق ومؤكد','Label stuck and confirmed')}">🏷️✓</span> `:`<a href="javascript:void 0" data-lc="${esc(a.id)}" class="nv-lcbtn" title="${tx('تأكيد لصق الملصق بصورة','Confirm the label with a photo')}">📸</a> `}`:''}${!can('edit_sent')||(Cloud.sub&&Cloud.sub.ok===false)?'':`<a href="javascript:void 0" data-ed="${esc(a.id)}" class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg font-bold transition-all text-xs"><i class="bi bi-pencil-square"></i>${t('Edit')}</a>`}</td></tr>`).join('')}
    </tbody></table></div></div>`:`<div class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200"><div class="text-gray-400 mb-3"><i class="bi bi-inbox text-5xl"></i></div><p class="text-gray-600 font-medium">${t('No history found.')}</p><p class="text-gray-400 text-sm">${t('Start a new collection to see it here.')}</p></div>`}
   <div class="mt-8 pt-6 border-t border-gray-100 flex justify-center"><a href="#school" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-xl transition-all shadow-lg shadow-blue-200">${t('Start New Collection')}</a></div>
   </div></section>`);
@@ -433,8 +434,8 @@ async function scanQR(){if(!navigator.mediaDevices||!navigator.mediaDevices.getU
    print buttons per asset / room / not yet printed, and a «printed» mark kept on this phone (localStorage nv_printed).
    With the cloud the Tag Number comes from the database on upload, so a label is printable only once the asset is uploaded (lblReady). */
 const lblReady=c=>!!(c&&c.no&&c.submitted_at&&c.type_id&&(!Cloud.on||(Cloud.snap&&Cloud.snap.collections&&Cloud.snap.collections[c.id]!==undefined)));
-const printedSet=()=>new Set(lsGet('nv_printed',[]));
-function markPrinted(ids){const s=printedSet();ids.forEach(i=>s.add(i));lsSet('nv_printed',[...s].slice(-5000))}
+const printedSet=()=>new Set(S.collections.filter(c=>c.label_printed_at||c.label_at).map(c=>c.id).concat(labelQ().map(x=>x.id)));
+function markPrinted(){}
 async function fieldPrint(list,title){const L=list.filter(lblReady);if(!L.length)return toast(tx('لا توجد ملصقات جاهزة للطباعة بعد (تنتظر رفع الأصول).','No labels ready yet (waiting for the upload).'),4000);
   await printLabels(L,title);markPrinted(L.map(c=>c.id));setTimeout(()=>{if(/^#(success|history)/.test(location.hash))route()},600)}
 function savedLabelCard(c){if(!c||!c.submitted_at||!c.type_id)return '';const ty=get('types',c.type_id)||{},co=get('conditions',c.condition_id)||{},ready=lblReady(c),done=printedSet().has(c.id);
@@ -443,7 +444,7 @@ function savedLabelCard(c){if(!c||!c.submitted_at||!c.type_id)return '';const ty
   return `<div id="lblCard" class="nv-lblcard mb-6" ${ready?'':'data-wait="1"'}><div class="nv-lbl-head">🏷️ ${tx('ملصق الأصل المحفوظ','Label of the saved asset')}${done?` <span class="nv-badge g">✓ ${tx('طُبع','Printed')}</span>`:''}</div>
    <div class="nv-lbl-grid"><div class="nv-lbl-data">${row('Tag Number',ready?assetLabel(c):tx('يُعطى بعد الرفع','after upload'))}${row(tx('الأصل','Asset'),ty.ar)}${row(tx('الكود','Code'),ty.code)}${row(tx('الموقع','Location'),[c.floor,roomName(c),c.room_number].filter(Boolean).join(' · '))}${row(tx('الحالة','Condition'),co.ar)}${row(tx('الكمية','Qty'),c.quantity)}${row(tx('الرقم التسلسلي','Serial'),c.serial)}</div>
     <div class="nv-lbl-prev">${ready?'<div id="lblPrev"></div>':`<p class="nv-lbl-wait">⏫ ${tx('جارٍ رفع الأصل ليأخذ رقمه في النظام… يظهر الملصق تلقائياً بعد الرفع.','Uploading the asset to get its system number… the label appears after the upload.')}</p>`}</div></div>
-   <button type="button" id="lblPrint" class="nv-lblbtn" ${ready?'':'disabled'}>🖨️ ${done?tx('طباعة الملصق مرة أخرى','Print the label again'):tx('طباعة الملصق','Print the label')}</button></div>`}
+   <button type="button" id="lblPrint" class="nv-lblbtn" ${ready?'':'disabled'}>🖨️ ${done?tx('طباعة الملصق مرة أخرى','Print the label again'):tx('طباعة الملصق','Print the label')}</button>${ready?labelConfirmBox(c):''}</div>`}
 function printBar(list,cur){const ready=list.filter(lblReady),pr=printedSet(),todo=ready.filter(a=>!pr.has(a.id));const room=cur?ready.filter(a=>a.floor===cur.floor&&String(a.room_number)===String(cur.room_number)&&a.room_name_id===cur.room_name_id):[];
   if(!ready.length)return '';return `<div class="nv-pbar mb-6">${room.length>1?`<button type="button" data-pall="room">🖨️ ${tx('ملصقات هذه الغرفة','This room’s labels')} (${room.length})</button>`:''}${todo.length?`<button type="button" data-pall="todo">🖨️ ${tx('كل ما لم يُطبع','All not printed')} (${todo.length})</button>`:`<span class="nv-badge g">✓ ${tx('كل الملصقات الجاهزة طُبعت','All ready labels are printed')}</span>`}</div>`}
 function bindPrint(list){const e=curEmp();const mine=list.filter(a=>a.employee_id===(e&&e.id));const cur=curColl();
@@ -452,4 +453,45 @@ function bindPrint(list){const e=curEmp();const mine=list.filter(a=>a.employee_i
   $$('[data-pall]').forEach(b=>b.onclick=()=>{const pr=printedSet();const L=b.dataset.pall==='room'?mine.filter(a=>cur&&a.floor===cur.floor&&String(a.room_number)===String(cur.room_number)&&a.room_name_id===cur.room_name_id):mine.filter(a=>!pr.has(a.id));fieldPrint(L,'')})}
 /* the label appears by itself once the upload gives the asset its number */
 window.nvLabelRefresh=()=>{const w=$('#lblCard[data-wait]');if(w&&lblReady(curColl())&&/^#success/.test(location.hash))route()};
+
+/* NV32 — after printing, the supervisor confirms the label is stuck on the asset with a photo of it. The QR is read from the photo:
+   another asset's number is refused, an unreadable code is saved as «unread» for the management. Print time and confirmation reach the
+   database through nv_label_printed / nv_label_confirm (queued in localStorage nv_label_q while offline; a supervisor never pushes label_* fields). */
+const labelQ=()=>lsGet('nv_label_q',[]);const labelQSet=q=>lsSet('nv_label_q',q);
+function labelOf(c){if(c.label_at)return {at:c.label_at,photo:c.label_photo,check:c.label_check};const q=labelQ().find(x=>x.id===c.id&&x.op==='confirm');return q?{at:q.at,photo:q.key,check:q.check,pending:1}:null}
+/* every print (admin or field) records the first print time */
+function markLabelsPrinted(list){const t=now();let ch=0;for(const c of list)if(!c.label_printed_at){c.label_printed_at=t;ch++}if(!ch)return;
+  if(Cloud.on&&Cloud.role==='tech'){const q=labelQ();for(const c of list)if(!q.some(x=>x.id===c.id&&x.op==='print'))q.push({id:c.id,op:'print'});labelQSet(q);saveNow('collections').then(flushLabels)}else save('collections')}
+let lblFlushing=false;
+async function flushLabels(){if(lblFlushing||!Cloud.on||Cloud.role!=='tech'||navigator.onLine===false)return;let q=labelQ();if(!q.length)return;lblFlushing=true;
+  try{const cl=await Cloud.sb();const pr=q.filter(x=>x.op==='print'&&Cloud.snap.collections&&Cloud.snap.collections[x.id]!==undefined);
+    if(pr.length){const {error}=await cl.rpc('nv_label_printed',{p_ids:pr.map(x=>x.id)});if(!error){q=labelQ().filter(x=>!(x.op==='print'&&pr.some(y=>y.id===x.id)));labelQSet(q)}}
+    for(const it of labelQ().filter(x=>x.op==='confirm'&&Cloud.snap.collections&&Cloud.snap.collections[x.id]!==undefined)){
+      try{await Cloud.uploadPhoto(it.key);const {data,error}=await cl.rpc('nv_label_confirm',{p_id:it.id,p_photo:it.key,p_check:it.check});if(error)throw error;
+        const c=S.collections.find(x=>x.id===it.id);if(c)Object.assign(c,{label_photo:it.key,label_at:(data&&data.label_at)||it.at,label_check:it.check,label_printed_at:c.label_printed_at||it.at});
+        labelQSet(labelQ().filter(x=>x!==it&&!(x.id===it.id&&x.op==='confirm')))}catch(e){console.warn('label',e)}}
+    await saveNow('collections')}finally{lblFlushing=false}}
+window.addEventListener('online',()=>setTimeout(flushLabels,2500));
+/* read a QR code from a photo (BarcodeDetector, else jsQR) */
+async function readQRImage(blob){try{const bmp=await createImageBitmap(blob);
+  if('BarcodeDetector' in window){try{const r=await new BarcodeDetector({formats:['qr_code']}).detect(bmp);if(r&&r[0])return r[0].rawValue}catch(e){}}
+  await needJsQR();for(const max of [1400,900,600]){const k=Math.min(1,max/Math.max(bmp.width,bmp.height));const cv=document.createElement('canvas');cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
+    const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(bmp,0,0,cv.width,cv.height);const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'attemptBoth'});if(r)return r.data}}catch(e){console.warn('qr',e)}return null}
+async function confirmLabel(c,f){if(!f)return;const want=assetLabel(c);const msg=$('#lcMsg');if(msg)msg.textContent=tx('جارٍ قراءة رمز QR من الصورة…','Reading the QR code from the photo…');
+  const got=labelFromQR(await readQRImage(f)||'');
+  if(got&&got!==want){if(msg)msg.textContent='';return alert(tx(`هذه الصورة لملصق أصل آخر (${got}) وليس لهذا الأصل (${want}). تأكد أنك ألصقت الملصق الصحيح.`,`This photo shows another asset's label (${got}), not this one (${want}).`))}
+  if(!got&&!confirm(tx('لم يُقرأ رمز QR في الصورة. صوّر الملصق أقرب وبوضوح، أو احفظ الصورة كما هي وستُعلَّم «لم يُقرأ الرمز» للمراجعة.\n\nحفظ كما هي؟','The QR code could not be read. Save the photo anyway (marked «unread» for review)?'))){if(msg)msg.textContent='';return}
+  const s=get('schools',c.school_id)||{},at=now();const key=await storePhoto(f,[`${ymdhms(at)} · ${tx('الملصق على الأصل','Label on the asset')} · Tag ${want}`,[s.name,s.moe].filter(Boolean).join(' · '),[c.floor,roomName(c),c.room_number].filter(Boolean).join(' · ')]);
+  const check=got?'ok':'unread';
+  if(Cloud.on&&Cloud.role==='tech'){const q=labelQ().filter(x=>!(x.id===c.id&&x.op==='confirm'));q.push({id:c.id,op:'confirm',key,check,at});labelQSet(q);if(!c.label_printed_at)c.label_printed_at=at;await saveNow('collections');flushLabels()}
+  else{Object.assign(c,{label_photo:key,label_at:at,label_check:check,label_by:'emp:'+(sess().emp||''),label_printed_at:c.label_printed_at||at});save('collections')}
+  toast(got?tx('✓ تم تأكيد لصق الملصق (مطابق).','✓ Label confirmed (matches).'):tx('تم الحفظ — «لم يُقرأ الرمز».','Saved — «code unread».'),3500);route()}
+function labelConfirmBox(c){const L=labelOf(c);
+  if(L)return `<div class="nv-lblok ${L.check==='ok'?'':'warn'}" id="lcDone">${img(L.photo,'','')}<span>${L.check==='ok'?tx('✓ الملصق مُلصق على الأصل ومؤكد (الرمز مطابق)','✓ Label stuck and confirmed (code matches)'):tx('⚠️ صورة الملصق محفوظة — لم يُقرأ الرمز','⚠️ Label photo saved — code unread')}${L.pending?` <small>(${tx('بانتظار الرفع','waiting to upload')})</small>`:''}</span></div>`;
+  return `<div class="nv-lblconf" id="lcBox"><b>📸 ${tx('بعد لصق الملصق: صوّره على الأصل للتأكيد','After sticking the label: photograph it on the asset to confirm')}</b><small>${tx('يُقرأ رمز QR من الصورة ويُطابَق مع رقم الأصل.','The QR code is read from the photo and matched with the asset number.')}</small>
+   <div class="nv-src"><label>📷 ${tx('كاميرا','Camera')}<input type="file" id="lcCam" accept="image/*" capture="environment"></label>${can('gallery')?`<label>🖼️ ${tx('المعرض','Gallery')}<input type="file" id="lcGal" accept="image/*"></label>`:''}</div><p id="lcMsg" class="text-xs text-blue-700 mt-1"></p></div>`}
+/* bind the confirm inputs (success page) and the 📸 buttons (lists) */
+document.addEventListener('change',e=>{const t=e.target;if(t&&(t.id==='lcCam'||t.id==='lcGal')&&t.files[0]){const c=curColl();if(c)confirmLabel(c,t.files[0]);t.value=''}});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-lc]');if(!b)return;e.preventDefault();const c=S.collections.find(x=>x.id===b.dataset.lc);if(!c)return;
+  const i=document.createElement('input');i.type='file';i.accept='image/*';if(!can('gallery'))i.capture='environment';i.onchange=()=>confirmLabel(c,i.files[0]);i.click()});
 </script>

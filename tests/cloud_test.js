@@ -40,6 +40,12 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await t.evaluate(()=>{window.__mockCall=window.__mockCallSaved});await T.ctx.setOffline(false);await t.evaluate(()=>window.dispatchEvent(new Event('online')));await t.waitForTimeout(2500);
  ok(M.db.nv_collections.filter(c=>c.submitted_at).length===2,'online again: sent ('+M.db.nv_collections.filter(c=>c.submitted_at).length+')');
  await t.waitForSelector('#lblCard:not([data-wait]) #lblPrev .lb svg',{timeout:15000});{const no=M.db.nv_collections.filter(c=>c.submitted_at).map(c=>c.no).sort((a,b)=>b-a)[0];ok((await t.textContent('#lblCard')).includes('101'+String(no).padStart(8,'0')),'NV31: after the upload the label appears with the database number '+no)}
+ {const [pw]=await Promise.all([T.ctx.waitForEvent('page'),t.click('#lblPrint')]);await pw.waitForSelector('.lb');await pw.close();
+  const cur=await t.evaluate(()=>curColl().id);await t.waitForFunction(id=>!lsGet('nv_label_q',[]).some(x=>x.id===id),cur,{timeout:15000}).catch(()=>{});
+  ok(!!(M.db.nv_collections.find(c=>c.id===cur)||{}).label_printed_at,'NV32: print time sent to the database (nv_label_printed)');
+  const lb=await t.evaluate(()=>assetLabel(curColl()));const png=Buffer.from((await t.evaluate(async l=>{await needQR();const q=qrcode(0,'M');q.addData('x#a/'+l);q.make();return q.createDataURL(8,6)},lb)).split(',')[1],'base64');
+  await t.waitForTimeout(800);await t.setInputFiles('#lcCam',{name:'l.png',mimeType:'image/png',buffer:png});await t.waitForSelector('#lcDone',{timeout:15000}).catch(()=>{});await t.waitForFunction(id=>!lsGet('nv_label_q',[]).some(x=>x.id===id),cur,{timeout:15000}).catch(()=>{});await t.waitForTimeout(500);
+  const r=M.db.nv_collections.find(c=>c.id===cur)||{};ok(r.label_check==='ok'&&!!M.files[r.label_photo+'.jpg'],'NV32: label confirmed in the database + photo uploaded (nv_label_confirm)')}
  await t.evaluate(()=>nvPendUI());await t.waitForTimeout(500);const pb2=await t.$eval('#nvPend',e=>({c:e.className,tx:e.textContent}));ok(/\bok\b/.test(pb2.c)&&pb2.tx.includes('مرفوعة'),'NV26 upload bar after sending: '+JSON.stringify(pb2));
  const school=M.db.nv_collections[0].school_id;
  // second technician cannot take a school the first one is working on
