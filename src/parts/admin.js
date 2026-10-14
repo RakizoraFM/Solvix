@@ -32,10 +32,11 @@ let aflash=null;const charts=[];function destroyCharts(){while(charts.length){tr
 const chart=(el,o)=>{if(!el||!el.isConnected)return;o.chart=Object.assign({animations:{enabled:false},redrawOnParentResize:false,redrawOnWindowResize:false},o.chart);el.innerHTML='';const c=new ApexCharts(el,o);charts.push(c);c.render()};const setAFlash=(m,k='success')=>{aflash={m,k}};
 const isAuthed=()=>Cloud.on?(Cloud.role==='admin'||Cloud.role==='reader'):isAdmin();
 /* NV10 roles: owner (مالك المشروع) / manager (مدير المشروع) / coordinator (منسق المشروع) sign in by e-mail; field supervisors (مشرف ميدان) are employees */
-const ROLE_L={owner:'مالك المشروع',manager:'مدير المشروع',coordinator:'منسق المشروع',reader:'قراءة فقط',field:'مشرف ميدان'};
+const ROLE_L={sysadmin:'Admin',owner:'مالك المشروع',manager:'مدير المشروع',coordinator:'منسق المشروع',reader:'قراءة فقط',field:'مشرف ميدان'};
 const staffRole=()=>Cloud.on?(Cloud.staffRole||(Cloud.role==='admin'?'owner':Cloud.role==='reader'?'reader':null)):'owner';
-const canUsers=()=>['owner','manager'].includes(staffRole());
-const isOwnerRole=()=>staffRole()==='owner';
+const canUsers=()=>can('users');
+const isOwnerRole=()=>['owner','sysadmin'].includes(staffRole());
+const isSys=()=>!!(Cloud.on&&Cloud.sys);
 
 /* ---------- layout (admin/layouts/app.blade.php) ---------- */
 function applyTheme(){const th=lsGet('bsTheme','auto');const dark=th==='dark'||(th==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-bs-theme',dark?'dark':'light');return th}
@@ -69,17 +70,17 @@ function adminShell(active,title,content){
     <li class="nav-header">إدارة البيانات</li>
     ${navItem('#admin/collections','bi-collection','أعمال الجرد',A('collections'))}
     ${navItem('#admin/analytics','bi-diagram-3','تحليل الأصول',A('analytics'))}
-    ${navItem('#admin/review','bi-images','مراجعة الصور'+(reviewPending()?` <span class="badge text-bg-warning ms-1" data-nv-revn>${reviewPending()}</span>`:''),A('review'))}
+    ${!can('review')?'':navItem('#admin/review','bi-images','مراجعة الصور'+(reviewPending()?` <span class="badge text-bg-warning ms-1" data-nv-revn>${reviewPending()}</span>`:''),A('review'))}
     ${navTree('bi-building','المدارس',A('schools')||A('schools.create')||A('schools.edit'),[navItem('#admin/schools','bi-list','كل المدارس',A('schools')),navItem('#admin/schools/create','bi-plus-circle','إضافة مدرسة',A('schools.create'))])}
     ${navItem('#admin/employees','bi-people','المستخدمون',active.startsWith('employees')||A('users'))}
     <li class="nav-header">النظام</li>
-    ${navItem(canUsers()?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||A('label')||!!LK[active.split('.')[0]])}
-    ${navItem('#admin/data','bi-database','البيانات والنسخ',A('data'))}
+    ${navItem(isSys()?'#admin/system':can('settings')?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||A('label')||A('system')||!!LK[active.split('.')[0]])}
+    ${can('backup')||can('export')||can('import')?navItem('#admin/data','bi-database','البيانات والنسخ',A('data')):''}
     ${navItem('#admin/log','bi-journal-text','سجل التعديلات',A('log'))}
     <li class="nav-item"><a href="javascript:void 0" class="nav-link" data-nv-logout><i class="nav-icon bi bi-box-arrow-right"></i><p>تسجيل الخروج</p></a></li>
    </ul></nav></div></aside>
   <main class="app-main"><div class="app-content-header"><div class="container-fluid">${pageHead(active,title)}</div></div>
-   <div class="app-content"><div class="container-fluid">${Cloud.on&&Cloud.dbOld&&Cloud.dbOld.length?`<div class="alert alert-warning py-2 small"><i class="bi bi-database-exclamation me-1"></i><b>قاعدة بيانات Solvix تحتاج تحديثاً:</b> شغّل <code>solvix_setup.sql</code> في Supabase ← SQL Editor. البيانات تُرفع الآن بدون الحقول الجديدة (${esc(Cloud.dbOld.join('، '))}).</div>`:''}${settingsTabs(active)}${fl?`<div class="alert alert-${fl.k} alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>${esc(fl.m)}</div>`:''}${content}</div></div></main>
+   <div class="app-content"><div class="container-fluid">${subBanner()}${Cloud.on&&Cloud.dbOld&&Cloud.dbOld.length?`<div class="alert alert-warning py-2 small"><i class="bi bi-database-exclamation me-1"></i><b>قاعدة بيانات Solvix تحتاج تحديثاً:</b> شغّل <code>solvix_setup.sql</code> في Supabase ← SQL Editor. البيانات تُرفع الآن بدون الحقول الجديدة (${esc(Cloud.dbOld.join('، '))}).</div>`:''}${settingsTabs(active)}${fl?`<div class="alert alert-${fl.k} alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>${esc(fl.m)}</div>`:''}${content}</div></div></main>
   <footer class="app-footer"><div class="float-end d-none d-sm-inline">RakizoraFM • إدارة المرافق والأصول الذكية</div><strong>&copy; ${new Date().getFullYear()} ${esc(appName())}.</strong> جميع الحقوق محفوظة.</footer>
   </div><div class="sidebar-overlay"></div>`;
   hydratePhotos(app());Cloud.badge();
@@ -96,8 +97,8 @@ document.addEventListener('click',e=>{
   const nl=e.target.closest('.app-sidebar a.nav-link[href^="#"]');if(nl&&window.innerWidth<992)document.body.classList.remove('sidebar-open');
 });
 /* NV10 — the reference lists live under «الإعدادات» as tabs */
-function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&!LK[k])return '';
-  const T=[...(canUsers()?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],['asset-conditions','bi-shield-check','حالات الأصول']];
+function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&k!=='system'&&!LK[k])return '';
+  const T=[...(isSys()?[['system','bi-shield-lock','إدارة النظام (Admin)']]:[]),...(can('settings')?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],['asset-conditions','bi-shield-check','حالات الأصول']];
   return `<ul class="nav nav-pills nv-set-tabs flex-nowrap overflow-auto gap-1 mb-3 pb-1">${T.map(([id,ic,l])=>`<li class="nav-item"><a class="nav-link text-nowrap ${k===id?'active':''}" href="#admin/${id}"><i class="bi ${ic} me-1"></i>${l}</a></li>`).join('')}</ul>`}
 const iconBtn=(href,icon,title)=>`<a href="${href}" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle"${title?` title="${title}"`:''}><i class="bi ${icon}"></i></a>`;
 
@@ -337,7 +338,7 @@ function vLookupForm(key,id){if(key==='asset-categories')return go('#admin/asset
     Object.assign(x,v);if(isNew){x.id=v.code?'a'+v.code:nextId(L.t,L.p);S[L.t].push(x)}reindex();save(L.t);setAFlash((isNew?'تمت إضافة ':'تم تحديث ')+L.one+'.');go('#admin/'+key)},'#admin/'+key)}
 
 /* ---------- settings/index.blade.php ---------- */
-function vSettings(){if(!canUsers())return go('#admin/asset-types');
+function vSettings(){if(!can('settings'))return go('#admin/asset-types');
   adminShell('settings','الإعدادات',`<div class="row"><div class="col-md-8 col-lg-6"><div class="card"><div class="card-header"><h3 class="card-title">إعدادات التطبيق</h3></div><form id="f"><div class="card-body">
   <div class="mb-3"><label for="application_name" class="form-label">اسم التطبيق <span class="text-danger">*</span></label><input type="text" id="application_name" class="form-control" value="${esc(appName())}" required maxlength="255"></div>
   <div class="mb-3"><label for="admin_email" class="form-label">بريد المستلمين ${Cloud.on?'<button type="button" class="btn btn-xs btn-outline-primary ms-2" onclick="testMail()"><i class="bi bi-envelope-check"></i> إرسال رسالة تجريبية</button>':''}</label><input type="text" id="admin_email" class="form-control" value="${esc(S.settings.admin_email||'')}" maxlength="500"><div class="form-text text-muted">عند إنهاء مشرف الميدان لمدرسة يُرسل ملف Excel الكامل (البيانات + صور الأصول و QR) إلى هذه العناوين وإلى بريد المشرف نفسه. افصل بين العناوين بفاصلة (مثال: admin@example.com, manager@example.com). يتطلب نشر دالة البريد solvix-mail في Supabase.</div></div>
@@ -352,7 +353,7 @@ function vSettings(){if(!canUsers())return go('#admin/asset-types');
     await saveNow('settings');if(Cloud.on){await Cloud.sync();if(Cloud.err){setAFlash('لم يُحفظ في قاعدة البيانات: '+Cloud.err.message,'danger');return vSettings()}}setAFlash('تم حفظ الإعدادات.');vSettings()};
 }
 /* NV22 — label settings in their own tab «إعدادات الملصق» (#admin/label) */
-function vLabelSettings(){if(!canUsers())return go('#admin/asset-types');
+function vLabelSettings(){if(!can('settings'))return go('#admin/asset-types');
   adminShell('label','إعدادات الملصق',`<div class="card shadow-sm border-0"><div class="card-header"><h3 class="card-title"><i class="bi bi-qr-code me-1"></i>إعدادات ملصق الأصل</h3></div><form id="f"><div class="card-body">
   <h6 class="fw-bold mb-1"><i class="bi bi-rulers me-1"></i>مقاس الملصق</h6><p class="form-text mt-0">بالسنتيمتر. تُرتَّب الملصقات على صفحة A4 بقدر ما تتسع، أو اختر «ملصق واحد في كل صفحة» لطابعة الملصقات.</p>
   <div class="row g-2 align-items-end"><div class="col-6 col-md-3"><label class="form-label small" for="lbl_w">العرض (سم)</label><input type="number" id="lbl_w" class="form-control" min="3" max="20" step="0.1" value="${esc(labelSize().w)}"></div><div class="col-6 col-md-3"><label class="form-label small" for="lbl_h">الارتفاع (سم)</label><input type="number" id="lbl_h" class="form-control" min="2" max="20" step="0.1" value="${esc(labelSize().h)}"></div>
@@ -450,7 +451,7 @@ function readOfflineDb(){return new Promise((res,rej)=>{const r=indexedDB.open('
 function vUsers(){go('#admin/employees')}
 /* NV10 — «إضافة مستخدم»: one form for the four roles */
 function addUserCard(){const staff=Cloud.on&&canUsers();
-  const roles=[['field',ROLE_L.field],...(staff?[['coordinator',ROLE_L.coordinator],['manager',ROLE_L.manager],...(isOwnerRole()?[['owner',ROLE_L.owner]]:[])]:[])];
+  const roles=[['field',ROLE_L.field],...(staff?[['coordinator',ROLE_L.coordinator],['manager',ROLE_L.manager],...(isOwnerRole()?[['owner',ROLE_L.owner]]:[]),...(isSys()?[['sysadmin',ROLE_L.sysadmin]]:[])]:[])];
   return `<div class="card shadow-sm border-0 mb-4 ${qp().get('add')?'':'d-none'}" id="addUser"><div class="card-header bg-white py-3 d-flex justify-content-between align-items-center"><h3 class="card-title fw-bold mb-0"><i class="bi bi-person-plus me-2 text-primary"></i>إضافة مستخدم</h3><button type="button" class="btn-close" data-adduser aria-label="إغلاق"></button></div>
   <form id="fu" class="card-body"><div class="row g-3">
    <div class="col-md-3"><label class="form-label fw-bold small">الدور</label><select class="form-select" id="u_role">${roles.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></div>
@@ -480,7 +481,7 @@ async function loadStaff(){const box=$('#staffBox');if(!box)return;let list=[],e
   if(!$('#staffBox'))return;const me=Cloud.user&&Cloud.user.id;const own=isOwnerRole();const R=r=>r==='admin'?'owner':r;
   box.innerHTML=`${err?`<div class="alert alert-danger">${esc(err)}</div>`:''}<div class="card shadow-sm border-0 mb-4"><div class="card-header bg-white py-3"><h3 class="card-title fw-bold mb-0 text-dark"><i class="bi bi-person-lock me-2 text-primary"></i>حسابات الإدارة <span class="badge text-bg-light border fw-normal">${list.length}</span></h3><small class="text-muted d-block">يدخلون لوحة الإدارة بالبريد الإلكتروني</small></div>
   <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light"><tr><th class="ps-3">الاسم</th><th>البريد</th><th>الدور</th><th>نشط</th><th class="text-end pe-3">إجراءات</th></tr></thead><tbody>
-  ${list.map(u=>{const lock=u.user_id===me||(!own&&R(u.role)==='owner');const opts=[['owner',ROLE_L.owner],['manager',ROLE_L.manager],['coordinator',ROLE_L.coordinator],...(u.role==='reader'?[['reader',ROLE_L.reader]]:[])].filter(([v])=>own||v!=='owner'||R(u.role)==='owner');
+  ${list.map(u=>{const lock=u.user_id===me||(!own&&R(u.role)==='owner')||(u.role==='sysadmin'&&!isSys());const opts=[...(isSys()||u.role==='sysadmin'?[['sysadmin',ROLE_L.sysadmin]]:[]),['owner',ROLE_L.owner],['manager',ROLE_L.manager],['coordinator',ROLE_L.coordinator],...(u.role==='reader'?[['reader',ROLE_L.reader]]:[])].filter(([v])=>own||v!=='owner'||R(u.role)==='owner');
    return `<tr><td class="ps-3 fw-medium">${esc(u.name)}${u.user_id===me?' <span class="badge text-bg-light border">أنت</span>':''}</td><td class="small" dir="ltr">${esc(u.email)}</td>
    <td><select class="form-select form-select-sm" data-role="${esc(u.user_id)}" ${lock?'disabled':''} style="width:auto">${opts.map(([v,l])=>`<option value="${v}" ${R(u.role)===v?'selected':''}>${l}</option>`).join('')}</select></td>
    <td><div class="form-check form-switch"><input class="form-check-input" type="checkbox" data-act="${esc(u.user_id)}" ${u.active?'checked':''} ${lock?'disabled':''}></div></td>
@@ -616,7 +617,7 @@ function catRows(){const used=new Map();for(const c of S.collections)used.set(c.
 function catFiltered(){const F=catState.f;const has=(v,q)=>!q||norm(v).includes(norm(q));
   let L=catRows().filter(r=>has(r.code,F.code)&&(!F.l1||r.l1===F.l1)&&(!F.l2||r.l2===F.l2)&&(!F.l3||r.l3===F.l3)&&has(r.ar,F.ar)&&has(r.en,F.en)&&(F.critical==null||F.critical===''||String(r.critical)===F.critical)&&(F.used==null||F.used===''||(F.used==='1'?r.used>0:r.used===0))&&(!F.q||[r.code,r.l1,r.l2,r.l3,r.ar,r.en].some(v=>norm(v).includes(norm(F.q)))));
   const k=catState.sort,d=catState.dir==='desc'?-1:1;return L.sort((a,b)=>cmp(a[k],b[k])*d||cmp(a.code,b.code))}
-function vCatalog(){const ro=Cloud.on&&Cloud.role==='reader';
+function vCatalog(){const ro=Cloud.on&&(Cloud.role==='reader'||!can('catalog'));
   adminShell('asset-types','دليل الأصول',`<style>
    .nvc-card .table{--bs-table-striped-bg:rgba(37,99,235,.035)}.nvc-card thead th{position:sticky;top:0;z-index:2;background:#f8fafc;white-space:nowrap;font-size:.8rem;color:#334155;border-bottom-width:1px}
    .nvc-card thead tr.nvc-f th{top:38px;background:#fff;padding:.35rem .4rem}.nvc-card thead tr.nvc-f .form-control,.nvc-card thead tr.nvc-f .form-select{font-size:.74rem;padding:.2rem .35rem;min-width:0;width:100%}.nvc-card thead tr.nvc-f .form-select{padding-inline-start:1.4rem;background-position:left .3rem center}
@@ -683,7 +684,7 @@ async function catBulk(a){const ids=[...catState.sel].filter(id=>get('types',id)
    used by «المدارس» and «المستخدمون ← مشرفو الميدان» */
 const NVT={};
 function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,dir:c.dir||'asc',f:{},sel:new Set(),page:1,per:50,hidden:new Set(c.cols.filter(k=>k.hide).map(k=>k.k))});const vis=c.cols.filter(k=>!st.hidden.has(k.k));const qs=(location.hash.split('?')[1])||'';if(c.init&&st.qs!==qs){st.qs=qs;for(const k in st.f)delete st.f[k];st.page=1;c.init(st)}
-  const ro=Cloud.on&&Cloud.role==='reader';const F=st.f;
+  const ro=Cloud.on&&Cloud.role==='reader';const F=st.f;const noDel=!can('delete'),noImp=!can('import'),noExp=!can('export');
   const head=`<style>.nvt .table{--bs-table-striped-bg:rgba(37,99,235,.035)}.nvt thead th{position:sticky;top:0;z-index:2;background:#f8fafc;white-space:nowrap;font-size:.8rem;color:#334155}
    .nvt thead tr.nvt-f th{top:37px;background:#fff;padding:.3rem .35rem}.nvt thead tr.nvt-f .form-control,.nvt thead tr.nvt-f .form-select{font-size:.74rem;padding:.2rem .35rem;width:100%;min-width:0}.nvt thead tr.nvt-f .form-select{padding-inline-start:1.4rem;background-position:left .3rem center}
    .nvt-sort{cursor:pointer;user-select:none}.nvt-sort:hover{color:#2563eb}.nvt-sort i{opacity:.35}.nvt-sort.on i{opacity:1;color:#2563eb}.nvt tbody td{font-size:.86rem;vertical-align:middle}.nvt tbody tr.sel{--bs-table-bg:#eff6ff}
@@ -694,10 +695,10 @@ function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,d
    <div class="input-group input-group-sm" style="width:230px"><span class="input-group-text bg-white"><i class="bi bi-search"></i></span><input class="form-control" data-nvt="q" placeholder="بحث في كل الأعمدة..." value="${esc(F.q||'')}"></div>
    <button class="btn btn-sm btn-outline-secondary" data-nvt="clear"><i class="bi bi-funnel"></i> مسح الفلاتر</button>
    <div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-layout-three-columns"></i> الأعمدة</button><div class="dropdown-menu p-2" style="min-width:200px">${c.cols.map(k=>`<label class="dropdown-item d-flex gap-2 rounded"><input type="checkbox" class="form-check-input" data-col="${k.k}" ${st.hidden.has(k.k)?'':'checked'}> ${k.l}</label>`).join('')}</div></div>
-   <button class="btn btn-sm btn-success" data-nvt="xl"><i class="bi bi-file-earmark-excel me-1"></i>تصدير Excel</button>
-   ${ro||!c.onImport?'':'<button class="btn btn-sm btn-outline-success" data-nvt="imp"><i class="bi bi-upload me-1"></i>استيراد Excel</button>'}${ro?'':(c.tools||'')}</div>
+   ${noExp?'':'<button class="btn btn-sm btn-success" data-nvt="xl"><i class="bi bi-file-earmark-excel me-1"></i>تصدير Excel</button>'}
+   ${ro||noImp||!c.onImport?'':'<button class="btn btn-sm btn-outline-success" data-nvt="imp"><i class="bi bi-upload me-1"></i>استيراد Excel</button>'}${ro?'':(c.tools||'')}</div>
   <div data-nvt="bulk" class="px-3 py-2 border-bottom d-none flex-wrap align-items-center gap-2" style="background:#eff6ff"><b class="text-primary small"><span data-nvt="seln">0</span> محدد</b>
-   <button class="btn btn-xs btn-success" data-nvb="__xl"><i class="bi bi-download"></i> تصدير المحدد</button>${ro?'':c.bulk.map(b=>`<button class="btn btn-xs ${b.cls||'btn-outline-secondary'}" data-nvb="${b.id}">${b.label}</button>`).join('')}
+   ${noExp?'':`<button class="btn btn-xs btn-success" data-nvb="__xl"><i class="bi bi-download"></i> تصدير المحدد</button>`}${ro?'':c.bulk.filter(b=>!(noDel&&/del/i.test(b.id))&&!(noExp&&b.id==='full')).map(b=>`<button class="btn btn-xs ${b.cls||'btn-outline-secondary'}" data-nvb="${b.id}">${b.label}</button>`).join('')}
    <button class="btn btn-xs btn-link" data-nvb="__none">إلغاء التحديد</button></div>
   <div class="nvt-wrap"><table class="table table-hover table-striped mb-0"><thead><tr><th style="width:34px" class="text-center"><input type="checkbox" class="form-check-input" data-nvt="all" title="تحديد كل النتائج"></th>
    ${vis.map(k=>`<th class="nvt-sort" data-sort="${k.k}" style="width:${k.w||'auto'}">${k.l} <i class="bi bi-arrow-down-up"></i></th>`).join('')}<th style="width:${c.actW||'90px'}"></th></tr>
@@ -714,7 +715,7 @@ function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,d
     QA('[data-col]').forEach(x=>x.onchange=()=>{x.checked?st.hidden.delete(x.dataset.col):st.hidden.add(x.dataset.col);delete F[x.dataset.col];if(!x.checked&&st.sort===x.dataset.col)st.sort=(c.cols.find(k=>!st.hidden.has(k.k))||c.cols[0]).k;route()});
     Q('[data-nvt="per"]').onchange=e=>{st.per=+e.target.value;st.page=1;draw()};
     Q('[data-nvt="all"]').onchange=e=>{rowsF().rows.forEach(r=>e.target.checked?st.sel.add(r.id):st.sel.delete(r.id));draw()};
-    Q('[data-nvt="xl"]').onclick=()=>c.exp(rowsF().rows,c.key);if(Q('[data-nvt="imp"]'))Q('[data-nvt="imp"]').onclick=()=>c.onImport();
+    if(Q('[data-nvt="xl"]'))Q('[data-nvt="xl"]').onclick=()=>c.exp(rowsF().rows,c.key);if(Q('[data-nvt="imp"]'))Q('[data-nvt="imp"]').onclick=()=>c.onImport();
     QA('[data-nvb]').forEach(b=>b.onclick=async()=>{const ids=[...st.sel].filter(id=>c.rows().some(r=>r.id===id));
       if(b.dataset.nvb==='__none'){st.sel.clear();return draw()}if(b.dataset.nvb==='__xl'){const set=new Set(ids);return c.exp(c.rows().filter(r=>set.has(r.id)),c.key+'-selected')}
       const B=c.bulk.find(x=>x.id===b.dataset.nvb);if(B)await B.run(ids,st)})}
@@ -1035,7 +1036,7 @@ function parseGeo(v){v=String(v||'').trim();if(!v)return null;const m=v.match(/(
   if(!(a>=-90&&a<=90&&b>=-180&&b<=180))return false;return [Math.round(a*1e7)/1e7,Math.round(b*1e7)/1e7]}
 const reviewer=()=>Cloud.on?((Cloud.user&&Cloud.user.email)||'admin'):((S.settings.admin_login||{}).email||'admin');
 function setReview(list,status,note){const t=now(),by=reviewer();for(const c of list)Object.assign(c,{review_status:status,review_note:status==='returned'?note:(c.review_note||''),reviewed_at:t,reviewed_by:by});save('collections')}
-function vReview(){const p=qp(),sid=p.get('school'),st=p.get('st')||'pending',G=geoCfg(),ro=Cloud.on&&Cloud.role==='reader';
+function vReview(){const p=qp(),sid=p.get('school'),st=p.get('st')||'pending',G=geoCfg(),ro=Cloud.on&&(Cloud.role==='reader'||!can('review'));
   const all=reviewable();const far=c=>c.geo_dist!=null&&c.geo_dist>G.m;
   const pass={pending:c=>!c.review_status,returned:c=>c.review_status==='returned',ok:c=>c.review_status==='ok',far,all:()=>true};
   const cnt=L=>({pending:L.filter(pass.pending).length,returned:L.filter(pass.returned).length,ok:L.filter(pass.ok).length,far:L.filter(far).length,all:L.length});
@@ -1072,5 +1073,80 @@ function vReview(){const p=qp(),sid=p.get('school'),st=p.get('st')||'pending',G=
   $$('[data-ok]').forEach(b=>b.onclick=()=>{setReview([byId(b.dataset.ok)],'ok');setAFlash('تم اعتماد الأصل.');vReview()});
   $$('[data-ret]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.ret);const n=prompt('سبب الإرجاع (يظهر لمشرف الميدان):',c.review_note||'أعد تصوير لوحة البيانات بوضوح');if(n==null)return;if(!n.trim())return alert('اكتب سبب الإرجاع.');setReview([c],'returned',n.trim());setAFlash('أُرجع الأصل لمشرف الميدان.');vReview()});
   if($('#okAll'))$('#okAll').onclick=()=>{if(!confirm(`اعتماد ${waiting.length} أصل معروض في هذه الصفحة؟`))return;setReview(waiting,'ok');setAFlash(`تم اعتماد ${waiting.length} أصل.`);vReview()};
+}
+</script><script id="nv-nv28">
+/* NV28 — «إدارة النظام (Admin)»: the system Admin (above the owner) manages the subscription (dates, plan, grace, limits, renewals),
+   the Admin accounts and every person's permissions. Everything is enforced by the database (nv_perm / nv_emp_perm / nv_sub_ok / nv_limit_trg). */
+PAGE_META.system=['bi-shield-lock','الاشتراك والحدود وحسابات Admin وصلاحيات كل مستخدم'];
+const PERMS_STAFF=[['view','العرض'],['edit','إضافة وتعديل البيانات'],['delete','الحذف'],['users','إدارة المستخدمين'],['settings','الإعدادات والملصق'],['catalog','دليل الأصول والقوائم'],['review','مراجعة الصور'],['export','التصدير والتقارير'],['import','الاستيراد'],['backup','البيانات والنسخ']];
+const PERMS_FIELD=[['collect','جرد أصول جديدة'],['edit_sent','تعديل أصل بعد إرساله'],['finish','إنهاء المدرسة'],['gallery','صور من المعرض'],['extra','صور إضافية']];
+const ROLE_PERMS={sysadmin:'*',owner:'view edit delete users settings catalog review export import backup',admin:'view edit delete users settings catalog review export import backup',manager:'view edit delete users settings catalog review export import backup',
+  coordinator:'view edit delete catalog review export import',reader:'view export',field:'collect edit_sent finish gallery extra'};
+const roleHas=(role,p)=>ROLE_PERMS[role]==='*'||(ROLE_PERMS[role]||'').split(' ').includes(p);
+const PLAN_L={trial:'تجريبي',quarterly:'ربع سنوي',half:'نصف سنوي',yearly:'سنوي',custom:'خاص'};
+function subBanner(){const s=subInfo();if(!s||s.state==='ok')return '';const d=x=>new Date(x).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const link=isSys()?' <a href="#admin/system" class="alert-link">إدارة الاشتراك</a>':' تواصل مع مزوّد الخدمة للتجديد.';
+  if(s.state==='over')return `<div class="alert alert-danger py-2 small" data-sub="over"><i class="bi bi-lock me-1"></i><b>انتهى الاشتراك في ${d(s.end)} — النظام الآن للقراءة فقط.</b> البيانات محفوظة كاملة ويمكن عرضها وتصديرها.${link}</div>`;
+  if(s.state==='grace')return `<div class="alert alert-warning py-2 small" data-sub="grace"><i class="bi bi-hourglass-split me-1"></i><b>انتهى الاشتراك في ${d(s.end)}.</b> يعمل النظام في فترة السماح حتى ${d(s.graceEnd)}، ثم يصبح للقراءة فقط.${link}</div>`;
+  return `<div class="alert alert-info py-2 small" data-sub="soon"><i class="bi bi-calendar-event me-1"></i>ينتهي الاشتراك خلال <b>${s.days}</b> يوماً (${d(s.end)}).${link}</div>`}
+async function vSystem(){if(!isSys())return go(can('settings')?'#admin/settings':'#admin/asset-types');
+  adminShell('system','إدارة النظام (Admin)',`<div id="sysBox">${skel(160)}<div class="mt-3">${skel(260)}</div></div>`);
+  let sub=null,staff=[],err='';try{const c=await Cloud.sb();sub=Cloud.chk(await c.rpc('nv_sub_get'));staff=Cloud.chk(await c.rpc('nv_staff_list'))||[]}catch(e){err=e.message}
+  if(!$('#sysBox'))return;
+  if(err||!sub){$('#sysBox').innerHTML=`<div class="alert alert-danger">${esc(err||'لا توجد بيانات اشتراك')} — شغّل <code>solvix_setup.sql</code> في Supabase ← SQL Editor.</div>`;return}
+  const me=Cloud.user&&Cloud.user.id,U=sub.usage||{},dIn=x=>x?new Date(x).toISOString().slice(0,10):'',fmt=x=>x?new Date(x).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'}):'—';
+  const end=sub.ends_at?new Date(sub.ends_at).getTime():null,days=end?Math.ceil((end-Date.now())/864e5):null,graceEnd=end?end+(+sub.grace_days||0)*864e5:null;
+  const st=!end?['secondary','بلا تاريخ انتهاء']:!sub.ok?['danger','منتهٍ — قراءة فقط']:Date.now()>=end?['warning','فترة سماح']:days<=14?['warning','ينتهي قريباً']:['success','نشط'];
+  const lim=(k,l,used)=>{const v=sub['max_'+k];const pc=v?Math.min(100,Math.round(used/v*100)):0;return `<div class="col-md-6 col-xl-3"><label class="form-label small fw-bold" for="s_${k}">${l}</label><input type="number" min="0" class="form-control" id="s_${k}" value="${v??''}" placeholder="بلا حد">
+    <div class="small text-muted mt-1">المستخدم: <b>${nf(used)}</b>${v?` من ${nf(v)}`:''}</div>${v?`<div class="nvk-bar"><i style="width:${pc}%;background:${pc>=100?'#d03b3b':pc>=85?'#eda100':'#0ca30c'}"></i></div>`:''}</div>`};
+  const admins=staff.filter(u=>u.role==='sysadmin'),others=staff.filter(u=>u.role!=='sysadmin');
+  const permCell=(who,id,role,perms,[k])=>{const def=roleHas(role,k),on=perms&&k in perms?!!perms[k]:def;return `<td class="text-center"><input type="checkbox" class="form-check-input ${on!==def?'nv-pchg':''}" data-pw="${who}" data-id="${esc(id)}" data-k="${k}" ${on?'checked':''} title="${on===def?'الافتراضي للدور':'معدّل عن الافتراضي'}"></td>`};
+  $('#sysBox').innerHTML=`
+  <div class="card mb-3"><div class="card-header py-3 d-flex flex-wrap gap-2 align-items-center"><h3 class="card-title mb-0 me-auto"><i class="bi bi-patch-check me-2 text-primary"></i>الاشتراك</h3><span class="badge text-bg-${st[0]} fs-6" data-sub-state>${st[1]}</span></div>
+   <div class="card-body"><div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="small text-muted">الجهة المشتركة</div><div class="fw-bold fs-5">${esc(sub.customer||'—')}</div></div>
+    <div class="col-md-4"><div class="small text-muted">ينتهي في</div><div class="fw-bold fs-5">${fmt(sub.ends_at)}</div>${end?`<div class="small ${days<=14?'text-danger fw-bold':'text-muted'}">${days>=0?`متبقٍ ${nf(days)} يوماً`:`انتهى منذ ${nf(-days)} يوماً`}${!sub.ok?'':Date.now()>=end?` · السماح حتى ${fmt(graceEnd)}`:''}</div>`:''}</div>
+    <div class="col-md-4"><div class="small text-muted mb-1">تمديد سريع (من تاريخ الانتهاء أو من اليوم)</div><div class="btn-group btn-group-sm flex-wrap">${[[1,'شهر'],[3,'3 أشهر'],[6,'6 أشهر'],[12,'سنة']].map(([m,l])=>`<button type="button" class="btn btn-outline-primary" data-ext="${m}">+ ${l}</button>`).join('')}</div></div></div>
+   <form id="subF" class="row g-3">
+    <div class="col-md-4"><label class="form-label small fw-bold" for="s_customer">اسم الجهة المشتركة</label><input class="form-control" id="s_customer" value="${esc(sub.customer||'')}"></div>
+    <div class="col-md-2"><label class="form-label small fw-bold" for="s_plan">الباقة</label><select class="form-select" id="s_plan">${Object.entries(PLAN_L).map(([v,l])=>`<option value="${v}" ${sub.plan===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="col-md-2"><label class="form-label small fw-bold" for="s_start">تاريخ البداية</label><input type="date" class="form-control" id="s_start" value="${dIn(sub.starts_at)}"></div>
+    <div class="col-md-2"><label class="form-label small fw-bold" for="s_end">تاريخ الانتهاء</label><input type="date" class="form-control" id="s_end" value="${dIn(sub.ends_at)}"></div>
+    <div class="col-md-2"><label class="form-label small fw-bold" for="s_grace">أيام السماح</label><input type="number" min="0" max="90" class="form-control" id="s_grace" value="${sub.grace_days??7}"></div>
+    <div class="col-12"><h6 class="fw-bold mt-2 mb-0"><i class="bi bi-sliders me-1"></i>الحدود <small class="text-muted fw-normal">(اتركها فارغة = بلا حد؛ لا تنطبق على Admin)</small></h6></div>
+    ${lim('schools','عدد المدارس',U.schools||0)}${lim('field','مشرفو الميدان',U.field||0)}${lim('staff','حسابات الإدارة',U.staff||0)}${lim('assets','عدد الأصول',U.assets||0)}
+    <div class="col-12"><label class="form-label small fw-bold" for="s_notes">ملاحظات</label><textarea class="form-control" id="s_notes" rows="2">${esc(sub.notes||'')}</textarea></div>
+    <div class="col-12 d-flex gap-2"><button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>حفظ الاشتراك والحدود</button><button type="button" class="btn btn-outline-danger ms-auto" id="subEnd"><i class="bi bi-lock me-1"></i>إنهاء الاشتراك الآن (قراءة فقط)</button></div>
+    <div class="col-12 small text-muted">عند الانتهاء: بعد تاريخ الانتهاء + أيام السماح يصبح النظام للقراءة فقط لكل المستخدمين ومشرفي الميدان (العرض والتصدير متاحان، ولا يُحذف شيء). أنت (Admin) غير مقيّد.</div></form></div></div>
+  <div class="row g-3 mb-3"><div class="col-xl-5"><div class="card h-100"><div class="card-header py-3"><h3 class="card-title mb-0 float-none"><i class="bi bi-shield-lock me-2 text-primary"></i>حسابات Admin</h3><small class="text-muted d-block">لا يراها مالك المشروع ولا غيره</small></div>
+    <div class="card-body p-0"><table class="table align-middle mb-0"><tbody>${admins.map(u=>`<tr><td class="ps-3"><b>${esc(u.name)}</b>${u.user_id===me?' <span class="badge text-bg-light border">أنت</span>':''}<div class="small text-muted" dir="ltr">${esc(u.email)}</div></td><td class="text-end pe-3">${u.user_id===me?'':`<div class="form-check form-switch d-inline-block" title="نشط"><input class="form-check-input" type="checkbox" data-adm="${esc(u.user_id)}" ${u.active?'checked':''}></div>`}</td></tr>`).join('')}</tbody></table>
+    <form id="admF" class="p-3 border-top row g-2"><div class="col-12 small fw-bold">إضافة Admin</div><div class="col-md-4"><input class="form-control form-control-sm" id="a_n" placeholder="الاسم" required></div><div class="col-md-4"><input type="email" class="form-control form-control-sm" id="a_e" placeholder="البريد" dir="ltr" required></div><div class="col-md-4"><input class="form-control form-control-sm" id="a_p" placeholder="كلمة المرور (8+)" dir="ltr" value="${genPw()}" required></div><div class="col-12"><button class="btn btn-sm btn-primary"><i class="bi bi-person-plus me-1"></i>إضافة</button></div></form></div></div></div>
+   <div class="col-xl-7"><div class="card h-100"><div class="card-header py-3"><h3 class="card-title mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>سجل الاشتراك</h3></div><div class="card-body p-0" style="max-height:330px;overflow:auto"><table class="table table-sm mb-0"><thead class="bg-light"><tr><th class="ps-3">الوقت</th><th>الإجراء</th><th>بواسطة</th><th class="pe-3">التفاصيل</th></tr></thead><tbody>
+    ${(sub.log||[]).map(l=>`<tr><td class="ps-3 small text-nowrap">${esc(ymdhms(l.at))}</td><td class="small">${esc(l.action)}</td><td class="small" dir="ltr">${esc(l.by||'')}</td><td class="small pe-3 text-muted" dir="ltr" style="max-width:280px;overflow-wrap:anywhere">${esc(Object.entries(l.data||{}).filter(([k,v])=>v!==''&&v!=null).map(([k,v])=>k+': '+(/_at$/.test(k)?String(v).slice(0,10):v)).join(' · '))}</td></tr>`).join('')||emptyRow(4,'bi-clock-history','لا توجد تغييرات بعد')}</tbody></table></div></div></div></div>
+  <div class="card mb-3"><div class="card-header py-3 d-flex flex-wrap gap-2 align-items-center"><h3 class="card-title mb-0 me-auto"><i class="bi bi-key me-2 text-primary"></i>الصلاحيات</h3><input class="form-control form-control-sm" style="width:220px" id="pq" placeholder="بحث بالاسم أو البريد"><small class="text-muted w-100">✔ = مسموح. المربع المميّز بإطار برتقالي معدّل عن الافتراضي لدوره. يُحفظ كل تغيير فوراً ويُطبَّق في قاعدة البيانات.</small></div>
+   <div class="card-body p-0"><ul class="nav nav-tabs px-3 pt-2"><li class="nav-item"><a class="nav-link active" href="javascript:void 0" data-ptab="staff">حسابات الإدارة (${others.length})</a></li><li class="nav-item"><a class="nav-link" href="javascript:void 0" data-ptab="field">مشرفو الميدان (${S.employees.length})</a></li></ul>
+   <div class="table-responsive" data-pane="staff"><table class="table table-hover align-middle mb-0 nv-ptab"><thead class="bg-light"><tr><th class="ps-3">المستخدم</th><th>الدور</th>${PERMS_STAFF.map(([k,l])=>`<th class="text-center small" style="white-space:normal;min-width:70px">${l}</th>`).join('')}<th></th></tr></thead><tbody>
+    ${others.map(u=>`<tr data-q="${esc((u.name+' '+u.email).toLowerCase())}"><td class="ps-3"><b>${esc(u.name)}</b>${u.active?'':' <span class="badge text-bg-secondary">موقوف</span>'}<div class="small text-muted" dir="ltr">${esc(u.email)}</div></td><td class="small">${esc(ROLE_L[u.role==='admin'?'owner':u.role]||u.role)}</td>${PERMS_STAFF.map(p=>permCell('s',u.user_id,u.role==='admin'?'owner':u.role,u.perms,p)).join('')}<td class="pe-3">${u.perms?`<button type="button" class="btn btn-xs btn-link" data-pdef="s" data-id="${esc(u.user_id)}">الافتراضي</button>`:''}</td></tr>`).join('')||emptyRow(PERMS_STAFF.length+3,'bi-people','لا توجد حسابات إدارة')}</tbody></table></div>
+   <div class="table-responsive d-none" data-pane="field"><table class="table table-hover align-middle mb-0 nv-ptab"><thead class="bg-light"><tr><th class="ps-3">مشرف الميدان</th>${PERMS_FIELD.map(([k,l])=>`<th class="text-center small" style="white-space:normal;min-width:80px">${l}</th>`).join('')}<th></th></tr></thead><tbody>
+    ${S.employees.slice().sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(e=>`<tr data-q="${esc((e.name+' '+(e.email||'')+' '+e.number).toLowerCase())}"><td class="ps-3"><b>${esc(e.name)}</b><div class="small text-muted">${esc(e.number)}${e.email?' · '+esc(e.email):''}</div></td>${PERMS_FIELD.map(p=>permCell('e',e.id,'field',e.perms,p)).join('')}<td class="pe-3">${e.perms?`<button type="button" class="btn btn-xs btn-link" data-pdef="e" data-id="${esc(e.id)}">الافتراضي</button>`:''}</td></tr>`).join('')||emptyRow(PERMS_FIELD.length+2,'bi-person-badge','لا يوجد مشرفو ميدان')}</tbody></table></div></div></div>`;
+  const rpc=async(fn,args)=>{const c=await Cloud.sb();return Cloud.chk(await c.rpc(fn,args))};
+  const save=async(p,action,msg)=>{try{await rpc('nv_sub_save',{p,p_action:action});await Cloud.init();setAFlash(msg)}catch(e){setAFlash('لم يُحفظ: '+e.message,'danger')}vSystem()};
+  const day=v=>v?new Date(v+'T23:59:59').toISOString():'';
+  $('#subF').onsubmit=e=>{e.preventDefault();const s=$('#s_start').value,en=$('#s_end').value;if(s&&en&&en<s)return alert('تاريخ الانتهاء قبل تاريخ البداية.');
+    const p={customer:$('#s_customer').value.trim(),plan:$('#s_plan').value,starts_at:s?new Date(s+'T00:00:00').toISOString():'',ends_at:day(en),grace_days:Math.max(0,Math.min(90,+$('#s_grace').value||0))};
+    for(const k of ['schools','field','staff','assets']){const v=$('#s_'+k).value.trim();p['max_'+k]=v===''?'':String(Math.max(0,Math.round(+v)))}p.notes=$('#s_notes').value;save(p,'edit','تم حفظ الاشتراك والحدود.')};
+  $$('[data-ext]').forEach(b=>b.onclick=()=>{const m=+b.dataset.ext;const base=new Date(Math.max(Date.now(),end||0));base.setMonth(base.getMonth()+m);
+    if(!confirm(`تمديد الاشتراك ${b.textContent.trim()} حتى ${fmt(base)}؟`))return;save({ends_at:base.toISOString(),...(sub.starts_at?{}:{starts_at:new Date().toISOString()})},`renew +${m}m`,`تم التمديد حتى ${fmt(base)}.`)});
+  $('#subEnd').onclick=()=>{if(prompt('سيصبح النظام للقراءة فقط فوراً لكل المستخدمين (بدون فترة سماح). اكتب «إنهاء» للتأكيد:')!=='إنهاء')return;save({ends_at:new Date(Date.now()-6e4).toISOString(),grace_days:0},'end','تم إنهاء الاشتراك — النظام للقراءة فقط.')};
+  $('#admF').onsubmit=async e=>{e.preventDefault();try{await rpc('nv_staff_create',{p_email:$('#a_e').value.trim(),p_password:$('#a_p').value,p_name:$('#a_n').value.trim(),p_role:'sysadmin'});setAFlash(`تمت إضافة Admin: ${$('#a_e').value.trim()} — كلمة المرور: ${$('#a_p').value}`)}catch(er){setAFlash(er.message,'danger')}vSystem()};
+  $$('[data-adm]').forEach(x=>x.onchange=async()=>{try{await rpc('nv_staff_set',{p_user:x.dataset.adm,p_role:'sysadmin',p_active:x.checked});setAFlash(x.checked?'تم تفعيل الحساب.':'تم إيقاف حساب Admin.')}catch(er){setAFlash(er.message,'danger')}vSystem()});
+  $$('[data-ptab]').forEach(a=>a.onclick=()=>{$$('[data-ptab]').forEach(x=>x.classList.toggle('active',x===a));$$('[data-pane]').forEach(x=>x.classList.toggle('d-none',x.dataset.pane!==a.dataset.ptab))});
+  $('#pq').oninput=e=>{const q=e.target.value.trim().toLowerCase();$$('.nv-ptab tbody tr[data-q]').forEach(r=>r.hidden=!!q&&!r.dataset.q.includes(q))};
+  const permsOf=(who,id)=>{const row=$$(`[data-pw="${who}"][data-id="${CSS.escape(id)}"]`);const role=who==='e'?'field':((others.find(u=>u.user_id===id)||{}).role||'reader');const o={};
+    for(const x of row){const def=roleHas(role==='admin'?'owner':role,x.dataset.k);if(x.checked!==def)o[x.dataset.k]=x.checked}return Object.keys(o).length?o:null};
+  const setPerms=async(who,id,o)=>{try{if(who==='e'){await rpc('nv_emp_perms',{p_emp:id,p_perms:o});const e=get('employees',id);if(e)e.perms=o}else{await rpc('nv_staff_perms',{p_user:id,p_perms:o});const u=others.find(x=>x.user_id===id);if(u)u.perms=o}toast('تم حفظ الصلاحيات.',1800)}
+    catch(er){toast('لم تُحفظ: '+er.message,5000)}};
+  $$('[data-pw]').forEach(x=>x.onchange=async()=>{const o=permsOf(x.dataset.pw,x.dataset.id);x.classList.toggle('nv-pchg',x.checked!==roleHas(x.dataset.pw==='e'?'field':(((others.find(u=>u.user_id===x.dataset.id)||{}).role)||'reader').replace('admin','owner'),x.dataset.k));await setPerms(x.dataset.pw,x.dataset.id,o)});
+  $$('[data-pdef]').forEach(b=>b.onclick=async()=>{await setPerms(b.dataset.pdef,b.dataset.id,null);vSystem()});
 }
 </script>

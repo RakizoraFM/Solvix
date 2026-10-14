@@ -31,7 +31,7 @@ function fieldLayout(inner){
   app().innerHTML=`<header class="bg-white shadow-sm py-4 px-6 flex justify-between items-center">
     <a href="#login" class="flex items-center gap-3 text-decoration-none"><img src="${esc(S.settings.logo||NV_ICON)}" alt="${esc(appName())}" class="h-12 w-auto"><h1 class="text-xl font-bold text-gray-800">${esc(appName())}</h1></a>
     <a href="javascript:void 0" id="langSw" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-bold">${ar?'English':'العربية'}</a></header>
-  ${Cloud.on&&Cloud.role==='tech'&&curEmp()?'<div id="nvPend" class="nv-pend" hidden></div>':''}<main class="flex-grow flex items-center justify-center p-4">${inner}</main>
+  ${Cloud.on&&Cloud.role==='tech'&&curEmp()?'<div id="nvPend" class="nv-pend" hidden></div>':''}${Cloud.on&&Cloud.role==='tech'&&Cloud.sub&&Cloud.sub.ok===false?`<div class="nv-pend err" data-sub="over">🔒 ${tx('انتهى الاشتراك — التطبيق للقراءة فقط. لا يمكن جرد أو تعديل أصول حتى التجديد.','The subscription has ended — read only. No new or edited assets until it is renewed.')}</div>`:''}<main class="flex-grow flex items-center justify-center p-4">${inner}</main>
   <div id="lb" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4" x-cloak style="display:none">
     <button type="button" id="lbX" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
     <div class="relative max-w-full max-h-full overflow-auto flex items-center justify-center"><img id="lbImg" class="max-w-full max-h-[90vh] object-contain cursor-zoom-in rounded-lg shadow-2xl" alt=""></div></div>
@@ -74,7 +74,7 @@ function vEmployee(){
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
    <div class="space-y-1"><label class="text-sm text-gray-500">${t('Full Name')}</label><p class="text-lg font-bold text-gray-900 border-b pb-2">${esc(e.name)}</p></div>
    <div class="space-y-1"><label class="text-sm text-gray-500">${t('Employee ID')}</label><p class="text-lg font-bold text-gray-900 border-b pb-2">${esc(e.number)}</p></div></div>
-  ${ret.length?`<div class="nv-ret mb-8" id="retBox"><b>↩️ ${tx('أصول أعادتها الإدارة للتعديل','Assets returned by the management')} (${ret.length})</b>${ret.map(x=>`<a href="javascript:void 0" data-ret="${esc(x.id)}"><span>${esc((get('types',x.type_id)||{}).ar||'')} — ${esc((get('schools',x.school_id)||{}).name||'')} · ${esc(x.floor||'')} ${esc(roomName(x)||'')}</span><small>${esc(x.review_note||'')}</small></a>`).join('')}</div>`:''}
+  ${(f=>f?`<div class="nv-ret mb-8" id="empMsg"><b>${esc(f.t)}</b></div>`:'')(takeFlash())}${ret.length?`<div class="nv-ret mb-8" id="retBox"><b>↩️ ${tx('أصول أعادتها الإدارة للتعديل','Assets returned by the management')} (${ret.length})</b>${ret.map(x=>`<a href="javascript:void 0" data-ret="${esc(x.id)}"><span>${esc((get('types',x.type_id)||{}).ar||'')} — ${esc((get('schools',x.school_id)||{}).name||'')} · ${esc(x.floor||'')} ${esc(roomName(x)||'')}</span><small>${esc(x.review_note||'')}</small></a>`).join('')}</div>`:''}
   <div class="bg-blue-50 p-6 rounded-2xl border border-blue-100 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
    <div class="flex items-center gap-4"><div class="bg-blue-600 p-3 rounded-xl text-white"><i class="bi bi-clock-history text-xl"></i></div>
     <div><h4 class="font-bold text-gray-800">${t('Collection History')}</h4><p class="text-sm text-gray-500">${t('View and edit your previous submissions')}</p></div></div>
@@ -93,7 +93,7 @@ function vEmployee(){
 /* school.blade.php */
 function schoolBlock(sc,empId){if(sc.status==='inactive'||sc.completed_at||S.collections.some(c=>c.school_id===sc.id&&c.employee_id!==empId)||(Cloud.on&&Cloud.busy.has(sc.id)))return t('This school is inactive, already completed, or being worked on by another employee.');return ''}
 function vSchool(err){
-  if(!needEmp())return;const e=curEmp();let selected=null,timer;
+  if(!needEmp())return;if(Cloud.on&&(!can('collect')||(Cloud.sub&&Cloud.sub.ok===false))){setFlash(Cloud.sub&&Cloud.sub.ok===false?tx('انتهى الاشتراك — لا يمكن بدء جرد جديد حتى التجديد.','The subscription has ended — no new collection until it is renewed.'):tx('ليست لديك صلاحية جرد أصول جديدة. راجع مدير المشروع.','You are not allowed to collect new assets. Ask the project manager.'));return go('#employee-data')}const e=curEmp();let selected=null,timer;
   fieldLayout(`<section id="screen-school" class="w-full max-w-2xl"><div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
   <h2 class="text-2xl font-bold text-center mb-6">${t('Select School')}</h2>
   <p class="text-gray-500 text-center mb-8">${t('Please search by school name, MOE number or identifier and select a school from the list')}</p>
@@ -192,7 +192,7 @@ function vAsset(){
    <div><label class="block text-sm font-medium text-gray-700 mb-1">${tx('صور الأصل من موقعه','Asset photos on site')} <span class="text-red-500">*</span></label>
     <p class="text-xs text-gray-500 mb-3">${tx('صورتان إلزاميتان للأصل من الكاميرا أو المعرض، ويمكن إضافة صور أخرى بعلامة +. يُطبع على كل صورة الوقت والمدرسة والغرفة والموقع.','Two required photos from the camera or the gallery; add more with +. Time, school, room and location are printed on each photo.')}</p>
     <div class="nv-shots">${SHOTS.map((x,n)=>shotTile(n,c[x.k])).join('')}</div>
-    <div class="text-sm font-medium text-gray-700 mt-4 mb-2">${tx('صور إضافية (اختيارية)','Extra photos (optional)')} <span class="text-xs text-gray-400" id="nvXn"></span></div><div class="nv-shots nv-extra" id="nvExtra"></div>
+    <div class="${can('extra')?'':'hidden'}"><div class="text-sm font-medium text-gray-700 mt-4 mb-2">${tx('صور إضافية (اختيارية)','Extra photos (optional)')} <span class="text-xs text-gray-400" id="nvXn"></span></div><div class="nv-shots nv-extra" id="nvExtra"></div></div>
     <button type="button" id="ocr" class="nv-ocr">🔍 ${tx('قراءة لوحة البيانات تلقائياً (الرقم التسلسلي، الموديل، السعة، الماركة)','Read the nameplate (serial, model, capacity, brand)')}</button><p id="ocrMsg" class="nv-ocr-msg"></p>
     <p id="e_img" class="text-red-500 text-xs mt-1"></p></div>
    <div class="pt-4 border-t border-gray-100"><div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -245,7 +245,7 @@ function vAsset(){
   const XMAX=10;const drawX=()=>{const box=$('#nvExtra');const n=exKeep.length+pendX.length;$('#nvXn').textContent=n?`(${n} / ${XMAX})`:'';
     box.innerHTML=exKeep.map((k,i)=>`<div class="nv-shot ok"><div class="nv-shot-pv">${img(k,'','')}</div><button type="button" class="nv-x" data-xk="${i}" aria-label="${tx('حذف','Remove')}">✕</button></div>`).join('')
      +pendX.map((P,i)=>`<div class="nv-shot ok"><div class="nv-shot-pv"><img src="${P.u}" alt=""></div><button type="button" class="nv-x" data-xp="${i}" aria-label="${tx('حذف','Remove')}">✕</button></div>`).join('')
-     +(n<XMAX?`<div class="nv-shot nv-plus"><div class="nv-shot-pv">＋</div><b>${tx('إضافة صورة','Add a photo')}</b><div class="nv-src"><label>📷 ${tx('كاميرا','Camera')}<input type="file" id="aimgX" accept="image/*" capture="environment"></label><label>🖼️ ${tx('المعرض','Gallery')}<input type="file" id="aimgXG" accept="image/*" multiple></label></div></div>`:'');
+     +(n<XMAX?`<div class="nv-shot nv-plus"><div class="nv-shot-pv">＋</div><b>${tx('إضافة صورة','Add a photo')}</b><div class="nv-src"><label>📷 ${tx('كاميرا','Camera')}<input type="file" id="aimgX" accept="image/*" capture="environment"></label>${can('gallery')?`<label>🖼️ ${tx('المعرض','Gallery')}<input type="file" id="aimgXG" accept="image/*" multiple></label>`:''}</div></div>`:'');
     hydratePhotos(box);
     $$('[data-xk]',box).forEach(b=>b.onclick=()=>{exDrop.push(...exKeep.splice(+b.dataset.xk,1));drawX()});$$('[data-xp]',box).forEach(b=>b.onclick=()=>{pendX.splice(+b.dataset.xp,1);drawX()});
     $$('#aimgX,#aimgXG').forEach(inp=>inp.onchange=()=>{for(const f of [...inp.files].filter(f=>/^image\//.test(f.type||'image/')).slice(0,XMAX-exKeep.length-pendX.length)){const P={f,at:f.lastModified,u:URL.createObjectURL(f)};pendX.push(P);locate(P)}drawX()})};
@@ -292,7 +292,7 @@ function vAsset(){
 const SHOTS=[{k:'asset_image',t:()=>tx('الأصل كاملاً في مكانه','Whole asset in place')},{k:'asset_image2',t:()=>tx('لوحة البيانات / الرقم التسلسلي','Nameplate / serial number')}];
 const CAM='<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.66-.9l.82-1.2A2 2 0 0110.07 4h3.86a2 2 0 011.66.9l.82 1.2a2 2 0 001.66.9H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3.2"/></svg>';
 function shotTile(n,cur){const id='aimg'+(n?'2':'');return `<div class="nv-shot ${cur?'ok':''}" data-shot="${n}"><div class="nv-shot-pv">${cur?img(cur,'',''):CAM}</div><b>${n+1}. ${SHOTS[n].t()} <span class="text-red-500">*</span></b><i data-geo class="nv-geo"></i><small>${cur?tx('✓ موجودة — يمكنك تغييرها','✓ Saved — you can change it'):tx('من الكاميرا أو المعرض','From the camera or the gallery')}</small>
-  <div class="nv-src"><label>📷 ${tx('كاميرا','Camera')}<input type="file" id="${id}" data-n="${n}" accept="image/*" capture="environment"></label><label>🖼️ ${tx('المعرض','Gallery')}<input type="file" id="${id}G" data-n="${n}" accept="image/*"></label></div></div>`}
+  <div class="nv-src"><label>📷 ${tx('كاميرا','Camera')}<input type="file" id="${id}" data-n="${n}" accept="image/*" capture="environment"></label>${can('gallery')?`<label>🖼️ ${tx('المعرض','Gallery')}<input type="file" id="${id}G" data-n="${n}" accept="image/*"></label>`:''}</div></div>`}
 
 /* success.blade.php */
 function vSuccess(){
@@ -309,7 +309,7 @@ function vSuccess(){
   ${sc.completed_at?'':`<div class="space-y-4">
    <a href="javascript:void 0" id="same" class="block w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-green-200">${t('Add Another Asset in Same Room')}</a>
    <a href="javascript:void 0" id="other" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-200">${t('Add Another Asset (New Room)')}</a>
-   <a href="javascript:void 0" id="fin" class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-4 rounded-xl transition-all">${t('Complete and Finish Job')}</a></div>`}
+   ${can('finish')?'':'<!--'}<a href="javascript:void 0" id="fin" class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-4 rounded-xl transition-all">${t('Complete and Finish Job')}</a>${can('finish')?'':'-->'}</div>`}
   </div></section>`);
   $$('[data-ed]').forEach(a=>a.onclick=()=>{setSess({coll:a.dataset.ed});go('#location')});
   if(sc.completed_at)return;
@@ -344,7 +344,7 @@ function vHistory(){
     <td class="px-6 py-4"><div class="font-bold text-gray-900">${esc((get('schools',a.school_id)||{}).name||'')}</div><div class="text-xs text-gray-500 flex items-center gap-1 mt-1"><i class="bi bi-geo-alt"></i>${esc(a.floor||'')} • ${esc(roomName(a)??'N/A')}</div></td>
     <td class="px-6 py-4"><div class="text-gray-900 font-medium">${esc((get('types',a.type_id)||{}).ar||'')}${a.review_status==='returned'?` <span class="nv-badge r">${tx('مُرجع','Returned')}</span>`:a.review_status==='ok'?` <span class="nv-badge g">${tx('معتمد','Approved')}</span>`:''}</div><div class="text-xs text-gray-500">${esc((get('categories',a.category_id)||{}).ar||'')}</div></td>
     <td class="px-6 py-4"><div class="text-gray-700 text-xs">${ymd(a.submitted_at)}</div><div class="text-gray-400 text-xs">${hiA(a.submitted_at)}</div></td>
-    <td class="px-6 py-4 text-right"><a href="javascript:void 0" data-ed="${esc(a.id)}" class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg font-bold transition-all text-xs"><i class="bi bi-pencil-square"></i>${t('Edit')}</a></td></tr>`).join('')}
+    <td class="px-6 py-4 text-right">${!can('edit_sent')||(Cloud.sub&&Cloud.sub.ok===false)?'':`<a href="javascript:void 0" data-ed="${esc(a.id)}" class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg font-bold transition-all text-xs"><i class="bi bi-pencil-square"></i>${t('Edit')}</a>`}</td></tr>`).join('')}
    </tbody></table></div></div>`:`<div class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200"><div class="text-gray-400 mb-3"><i class="bi bi-inbox text-5xl"></i></div><p class="text-gray-600 font-medium">${t('No history found.')}</p><p class="text-gray-400 text-sm">${t('Start a new collection to see it here.')}</p></div>`}
   <div class="mt-8 pt-6 border-t border-gray-100 flex justify-center"><a href="#school" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-xl transition-all shadow-lg shadow-blue-200">${t('Start New Collection')}</a></div>
   </div></section>`);

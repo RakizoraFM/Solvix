@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV27',date:'2026-10-13'};
+const NV={version:'NV28',date:'2026-10-13'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -211,4 +211,11 @@ function parsePlate(txt){const T=String(txt||'').replace(/\r/g,'').replace(/[|]/
   const cap=T.match(/(\d[\d,.]*\s*(?:BTU(?:\s*\/\s*H)?|TONS?\b|\bTR\b|KW\b|KVA\b|HP\b|LITERS?\b|LTR\b|KG\b))/i);if(cap)o.capacity=cap[1].replace(/\s+/g,' ').trim();
   for(const b of PLATE_BRANDS)if(new RegExp('\\b'+b.replace(/ /g,'\\s*')+'\\b','i').test(T)){o.brand=b;break}
   for(const k of Object.keys(o))if(!o[k])delete o[k];return o}
+/* NV28 — permissions of the signed-in person (nv_me().perms); offline = everything; a database without NV28 = by role */
+const FIELD_PERMS=['collect','edit_sent','finish','gallery','extra'];
+function can(p){if(!window.Cloud||!Cloud.on)return true;if(Cloud.sys)return true;if(Array.isArray(Cloud.perms))return Cloud.perms.includes(p);
+  return Cloud.role==='admin'?!FIELD_PERMS.includes(p):Cloud.role==='tech'?FIELD_PERMS.includes(p):Cloud.role==='reader'?['view','export'].includes(p):false}
+/* subscription status for the banners: null when no end date */
+function subInfo(){const s=window.Cloud&&Cloud.on&&Cloud.sub;if(!s||!s.ends_at)return null;const end=new Date(s.ends_at).getTime(),g=(+s.grace_days||0)*864e5,now=Date.now();
+  return {end,days:Math.ceil((end-now)/864e5),graceEnd:end+g,ok:s.ok!==false,state:s.ok===false?'over':now>=end?'grace':(end-now)<=14*864e5?'soon':'ok'}}
 </script>

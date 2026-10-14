@@ -33,19 +33,19 @@ const Cloud={skip:new Set(),on:false,client:null,role:null,emp:null,user:null,bu
     try{const c=await this.sb();const {data}=await c.auth.getSession();const u=data&&data.session&&data.session.user;
       if(!u){await this.setMe(null);return}
       this.user=u;const me=this.chk(await c.rpc('nv_me'));await this.setMe(me,u.id)}
-    catch(e){if(/nv_me|schema cache|does not exist/i.test(e.message))this.tablesMissing=true;else if(cached){Object.assign(this,{role:cached.role,emp:cached.emp,staffRole:cached.staff_role||null,user:{id:cached.uid}});this.err=e}}
+    catch(e){if(/nv_me|schema cache|does not exist/i.test(e.message))this.tablesMissing=true;else if(cached){Object.assign(this,{role:cached.role,emp:cached.emp,staffRole:cached.staff_role||null,sys:!!cached.sys,perms:cached.perms||null,sub:cached.sub||null,user:{id:cached.uid}});this.err=e}}
   },
-  async setMe(me,uid){this.role=me&&me.role||null;this.emp=me&&me.emp||null;this.staffRole=me&&me.staff_role||null;
+  async setMe(me,uid){this.role=me&&me.role||null;this.emp=me&&me.emp||null;this.staffRole=me&&me.staff_role||null;this.sys=!!(me&&me.sys);this.perms=me&&Array.isArray(me.perms)?me.perms:null;this.sub=me&&me.sub||null;
     const prev=await IDB.get('kv','cloud_owner').catch(()=>null);
     if(uid&&prev&&prev!==uid){/* another account on this device: drop the previous account's cache */for(const t of TABLES)S[t]=t==='settings'?S.settings:[];this.snap={};for(const t of NV_ORDER.concat(['settings']))this.snap[t]={};await IDB.clear('photos');urlCache.clear();this.uploaded=new Set();await saveAll();await this.persistSnap()}
-    if(uid)await IDB.put('kv','cloud_owner',uid);await IDB.put('kv','cloud_me',this.role?{role:this.role,emp:this.emp,staff_role:this.staffRole,uid}:null)},
+    if(uid)await IDB.put('kv','cloud_owner',uid);await IDB.put('kv','cloud_me',this.role?{role:this.role,emp:this.emp,staff_role:this.staffRole,sys:this.sys,perms:this.perms,sub:this.sub,uid}:null)},
   async signIn(email,pw){const c=await this.sb();const r=this.chk(await c.auth.signInWithPassword({email,password:pw}));this.user=r.user;const me=this.chk(await c.rpc('nv_me'));await this.setMe(me,r.user.id);return me},
-  async signOut(){await this.sync().catch(()=>{});try{const c=await this.sb();await c.auth.signOut()}catch(e){}this.role=null;this.emp=null;this.staffRole=null;this.user=null;await IDB.put('kv','cloud_me',null)},
+  async signOut(){await this.sync().catch(()=>{});try{const c=await this.sb();await c.auth.signOut()}catch(e){}this.role=null;this.emp=null;this.staffRole=null;this.sys=false;this.perms=null;this.sub=null;this.user=null;await IDB.put('kv','cloud_me',null)},
   pendingCount(){let n=0;for(const t of this.pushTables())for(const r of S[t]){const s=this.snap[t][r.id];if(s===undefined||s!==this.key(t,r))n++}
     for(const t of this.pushTables())for(const id in this.snap[t])if(!S[t].some(r=>r.id===id))n++;return n},
   pushTables(){return this.role==='admin'?NV_ORDER:this.role==='tech'?['collections','schools']:[]},
   persistSnap(){return IDB.put('kv','snap',this.snap)},
-  touch(t){if(t==='log')return;if(this.role==='reader'){toast('حساب قراءة فقط — لم يُحفظ هذا التعديل.',4000);this.pull(true).then(()=>route());return}this.dirty.add(t);clearTimeout(this._t);this._t=setTimeout(()=>this.sync(),400)},
+  touch(t){if(t==='log')return;if(this.role==='reader'||(this.role==='tech'&&this.sub&&this.sub.ok===false)){toast(this.sub&&this.sub.ok===false?'انتهى الاشتراك — النظام للقراءة فقط، ولم يُحفظ هذا التعديل.':'حساب قراءة فقط — لم يُحفظ هذا التعديل.',5000);this.pull(true).then(()=>route());return}this.dirty.add(t);clearTimeout(this._t);this._t=setTimeout(()=>this.sync(),400)},
   /* ---- push ---- */
   async uploadPhoto(k){if(!k||this.uploaded.has(k))return;const b=await IDB.get('photos',k).catch(()=>null);if(!b){this.uploaded.add(k);return}
     const c=await this.sb();const {error}=await c.storage.from('nv-photos').upload(k+'.jpg',b,{contentType:'image/jpeg',upsert:true});if(error&&!/exists|Duplicate/i.test(error.message))throw new Error(error.message);
