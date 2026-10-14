@@ -33,7 +33,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  // NV13: label size from the settings (cm)
  // NV22: label settings have their own tab
  await p.goto(U+'#admin/settings');await p.waitForSelector('#application_name');ok(!(await p.$('#lbl_w'))&&!!(await p.$('.nv-set-tabs a[href="#admin/label"]')),'label settings: own tab, not in general settings');
- await p.goto(U+'#admin/label');await p.waitForSelector('#lbl_w');await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.check('#lbl_one');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
+ await p.goto(U+'#admin/label');await p.waitForSelector('#lbl_w');await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.selectOption('#lbl_mode','roll');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
  ok(await p.evaluate(()=>{const l=S.settings.label;return l.w===5&&l.h===3&&l.one===true}),'label size saved');
  // NV20: label logo + «do not remove» texts + live preview; the QR starts with the location
  await p.goto(U+'#admin/label');await p.waitForSelector('#lbl_prev .lb .qr svg',{timeout:20000});await p.setInputFiles('#lbl_logo',B+'/a.png');await p.waitForSelector('#lbl_prev .lg img');
@@ -45,18 +45,18 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.waitForSelector('#qr_meter.alert-danger');ok(true,'all fields on 4 × 2.5 cm → red warning');
  await p.click('[data-qrset="basic"]');await p.fill('#lbl_w','6.3');await p.fill('#lbl_h','3.6');await p.waitForSelector('#qr_meter.alert-success');ok(true,'basic fields on 6.3 × 3.6 cm → clear');
  await p.screenshot({path:B+'/shots/45-qr-fields.png',fullPage:true});await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
- const qb=await p.evaluate(c0=>qrText(S.collections.find(x=>x.id===c0)),ids.c0);ok(qb.includes('المبنى:')&&qb.includes('الكود:')&&!qb.includes('الكمية')&&!qb.includes('الحالة الفنية'),'saved: QR has only the chosen fields');ok(/^📍 موقع الأصل\nالمبنى: .+\nالطابق: .+\nالغرفة: .+\(رقم 3\)\n— بيانات الأصل —\nرقم الأصل: 101\d{8}/.test(qt),'QR text: location first, then the asset');
+ const qb=await p.evaluate(c0=>qrText(S.collections.find(x=>x.id===c0)),ids.c0);ok(qb.includes('المبنى:')&&qb.includes('الكود:')&&!qb.includes('الكمية')&&!qb.includes('الحالة الفنية'),'saved: QR has only the chosen fields');ok(/^📍 موقع الأصل\nالمبنى: .+\nالطابق: .+\nالغرفة: .+\(رقم 3\)\n— بيانات الأصل —\nTag Number: 101\d{8}/.test(qt),'QR text: location first, then the asset');
  await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#lbl');
  const [pop2]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop2.waitForSelector('.lb .qr svg',{timeout:20000});
  const box=await pop2.$eval('.lb',e=>{const r=e.getBoundingClientRect();return [Math.round(r.width/37.8*10)/10,Math.round(r.height/37.8*10)/10]});ok(box[0]===5&&box[1]===3,'label printed 5 × 3 cm ('+box+')');ok(!!(await pop2.$('.lb .lg img'))&&(await pop2.textContent('.lb .ft')).includes('Please do not remove'),'printed label: logo + footer');await pop2.screenshot({path:B+'/shots/43-labels-5x3.png'});await pop2.close();
  const [d1]=await Promise.all([p.waitForEvent('download'),p.click('#rep')]);ok(!!d1,'school report downloaded');
  const sheets=await p.evaluate(async b=>{const wb=XLSX.read(Uint8Array.from(atob(b),c=>c.charCodeAt(0)),{type:'array'});return wb.SheetNames.join(',')+'|'+XLSX.utils.sheet_to_json(wb.Sheets['English'],{header:1})[5][0]},require('fs').readFileSync(await d1.path()).toString('base64'));
- ok(sheets.startsWith('عربي,English|Label Number'),'report sheets '+sheets);
+ ok(sheets.startsWith('عربي,English|Tag Number'),'report sheets '+sheets);
  // NV18: full Excel with photos + QR + asset number
  await p.evaluate(async c0=>{const c=S.collections.find(x=>x.id===c0);c.asset_image=await storePhoto(await (await fetch('/tests/b.png')).blob());save('collections')},ids.c0);
  const [dF]=await Promise.all([p.waitForEvent('download',{timeout:60000}),p.click('#full')]);const fx=await p.evaluate(async b=>{const wb=new ExcelJS.Workbook();await wb.xlsx.load(Uint8Array.from(atob(b),c=>c.charCodeAt(0)).buffer);const d=wb.getWorksheet('البيانات'),ph=wb.getWorksheet('صور الأصول');return [d.rowCount,d.getRow(1).getCell(1).value,ph.rowCount,ph.getImages().length,d.getRow(1).values.slice(1).join('|')]},require('fs').readFileSync(await dF.path()).toString('base64'));
  ok(fx[0]===4&&fx[1]==='ID'&&fx[2]===4&&fx[3]===4,'full Excel: 3 assets, 3 QR + 1 photo');
- ok(fx[4]==='ID|Employee|Employee #|School Name|MOE Number|School Identifier|City|District|Site|Floor|Room Number|Room Name|Category|Asset Type|Level 2|Level 3|Asset Code|Critical|Condition|Quantity|Price|Manufacturer|Brand|Model|Capacity|Serial Number|Agency|Warranty|Installation Date|ASAD Country|ASAD Tag #|Parent/Child|Notes|School Image URL|Location Diagram URL|Asset Image URL|Asset Image 2 URL|Submitted At|Created At|Label Number','columns in the approved order, no Status');require('fs').copyFileSync(await dF.path(),B+'/shots/full-report.xlsx');
+ ok(fx[4]==='ID|Employee|Employee #|School Name|MOE Number|School Identifier|City|District|Site|Floor|Room Number|Room Name|Category|Asset Type|Level 2|Level 3|Asset Code|Critical|Condition|Quantity|Price|Manufacturer|Brand|Model|Capacity|Serial Number|Agency|Warranty|Installation Date|Tag Number|Parent/Child|Notes|School Image URL|Location Diagram URL|Asset Image URL|Asset Image 2 URL|Submitted At|Created At|Label Number','columns in the approved order, no Status');require('fs').copyFileSync(await dF.path(),B+'/shots/full-report.xlsx');
  await p.goto(U+'#admin/collections/'+ids.c0);await p.waitForSelector('#qr1 svg',{timeout:20000});ok(true,'QR on the asset page');
  // notifications
  await p.goto(U+'#admin');await p.waitForSelector('[data-nv-notif] .badge');ok((await p.textContent('[data-nv-notif] .badge')).trim()==='2','2 new notifications');

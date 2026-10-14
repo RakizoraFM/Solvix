@@ -14,17 +14,17 @@ const NV_ORDER=['categories','conditions','rooms','types','employees','schools',
 const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','email','created_at'],
   schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at','lat','lng'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
-    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','parent_child','tag','submitted_at','created_at','geo_dist','review_status','review_note','reviewed_at','reviewed_by']};
+    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','submitted_at','created_at','geo_dist','review_status','review_note','reviewed_at','reviewed_by']};
 const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag','review_note']);
 const tsNorm=v=>{if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?v:d.toISOString()};
-const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),snap:{},uploaded:new Set(),dirty:new Set(),err:null,syncing:false,again:false,lastPull:0,tablesMissing:false,
+const Cloud={skip:new Set(),on:false,client:null,role:null,emp:null,user:null,busy:new Set(),snap:{},uploaded:new Set(),dirty:new Set(),err:null,syncing:false,again:false,lastPull:0,tablesMissing:false,
   cfg(){try{const o=JSON.parse(localStorage.getItem(NV_CFG_KEY)||'null');if(cfgOk(o))return {url:String(o.url).replace(/\/+$/,''),key:o.key}}catch(e){}return cfgOk(SOLVIX_CFG)?SOLVIX_CFG:null},
   setCfg(o){if(!cfgOk(o))throw new Error('تحقق من رابط المشروع والمفتاح العام (لا تستخدم مفتاح service_role / secret أبداً).');localStorage.setItem(NV_CFG_KEY,JSON.stringify({url:o.url.trim().replace(/\/+$/,''),key:o.key.trim()}))},
   link(){const c=this.cfg();return c?location.origin+location.pathname+'#cfg='+encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(c))))):''},
   async sb(){if(this.client)return this.client;if(!(window.supabase&&window.supabase.createClient))await loadScript(NV_LIB);const c=this.cfg();
     this.client=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'solvix-auth'}});return this.client},
   chk({data,error}){if(error)throw new Error(error.message||String(error));return data},
-  canon(t,r){const o={};for(const k of NV_COLS[t]){let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
+  canon(t,r){const o={};for(const k of NV_COLS[t]){if(this.skip.has(t+'.'+k))continue;let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='extra_images')v=Array.isArray(v)?v.filter(Boolean):[];if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
   key(t,r){return JSON.stringify(this.canon(t,r))},
   /* ---- start-up: who is signed in, and which role he has in Novaro ---- */
   async init(){
@@ -60,7 +60,7 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
         if(t==='schools'&&this.role==='tech'){/* a technician only finishes a school, through the server function */
           for(const [r,row,js] of upd){const was=JSON.parse(snap[r.id]);if(row.completed_at&&!was.completed_at){this.chk(await c.rpc('nv_complete_school',{p_school:r.id}))}snap[r.id]=js}
           await this.persistSnap();continue}
-        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image);await this.uploadPhoto(r.asset_image2)}
+        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image);await this.uploadPhoto(r.asset_image2);for(const x of r.extra_images||[])await this.uploadPhoto(x)}
         for(let i=0;i<ins.length;i+=300){const part=ins.slice(i,i+300);const back=this.chk(await c.from(NV_T[t]).insert(part.map(x=>x[1])).select(t==='collections'?'id,no':'id'));
           for(const [r,,js] of part){snap[r.id]=js}if(t==='collections')for(const b of back||[]){const r=S.collections.find(x=>x.id===b.id);if(r)r.no=b.no}await this.persistSnap()}
         if(this.role==='admin'){for(let i=0;i<upd.length;i+=300){const part=upd.slice(i,i+300);this.chk(await c.from(NV_T[t]).upsert(part.map(x=>x[1]),{onConflict:'id'}));for(const [r,,js] of part)snap[r.id]=js;await this.persistSnap()}}
@@ -70,7 +70,12 @@ const Cloud={on:false,client:null,role:null,emp:null,user:null,busy:new Set(),sn
       if(this.role==='admin'&&['owner','manager'].includes(this.staffRole||'owner')){const st={app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null,geo:S.settings.geo||null};const js=JSON.stringify(st);
         if(this.snap.settings.data!==js){this.chk(await c.from('nv_settings').update({data:st,updated_at:new Date().toISOString()}).eq('id',1));this.snap.settings.data=js;await this.persistSnap()}}
       await saveNow('collections');this.err=null;
-    }catch(e){this.err=e;console.warn('Novaro sync:',e.message);clearTimeout(this._r);this._r=setTimeout(()=>this.sync(),30000);if(!this._shown){this._shown=1;toast('لم تُرسل بعض البيانات بعد: '+e.message,5000)}}
+    }catch(e){
+      /* NV27 — a database not yet updated (solvix_setup.sql not run since a new column): send without that column instead of stopping; it is tried again next session */
+      const mc=/Could not find the '([a-z0-9_]+)' column of '([a-z_]+)'|column "?([a-z0-9_]+)"? of relation "?([a-z_]+)"? does not exist/i.exec(e.message||'');
+      if(mc){const col=mc[1]||mc[3],tb=Object.keys(NV_T).find(k=>NV_T[k]===(mc[2]||mc[4]));if(tb&&!this.skip.has(tb+'.'+col)){this.skip.add(tb+'.'+col);this.dbOld=[...this.skip].map(x=>x.split('.')[1]);console.warn('Solvix: the database misses column',tb,col);
+        for(const id in this.snap[tb]){try{const o=JSON.parse(this.snap[tb][id]);delete o[col];this.snap[tb][id]=JSON.stringify(o)}catch(x){}}this.again=true;this.err=null;return}}
+      this.err=e;console.warn('Novaro sync:',e.message);clearTimeout(this._r);this._r=setTimeout(()=>this.sync(),30000);if(!this._shown){this._shown=1;toast('لم تُرسل بعض البيانات بعد: '+e.message,5000)}}
     finally{this.syncing=false;this.badge();if(this.again){this.again=false;this.sync()}}
   },
   /* ---- pull: the server copy, keeping rows changed on this device that are not sent yet ---- */

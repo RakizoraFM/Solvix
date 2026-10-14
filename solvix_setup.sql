@@ -141,6 +141,7 @@ alter table public.nv_collections add column if not exists asset_image2 text; --
 alter table public.nv_schools add column if not exists lat numeric(10,8);
 alter table public.nv_schools add column if not exists lng numeric(11,8);
 alter table public.nv_collections add column if not exists geo_dist int;
+alter table public.nv_collections add column if not exists extra_images text[] not null default '{}'; -- NV27: optional extra photos
 alter table public.nv_collections add column if not exists review_status text;
 alter table public.nv_collections add column if not exists review_note text not null default '';
 alter table public.nv_collections add column if not exists reviewed_at timestamptz;
@@ -168,7 +169,7 @@ begin
   if tg_op = 'UPDATE' and old.submitted_at is not null then
     o := to_jsonb(old); n := to_jsonb(new);
     for k in select unnest(array['category_id','type_id','condition_id','quantity','price','status','manufacturer','brand','model','capacity','serial','agency',
-               'warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','parent_child','tag','notes','floor','room_number','room_name_id','employee_id','school_id','school_image']) loop
+               'warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','notes','floor','room_number','room_name_id','employee_id','school_id','school_image']) loop
       if (o->k) is distinct from (n->k) then ch := ch || jsonb_build_object(k, jsonb_build_object('old', o->k, 'new', n->k)); end if;
     end loop;
     if ch <> '{}' then

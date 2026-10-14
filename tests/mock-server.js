@@ -3,7 +3,7 @@ module.exports=function(){
  const db={nv_categories:[],nv_conditions:[],nv_rooms:[],nv_types:[],nv_employees:[],nv_schools:[],nv_collections:[],nv_log:[],nv_settings:[{id:1,data:{}}],nv_staff:[{user_id:'u-admin',email:'admin@x.com',name:'Admin',role:'admin',active:true,created_at:'2026-01-01'}]};
  const users={'admin@x.com':{id:'u-admin',pw:'adminpass',kind:'admin'}};const files={};let no=0;const resets=[];const mails=[];
  const who=u=>{if(!u)return {role:null};const x=Object.entries(users).find(([e,v])=>v.id===u.id);if(!x)return {role:null};if(x[1].kind==='admin')return {role:'admin',staff_role:'owner'};if(['owner','manager','coordinator'].includes(x[1].kind))return {role:'admin',staff_role:x[1].kind};if(x[1].kind==='reader')return {role:'reader',staff_role:'reader'};const emp=db.nv_employees.find(e=>e.user_id===u.id);return emp?{role:'tech',emp}:{role:null}};
- const err=m=>({data:null,error:{message:m}});
+ const err=m=>({data:null,error:{message:m}});const noCols=new Set();
  const vis=(t,me)=>{let rows=db[t];if(me.role==='tech'){if(t==='nv_collections')rows=rows.filter(r=>r.employee_id===me.emp.id);if(t==='nv_employees')rows=rows.filter(r=>r.id===me.emp.id);if(t==='nv_log')rows=[]}else if(me.role!=='admin'&&me.role!=='reader'&&t!=='nv_settings')rows=[];return rows};
  const match=(r,f)=>f.every(([op,k,v])=>op==='eq'?String(r[k])===String(v):v.map(String).includes(String(r[k])));
  const open=(sid,me)=>{const s=db.nv_schools.find(x=>x.id===sid);return s&&s.status==='active'&&!s.completed_at&&!db.nv_collections.some(c=>c.school_id===sid&&c.employee_id!==me.emp.id)};
@@ -30,6 +30,7 @@ module.exports=function(){
   if(!db[t])return err(`relation "public.${t}" does not exist`);
   if(s.op==='select'){if(!me.role&&t!=='nv_settings')return err('permission denied for table '+t);let rows=vis(t,me).filter(r=>match(r,s.filters));if(s.range)rows=rows.slice(s.range[0],s.range[1]+1);if(s.limit)rows=rows.slice(0,s.limit);rows=JSON.parse(JSON.stringify(rows));return {data:s.single?(rows[0]||null):rows,error:null}}
   const admin=me.role==='admin',tech=me.role==='tech';
+  if(['insert','upsert','update'].includes(s.op))for(const r of (s.rows||[s.patch]))for(const k of Object.keys(r||{}))if(noCols.has(t+'.'+k))return err(`Could not find the '${k}' column of '${t}' in the schema cache`);
   if(s.op==='insert'||s.op==='upsert'){const out=[];for(const r0 of s.rows){const r=Object.assign({},r0);const ex=db[t].find(x=>x.id===r.id);
      if(!admin){if(!(tech&&t==='nv_collections'&&r.employee_id===me.emp.id&&(ex||open(r.school_id,me))))return err('new row violates row-level security policy for table "'+t+'"')}
      if(ex){if(s.op==='insert')return err('duplicate key value violates unique constraint');upd(t,ex,r,me)}else{if(t==='nv_collections'){r.no=++no;r.updated_at=new Date().toISOString()}db[t].push(r);out.push(r)}}
@@ -39,5 +40,5 @@ module.exports=function(){
   return err('bad op')};
  const upd=(t,r,p,me)=>{if(t==='nv_collections'&&r.submitted_at){const ch={};for(const k of LOGK)if(k in p&&JSON.stringify(r[k]??null)!==JSON.stringify(p[k]??null))ch[k]={old:r[k]??null,new:p[k]??null};if(Object.keys(ch).length)db.nv_log.unshift({id:'l'+Math.random(),at:new Date().toISOString(),by:me.role==='admin'?'admin':'emp:'+me.emp.id,coll:r.id,school:r.school_id,emp:r.employee_id,changes:ch})}
    Object.assign(r,p);if(t==='nv_collections')r.updated_at=new Date().toISOString()};
- return {db,files,users,resets,mails,handle:j=>JSON.stringify(handle(JSON.parse(j)))};
+ return {db,files,users,resets,mails,noCols,handle:j=>JSON.stringify(handle(JSON.parse(j)))};
 };

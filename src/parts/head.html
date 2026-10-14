@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV26">
+<meta name="fm-version" content="NV27">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -36,6 +36,10 @@ body.nv-field.nv-en{font-family:"Inter",sans-serif}
 .nv-ret{border:1px solid #fecaca;background:#fef2f2;border-radius:1rem;padding:.9rem 1rem;color:#991b1b}.nv-ret>b{display:block;margin-bottom:.4rem}.nv-ret small{display:block;font-size:.78rem;color:#7f1d1d}
 .nv-ret a{display:block;background:#fff;border:1px solid #fecaca;border-radius:.7rem;padding:.5rem .7rem;margin-top:.4rem;color:#111827;text-decoration:none;font-size:.85rem}
 .nv-badge{display:inline-block;font-size:.68rem;font-weight:700;border-radius:99px;padding:.05rem .5rem;vertical-align:middle}.nv-badge.r{background:#fee2e2;color:#b91c1c}.nv-badge.g{background:#dcfce7;color:#15803d}
+.nv-tagno{border:1px dashed #93c5fd;background:#eff6ff;border-radius:.75rem;padding:.6rem .9rem}.nv-tagno b{display:block;font-size:1.15rem;letter-spacing:.05em;color:#1e3a8a;font-family:ui-monospace,monospace}.nv-tagno small{display:block;font-size:.75rem;color:#475569}
+.nv-src{display:flex;gap:.35rem;margin-top:.45rem}.nv-src label{flex:1;cursor:pointer;background:#fff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:.55rem;padding:.35rem .2rem;font-size:.75rem;font-weight:700;position:relative}
+.nv-src label:active{background:#dbeafe}.nv-extra{grid-template-columns:repeat(3,1fr)}.nv-extra .nv-shot-pv{height:5.5rem}.nv-plus .nv-shot-pv{font-size:2rem;color:#2563eb;font-weight:300}
+.nv-x{position:absolute;top:.3rem;inset-inline-end:.3rem;width:1.7rem;height:1.7rem;border-radius:99px;border:0;background:rgba(15,23,42,.7);color:#fff;font-size:.8rem;line-height:1}
 .nv-kv{display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid #f1f5f9;padding:.45rem 0;font-size:.88rem}.nv-kv span{color:#64748b}
 #map,#location-map{height:300px;width:100%;border-radius:.75rem;border:1px solid #e5e7eb;z-index:1}
 </style>
@@ -144,6 +148,8 @@ body.login-page{background:linear-gradient(135deg,#0f172a,#1e3a8a 60%,#4c1d95)!i
 .nv-rv-ph img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}.nv-rv-ph figcaption{position:absolute;bottom:0;inset-inline:0;background:rgba(15,23,42,.6);color:#fff;font-size:.7rem;padding:.1rem .4rem}
 .nv-rv-ph figure.no{display:flex;align-items:center;justify-content:center;text-align:center;color:#b91c1c;font-size:.75rem;background:#fef2f2}
 [data-bs-theme=dark] .nv-rv-ph,[data-bs-theme=dark] .nv-rv-ph figure{background:#1e293b}
+/* NV27 sidebar sub-menu arrow: down when closed, up when open (same in RTL and LTR) */
+.app-sidebar .nav-arrow{transform:none!important;transition:transform .2s ease;font-size:.8rem;line-height:1;top:50%!important;margin-top:-.4em!important}.app-sidebar .menu-open>.nav-link .nav-arrow{transform:rotate(180deg)!important}
 /* empty states */
 .nv-empty{text-align:center;padding:2.6rem 1rem;color:#64748b}.nv-empty .ic{width:56px;height:56px;border-radius:16px;background:#eff6ff;color:#2563eb;display:inline-flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:.6rem}
 .nv-empty b{display:block;color:#0f172a;font-size:1rem;margin-bottom:.2rem}.nv-empty p{margin:0 auto .8rem;max-width:440px;font-size:.85rem}.nv-empty p:last-child{margin-bottom:0}

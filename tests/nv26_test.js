@@ -24,7 +24,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local',fs=require('fs');
  await p.selectOption('#floor-select','الأرضي');await p.selectOption('#room-number','1');await p.selectOption('#room-name',await p.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await p.click('#submit-btn');await p.waitForSelector('#a_category_id');
  const img=n=>({name:n+'.png',mimeType:'image/png',buffer:fs.readFileSync(B+'/'+n+'.png')});
  const fill=async()=>{await p.selectOption('#a_category_id',await p.$eval('#a_category_id',s=>s.options[2].value));await p.selectOption('#a_l2',{index:1});await p.selectOption('#a_l3',{index:1});await p.selectOption('#a_type_id',{index:1});
-   await p.setInputFiles('#aimg',img('b'));await p.setInputFiles('#aimg2',img('a'));await p.fill('#a_quantity','1');await p.fill('#a_price','100');await p.selectOption('#a_condition_id',{index:1});await p.check('[name=parent_child][value=Parent]')};
+   await p.setInputFiles('#aimg',img('b'));await p.setInputFiles('#aimg2',img('a'));await p.fill('#a_quantity','1');await p.fill('#a_price','100');await p.selectOption('#a_condition_id',{index:1});await p.selectOption('#a_parent_child','Parent')};
  await fill();await p.waitForFunction(()=>/كم/.test(document.querySelector('[data-shot="0"] [data-geo]').textContent));
  ok(await p.$eval('[data-shot="0"] [data-geo]',e=>e.classList.contains('far')&&e.textContent.includes('⚠️')),'photo tile: far from the school ('+(await p.textContent('[data-shot="0"] [data-geo]'))+')');
  await p.screenshot({path:B+'/shots/60-geo-tiles.png',clip:{x:0,y:600,width:1280,height:420}});

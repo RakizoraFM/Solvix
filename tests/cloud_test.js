@@ -1,5 +1,5 @@
 const {chromium}=(()=>{try{return require('playwright')}catch(e){return require('/opt/node-tools/node_modules/playwright')}})();require('fs').mkdirSync(__dirname+'/shots',{recursive:true});const fs=require('fs');
-const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-server.js')();
+const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-server.js')();M.noCols.add('nv_collections.geo_dist');M.noCols.add('nv_collections.review_status');/* NV27: a database where solvix_setup.sql was not re-run yet */
 (async()=>{
  const br=await chromium.launch();const errs=[];
  const mk=async(vw)=>{const ctx=await br.newContext({ignoreHTTPSErrors:true,acceptDownloads:true,permissions:['geolocation'],geolocation:{latitude:26.33,longitude:43.97},viewport:vw||{width:1280,height:900}});
@@ -27,10 +27,11 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await t.waitForSelector('#floor-select');await t.selectOption('#floor-select','الأرضي');await t.selectOption('#room-number','1');
  await t.selectOption('#room-name',await t.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await t.click('#submit-btn');await t.waitForSelector('#a_category_id');
  const fill=async q=>{await t.selectOption('#a_category_id',await t.$eval('#a_category_id',s=>s.options[2].value));await t.selectOption('#a_l2',{index:1});await t.selectOption('#a_l3',{index:1});await t.selectOption('#a_type_id',{index:1});await t.setInputFiles('#aimg',{name:'b.png',mimeType:'image/png',buffer:require('fs').readFileSync(B+'/b.png')});await t.setInputFiles('#aimg2',{name:'c.png',mimeType:'image/png',buffer:require('fs').readFileSync(B+'/a.png')});
-   await t.fill('#a_quantity',String(q));await t.fill('#a_price','99');await t.selectOption('#a_condition_id',{index:1});await t.check('[name=parent_child][value=Child]');await t.fill('#a_brand','LG')};
+   await t.fill('#a_quantity',String(q));await t.fill('#a_price','99');await t.selectOption('#a_condition_id',{index:1});await t.selectOption('#a_parent_child','Child');await t.fill('#a_brand','LG')};
  await fill(3);await t.click('#sb');await t.waitForSelector('#same');await t.waitForTimeout(1500);
  const c1=M.db.nv_collections.filter(c=>c.submitted_at);ok(c1.length===1&&c1[0].quantity===3&&c1[0].no===1,'record in cloud: '+c1.length);
  ok(M.files[c1[0].asset_image+'.jpg']&&M.files[c1[0].school_image+'.jpg'],'photos uploaded');
+ ok(!('geo_dist' in c1[0])&&(await t.evaluate(()=>(Cloud.dbOld||[]).join())).includes('geo_dist'),'NV27: old database (no geo_dist / review_status) — the record is still sent without those columns');
  // offline: the next asset waits on the phone, then goes when the connection returns
  await T.ctx.setOffline(true);await t.evaluate(()=>{window.__mockCallSaved=window.__mockCall;window.__mockCall=()=>Promise.reject(new Error('Failed to fetch'))});
  await t.click('#same');await t.waitForSelector('#a_category_id');await fill(2);await t.click('#sb');await t.waitForSelector('#same');await t.waitForTimeout(800);
