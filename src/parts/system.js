@@ -20,7 +20,7 @@ function vPlatformGuide(){
  ${list.map(f=>`<details class="sx36-card" id="guide-${esc(f.id)}"><summary><b>${esc(f.name)}</b></summary><p><b>ما هي؟</b> ${esc(f.what)}</p><p><b>أين تجدها؟</b> ${esc(f.where)}</p><p><b>كيف تستخدمها؟</b></p><ol>${f.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol><p><b>من يستخدمها؟</b> ${esc(f.who)}</p><small>تمت المراجعة في ${esc(f.reviewed_in)}</small></details>`).join('')||'<p class="sx36-card">لا توجد نتائج. جرّب كلمة أخرى.</p>'}`);
  $('#guideSearch').onsubmit=e=>{e.preventDefault();go(base+'?q='+encodeURIComponent(new FormData(e.target).get('q')||''))};
 }
-function systemHistoryLinks(active){return `<nav class="sx36-actions" aria-label="سجلات النظام">${[['system','إدارة النظام'],['releases','سجل الإصدارات والفحص'],['usage','نشاط المستخدمين'],['guide','دليل المنصة']].map(([k,l])=>`<a href="#admin/${k}" ${active===k?'aria-current="page"':''}>${l}</a>`).join('')}</nav>`}
+function systemHistoryLinks(active){return `<nav class="sx36-actions" aria-label="سجلات النظام">${[['system','إدارة النظام'],['clients','العملاء والاشتراكات'],['releases','سجل الإصدارات والفحص'],['usage','نشاط المستخدمين'],['guide','دليل المنصة']].map(([k,l])=>`<a href="#admin/${k}" ${active===k?'aria-current="page"':''}>${l}</a>`).join('')}</nav>`}
 function vReleases(){if(!isSys())return go('#admin/guide');
  const status={passed:'نجح',pending:'قيد التحقق',not_run:'لم يُنفذ'};
  opsShell('releases','سجل الإصدارات والفحص',`${systemHistoryLinks('releases')}<h3>سجل الإصدارات والفحص</h3><p class="sx36-note">هذه نتائج اختبار الحزمة المسجلة عند إعداد الإصدار، وليست فحصاً مباشراً لقاعدة بياناتك أو إثباتاً لنجاح النشر. يشمل السجل الإصدارات التي تتوفر لها نتائج موثقة.</p>

@@ -77,13 +77,12 @@ function adminShell(active,title,content){
     ${!can('review')?'':navItem('#admin/review','bi-images','مراجعة الصور'+(reviewPending()?` <span class="badge text-bg-warning ms-1" data-nv-revn>${reviewPending()}</span>`:''),A('review'))}
     ${navTree('bi-building','المباني',A('schools')||A('schools.create')||A('schools.edit'),[navItem('#admin/schools','bi-list','كل المباني',A('schools')),navItem('#admin/schools/create','bi-plus-circle','إضافة مبنى',A('schools.create'))])}
     ${navItem('#admin/employees','bi-people','المستخدمون',active.startsWith('employees')||A('users'))}
-    ${isSys()?navItem('#admin/clients','bi-buildings','العملاء والاشتراكات',A('clients')):''}
     <li class="nav-header">النظام</li>
+    ${isSys()?navItem('#admin/clients','bi-buildings','العملاء والاشتراكات',A('clients')):''}
     ${navItem('#admin/guide','bi-book','دليل المنصة',A('guide'))}
     ${isSys()?navItem('#admin/releases','bi-clock-history','الإصدارات والفحص',A('releases'))+navItem('#admin/usage','bi-person-lines-fill','نشاط المستخدمين',A('usage')):''}
     ${navItem(isSys()?'#admin/system':can('settings')?'#admin/settings':'#admin/asset-types','bi-gear','الإعدادات',A('settings')||A('label')||A('system')||A('subscription')||A('room-templates')||!!LK[active.split('.')[0]])}
     ${can('backup')||can('export')||can('import')?navItem('#admin/data','bi-database','البيانات والنسخ',A('data')):''}
-    ${navItem('#admin/log','bi-journal-text','سجل التعديلات',A('log'))}
     ${can('delete')?navItem('#admin/trash','bi-trash3','سلة محذوفات الأصول',A('trash')):''}
     <li class="nav-item"><a href="javascript:void 0" class="nav-link" data-nv-logout><i class="nav-icon bi bi-box-arrow-right"></i><p>تسجيل الخروج</p></a></li>
    </ul></nav></div></aside>
@@ -105,8 +104,8 @@ document.addEventListener('click',e=>{
   const nl=e.target.closest('.app-sidebar a.nav-link[href^="#"]');if(nl&&window.innerWidth<992)document.body.classList.remove('sidebar-open');
 });
 /* NV10 — the reference lists live under «الإعدادات» as tabs */
-function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&k!=='system'&&k!=='releases'&&k!=='usage'&&k!=='guide'&&k!=='subscription'&&k!=='room-templates'&&k!=='approval-path'&&!LK[k])return '';
-  const T=[['guide','bi-book','دليل المنصة'],...(isSys()?[['system','bi-shield-lock','إدارة النظام (Admin)'],['releases','bi-clock-history','الإصدارات والفحص'],['usage','bi-person-lines-fill','نشاط المستخدمين']]:Cloud.on?[['subscription','bi-patch-check','الاشتراك والاستخدام']]:[]),...(can('settings')?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],...(can('settings')?[['room-templates','bi-ui-checks-grid','قوالب الغرف'],['approval-path','bi-signpost-split','مسار الاعتماد']]:[]),['asset-conditions','bi-shield-check','حالات الأصول']];
+function settingsTabs(active){const k=active.split('.')[0]==='asset-categories'?'asset-types':active.split('.')[0];if(k!=='settings'&&k!=='label'&&k!=='system'&&k!=='clients'&&k!=='releases'&&k!=='usage'&&k!=='guide'&&k!=='subscription'&&k!=='room-templates'&&k!=='approval-path'&&!LK[k])return '';
+  const T=[['guide','bi-book','دليل المنصة'],...(isSys()?[['system','bi-shield-lock','إدارة النظام (Admin)'],['clients','bi-buildings','العملاء والاشتراكات'],['releases','bi-clock-history','الإصدارات والفحص'],['usage','bi-person-lines-fill','نشاط المستخدمين']]:Cloud.on?[['subscription','bi-patch-check','الاشتراك والاستخدام']]:[]),...(can('settings')?[['settings','bi-sliders','الإعدادات العامة'],['label','bi-qr-code','إعدادات الملصق']]:[]),['asset-types','bi-diagram-3','دليل الأصول'],['room-names','bi-door-open','أسماء الغرف'],...(can('settings')?[['room-templates','bi-ui-checks-grid','قوالب الغرف'],['approval-path','bi-signpost-split','مسار الاعتماد']]:[]),['asset-conditions','bi-shield-check','حالات الأصول']];
   return `<ul class="nav nav-pills nv-set-tabs flex-nowrap overflow-auto gap-1 mb-3 pb-1">${T.map(([id,ic,l])=>`<li class="nav-item"><a class="nav-link text-nowrap ${k===id?'active':''}" href="#admin/${id}"><i class="bi ${ic} me-1"></i>${l}</a></li>`).join('')}</ul>`}
 const iconBtn=(href,icon,title)=>`<a href="${href}" class="btn btn-icon btn-sm btn-light border shadow-sm rounded-circle"${title?` title="${title}"`:''}><i class="bi ${icon}"></i></a>`;
 
@@ -1158,7 +1157,7 @@ async function vSystem(){if(!isSys())return go(can('settings')?'#admin/settings'
   $('#subEnd').onclick=()=>{if(prompt('سيصبح النظام للقراءة فقط فوراً لكل المستخدمين (بدون فترة سماح). اكتب «إنهاء» للتأكيد:')!=='إنهاء')return;save({ends_at:new Date(Date.now()-6e4).toISOString(),grace_days:0},'end','تم إنهاء الاشتراك — النظام للقراءة فقط.')};
   $('#admF').onsubmit=async e=>{e.preventDefault();try{await rpc('nv_staff_create',{p_email:$('#a_e').value.trim(),p_password:$('#a_p').value,p_name:$('#a_n').value.trim(),p_role:'sysadmin'});setAFlash(`تمت إضافة Admin: ${$('#a_e').value.trim()} — كلمة المرور: ${$('#a_p').value}`)}catch(er){setAFlash(er.message,'danger')}vSystem()};
   $$('[data-system-delete]').forEach(b=>b.onclick=async()=>{try{if(await deleteLogin(b.dataset.systemDelete))vSystem()}catch(e){alert(e.message)}});
-  $('[data-adm]').forEach(x=>x.onchange=async()=>{try{await rpc('nv_staff_set',{p_user:x.dataset.adm,p_role:'sysadmin',p_active:x.checked});setAFlash(x.checked?'تم تفعيل الحساب.':'تم إيقاف حساب Admin.')}catch(er){setAFlash(er.message,'danger')}vSystem()});
+  $$('[data-adm]').forEach(x=>x.onchange=async()=>{try{await rpc('nv_staff_set',{p_user:x.dataset.adm,p_role:'sysadmin',p_active:x.checked});setAFlash(x.checked?'تم تفعيل الحساب.':'تم إيقاف حساب Admin.')}catch(er){setAFlash(er.message,'danger')}vSystem()});
   $$('[data-ptab]').forEach(a=>a.onclick=()=>{$$('[data-ptab]').forEach(x=>x.classList.toggle('active',x===a));$$('[data-pane]').forEach(x=>x.classList.toggle('d-none',x.dataset.pane!==a.dataset.ptab))});
   $('#pq').oninput=e=>{const q=e.target.value.trim().toLowerCase();$$('.nv-ptab tbody tr[data-q]').forEach(r=>r.hidden=!!q&&!r.dataset.q.includes(q))};
   const permsOf=(who,id)=>{const row=$$(`[data-pw="${who}"][data-id="${CSS.escape(id)}"]`);const role=who==='e'?'field':((others.find(u=>u.user_id===id)||{}).role||'reader');const o={};
