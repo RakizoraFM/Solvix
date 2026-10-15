@@ -30,6 +30,8 @@ function fieldLayout(inner){
   app().className='contents';
   app().innerHTML=`<header class="bg-white shadow-sm py-4 px-6 flex justify-between items-center">
     <a href="#login" class="flex items-center gap-3 text-decoration-none"><img src="${esc(S.settings.logo||NV_ICON)}" alt="${esc(appName())}" class="h-12 w-auto"><h1 class="text-xl font-bold text-gray-800">${esc(appName())}</h1></a>
+    ${curEmp()?'<a href="#tasks" class="nv-scanbtn">✓ '+tx('مهامي','My tasks')+'</a>':''}
+    ${curEmp()?'<a href="#guide" class="nv-scanbtn">📖 '+tx('دليل المنصة','Platform guide')+'</a>':''}
     ${curEmp()?`<a href="javascript:void 0" id="scanQR" class="nv-scanbtn" title="${tx('مسح ملصق أصل','Scan an asset label')}">📷 ${tx('مسح','Scan')}</a>`:''}<a href="javascript:void 0" id="langSw" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-bold">${ar?'English':'العربية'}</a></header>
   ${Cloud.on&&Cloud.role==='tech'&&curEmp()?'<div id="nvPend" class="nv-pend" hidden></div>':''}${Cloud.on&&Cloud.role==='tech'&&Cloud.sub&&Cloud.sub.ok===false?`<div class="nv-pend err" data-sub="over">🔒 ${tx('انتهى الاشتراك — التطبيق للقراءة فقط. لا يمكن جرد أو تعديل أصول حتى التجديد.','The subscription has ended — read only. No new or edited assets until it is renewed.')}</div>`:''}<main class="flex-grow flex items-center justify-center p-4">${inner}</main>
   <div id="lb" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4" x-cloak style="display:none">
@@ -48,9 +50,7 @@ function fieldLayout(inner){
 const img=(k,cls,empty)=>k?`<img data-photo="${esc(k)}" class="${cls}" alt="">`:empty;
 
 /* cloud: send what is left, then sign out (warn when something could not be sent) */
-async function cloudLogoutOk(){if(!Cloud.on)return true;await Cloud.sync();const n=Cloud.pendingCount();
-  if(n&&!confirm(tx(`لم تُرسل ${n} من التعديلات بعد (لا يوجد اتصال). ستبقى على هذا الجهاز وتُرسل عند دخولك مرة أخرى. خروج على أي حال؟`,`${n} changes are not sent yet (no connection). They stay on this device and are sent when you sign in again. Sign out anyway?`)))return false;
-  await Cloud.signOut();return true}
+async function cloudLogoutOk(){if(!Cloud.on)return true;return (await Cloud.signOut())!==false}
 /* sign-in (NV7 layout, same fields as login.blade.php) */
 function vLogin(err,val){if(Cloud.on){if(!err&&Cloud.role==='tech'&&Cloud.emp){setSess({emp:Cloud.emp.id,school:null,coll:null});return go('#employee-data')}if(!err&&isAuthed())return go('#admin');return vCloudLogin(err)}
   const remembered=lsGet('nv_remember_tech','');
@@ -91,27 +91,27 @@ function vEmployee(){
 }
 
 /* school.blade.php */
-function schoolBlock(sc,empId){if(sc.status==='inactive'||sc.completed_at||S.collections.some(c=>c.school_id===sc.id&&c.employee_id!==empId)||(Cloud.on&&Cloud.busy.has(sc.id)))return t('This school is inactive, already completed, or being worked on by another employee.');return ''}
+function schoolBlock(sc,empId){if(sc.status==='inactive'||sc.completed_at||S.collections.some(c=>c.school_id===sc.id&&c.employee_id!==empId)||(Cloud.on&&Cloud.busy.has(sc.id)))return t('This building is inactive, already completed, or being worked on by another employee.');return ''}
 function vSchool(err){
   if(!needEmp())return;if(Cloud.on&&(!can('collect')||(Cloud.sub&&Cloud.sub.ok===false))){setFlash(Cloud.sub&&Cloud.sub.ok===false?tx('انتهى الاشتراك — لا يمكن بدء جرد جديد حتى التجديد.','The subscription has ended — no new collection until it is renewed.'):tx('ليست لديك صلاحية جرد أصول جديدة. راجع مدير المشروع.','You are not allowed to collect new assets. Ask the project manager.'));return go('#employee-data')}const e=curEmp();let selected=null,timer;
   fieldLayout(`<section id="screen-school" class="w-full max-w-2xl"><div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
-  <h2 class="text-2xl font-bold text-center mb-6">${t('Select School')}</h2>
-  <p class="text-gray-500 text-center mb-8">${t('Please search by school name, MOE number or identifier and select a school from the list')}</p>
-  <div class="relative mb-8"><label class="block text-sm font-medium text-gray-700 mb-2">${t('Search School')}</label>
+  <h2 class="text-2xl font-bold text-center mb-6">${t('Select Building')}</h2>
+  <p class="text-gray-500 text-center mb-8">${t('Please search by building name, building number or identifier and select a building from the list')}</p>
+  <div class="relative mb-8"><label class="block text-sm font-medium text-gray-700 mb-2">${t('Search Building')}</label>
    <div class="grid grid-cols-2 gap-3 mb-3"><select id="fcity" class="${INPUT}"><option value="">${tx('كل المحافظات','All cities')}</option>${[...new Set(S.schools.filter(s=>s.status==='active').map(s=>s.city).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar')).map(c=>`<option>${esc(c)}</option>`).join('')}</select>
     <select id="fdist" class="${INPUT}"><option value="">${tx('كل الأحياء / المكاتب','All districts')}</option></select></div>
-   <label class="flex items-center gap-2 mb-3 text-sm text-gray-600"><input type="checkbox" id="favail" checked class="w-4 h-4"> ${tx('المدارس المتاحة فقط (غير المحجوزة)','Available schools only (not claimed)')}</label>
-   <input type="text" id="q" autocomplete="off" class="${INPUT}" placeholder="${esc(t('Search by Name, MOE or ID (2+ characters)...'))}">
+   <label class="flex items-center gap-2 mb-3 text-sm text-gray-600"><input type="checkbox" id="favail" checked class="w-4 h-4"> ${tx('المباني المتاحة فقط (غير المحجوزة)','Available buildings only (not claimed)')}</label>
+   <input type="text" id="q" autocomplete="off" class="${INPUT}" placeholder="${esc(t('Search by Name, Building Number or ID (2+ characters)...'))}">
    <ul id="res" class="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto" style="display:none"></ul>
    <p id="hint" class="mt-2 text-xs text-blue-500 italic" style="display:none">${t('Type at least 2 characters to search')}</p></div>
   <form id="f">
    <div id="sel" class="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl" style="display:none"></div>
-   <div id="up" class="mb-8" style="display:none"><label class="block text-sm font-medium text-gray-700 mb-2">${t('School Image Source')}</label>
+   <div id="up" class="mb-8" style="display:none"><label class="block text-sm font-medium text-gray-700 mb-2">${t('Building Image Source')}</label>
     <div class="flex gap-6 mb-4">
      <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="upload_method" value="camera" checked class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"><span class="text-sm text-gray-700 font-medium">${t('Take Photo')}</span></label>
      <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="upload_method" value="gallery" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"><span class="text-sm text-gray-700 font-medium">${t('Upload from Gallery')}</span></label></div>
     <div class="relative"><input type="file" name="school_image" id="school-image" accept="image/*" capture="environment" class="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"></div>
-    <p class="mt-2 text-xs text-gray-500">${t('Please provide one JPG or PNG image for this school')}</p><div id="cur"></div><p id="eimg" class="mt-2 text-sm text-red-600"></p></div>
+    <p class="mt-2 text-xs text-gray-500">${t('Please provide one JPG or PNG image for this building')}</p><div id="cur"></div><p id="eimg" class="mt-2 text-sm text-red-600"></p></div>
    <p id="eid" class="mb-4 text-sm text-red-600">${esc(err||'')}</p>
    <div class="flex flex-col sm:flex-row gap-4"><a href="#employee-data" class="${BTN_BACK}">${t('Back')}</a><button type="submit" id="next" disabled class="${BTN_MAIN}">${t('Next')}</button></div></form>
   </div></section>`);
@@ -122,15 +122,15 @@ function vSchool(err){
   fd.onchange=()=>search();fa.onchange=()=>search();
   const search=()=>{const v=q.value.trim();const flt=fc.value||fd.value;hint.style.display=v.length>0&&v.length<2&&!flt?'':'none';if(v.length<2&&!flt){res.style.display='none';return}
     const n=v.length>=2?norm(v):'';const other=fa.checked?new Set(S.collections.filter(c=>c.employee_id!==e.id).map(c=>c.school_id)):null;const list=S.schools.filter(s=>s.status==='active'&&(!fc.value||s.city===fc.value)&&(!fd.value||s.district===fd.value)&&(!other||!(s.completed_at||other.has(s.id)||(Cloud.on&&Cloud.busy.has(s.id))))&&(!n||norm(s.moe).includes(n)||norm(s.ident).includes(n)||norm(s.name).includes(n))).slice(0,60);
-    res.innerHTML=list.map((s,i)=>`<li data-i="${i}" class="px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"><div class="font-bold text-gray-800">${esc(s.name)}</div><div class="text-xs text-gray-500">${t('MOE')}: ${esc(s.moe)} | ${t('ID')}: ${esc(s.ident)}</div><div class="text-xs text-gray-400">${esc(s.city)} - ${esc(s.district)}</div></li>`).join('');
+    res.innerHTML=list.map((s,i)=>`<li data-i="${i}" class="px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"><div class="font-bold text-gray-800">${esc(s.name)}</div><div class="text-xs text-gray-500">${t('Building Number')}: ${esc(s.moe)} | ${t('ID')}: ${esc(s.ident)}</div><div class="text-xs text-gray-400">${esc(s.city)} - ${esc(s.district)}</div></li>`).join('');
     res.style.display=list.length?'':'none';res.onclick=ev=>{const li=ev.target.closest('[data-i]');if(li)select(list[+li.dataset.i])}};
   q.addEventListener('input',()=>{clearTimeout(timer);hint.style.display=q.value.length>0&&q.value.length<2?'':'none';timer=setTimeout(search,300)});
   const select=s=>{selected=s;q.value=s.moe;res.style.display='none';$('#eid').textContent=schoolBlock(s,e.id);
-    $('#sel').style.display='';$('#sel').innerHTML=`<p class="text-xs text-blue-400 uppercase font-bold mb-3">${t('Selected School Details')}</p><div class="space-y-3"><div><p class="text-lg font-bold text-blue-800">${esc(s.name)}</p><p class="text-sm text-blue-600">${t('MOE')}: ${esc(s.moe)} | ${t('Identifier')}: ${esc(s.ident)}</p></div>
+    $('#sel').style.display='';$('#sel').innerHTML=`<p class="text-xs text-blue-400 uppercase font-bold mb-3">${t('Selected Building Details')}</p><div class="space-y-3"><div><p class="text-lg font-bold text-blue-800">${esc(s.name)}</p><p class="text-sm text-blue-600">${t('Building Number')}: ${esc(s.moe)} | ${t('Identifier')}: ${esc(s.ident)}</p></div>
      <div class="grid grid-cols-2 gap-4 pt-2 border-t border-blue-100"><div><p class="text-xs text-blue-400 font-medium">${t('City')}</p><p class="text-sm font-bold text-blue-700">${esc(s.city)}</p></div><div><p class="text-xs text-blue-400 font-medium">${t('District / Sector')}</p><p class="text-sm font-bold text-blue-700">${esc(s.district)}</p></div></div></div>`;
     const prev=(S.collections.find(c=>c.school_id===s.id&&c.employee_id===e.id&&c.school_image)||{}).school_image;selected._img=prev;
     $('#up').style.display='';$('#school-image').required=!prev;
-    $('#cur').innerHTML=prev?`<div class="mt-3 flex items-center gap-3 bg-green-50 p-2 rounded-xl border border-green-100">${img(prev,'h-12 w-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity','')}<p class="text-xs text-green-600 font-medium">${tx('صورة المدرسة محفوظة — اختر صورة جديدة فقط إن أردت استبدالها','School image saved — pick a new one only to replace it')}</p></div>`:'';hydratePhotos($('#cur'));
+    $('#cur').innerHTML=prev?`<div class="mt-3 flex items-center gap-3 bg-green-50 p-2 rounded-xl border border-green-100">${img(prev,'h-12 w-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity','')}<p class="text-xs text-green-600 font-medium">${tx('صورة المبنى محفوظة — اختر صورة جديدة فقط إن أردت استبدالها','Building image saved — pick a new one only to replace it')}</p></div>`:'';hydratePhotos($('#cur'));
     $('#next').disabled=false};
   $$('[name=upload_method]').forEach(r=>r.onchange=()=>{const i=$('#school-image');if(r.value==='camera')i.setAttribute('capture','environment');else i.removeAttribute('capture')});
   const s0=sess().school&&get('schools',sess().school);if(s0&&!s0.completed_at&&s0.status==='active')select(s0);
@@ -190,7 +190,7 @@ function vAsset(){
    <div data-lv>${L('a_l3',tx('المستوى الثالث','Level 3'),'',1)}<select id="a_l3" class="${INPUT}" disabled></select></div>
    <div>${L('a_type_id',t('Asset Type'),t('نوع الأصل'),1)}<select id="a_type_id" required class="${INPUT}" ${c.category_id?'':'disabled'}><option value="">${t('Select...')} / ${t('قائمة')}</option>${types.map(x=>`<option value="${esc(x.id)}" ${c.type_id===x.id?'selected':''}>${esc(x.ar)}${x.en?` (${esc(x.en)})`:''}</option>`).join('')}</select><div id="a_tinfo" class="mt-2 text-xs"></div></div>
    <div><label class="block text-sm font-medium text-gray-700 mb-1">${tx('صور الأصل من موقعه','Asset photos on site')} <span class="text-red-500">*</span></label>
-    <p class="text-xs text-gray-500 mb-3">${tx('صورتان إلزاميتان للأصل من الكاميرا أو المعرض، ويمكن إضافة صور أخرى بعلامة +. يُطبع على كل صورة الوقت والمدرسة والغرفة والموقع.','Two required photos from the camera or the gallery; add more with +. Time, school, room and location are printed on each photo.')}</p>
+    <p class="text-xs text-gray-500 mb-3">${tx('صورتان إلزاميتان للأصل من الكاميرا أو المعرض، ويمكن إضافة صور أخرى بعلامة +. يُطبع على كل صورة الوقت والمبنى والغرفة والموقع.','Two required photos from the camera or the gallery; add more with +. Time, building, room and location are printed on each photo.')}</p>
     <div class="nv-shots">${SHOTS.map((x,n)=>shotTile(n,c[x.k])).join('')}</div>
     <div class="${can('extra')?'':'hidden'}"><div class="text-sm font-medium text-gray-700 mt-4 mb-2">${tx('صور إضافية (اختيارية)','Extra photos (optional)')} <span class="text-xs text-gray-400" id="nvXn"></span></div><div class="nv-shots nv-extra" id="nvExtra"></div></div>
     <button type="button" id="ocr" class="nv-ocr">🔍 ${tx('قراءة لوحة البيانات تلقائياً (الرقم التسلسلي، الموديل، السعة، الماركة)','Read the nameplate (serial, model, capacity, brand)')}</button><p id="ocrMsg" class="nv-ocr-msg"></p>
@@ -211,7 +211,7 @@ function vAsset(){
    <p id="ferr" class="text-red-500 text-sm font-bold"></p>
    <div class="flex flex-col sm:flex-row gap-4 pt-4"><a href="#location" class="${BTN_BACK}">${t('Back')}</a><button type="submit" id="sb" class="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-200">${t('Save & Continue')}</button></div>
   </form></div></section>
-  ${done.length?`<section id="screen-school-assets" class="w-full"><div class="bg-white p-6 md:p-8 rounded-2xl shadow-xl border border-gray-100"><h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2"><i class="bi bi-list-check text-blue-600"></i>${t('Assets Already Collected for this School')}</h3>
+  ${done.length?`<section id="screen-school-assets" class="w-full"><div class="bg-white p-6 md:p-8 rounded-2xl shadow-xl border border-gray-100"><h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2"><i class="bi bi-list-check text-blue-600"></i>${t('Assets Already Collected for this Building')}</h3>
    <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-sm"><thead class="bg-gray-50 text-gray-600 uppercase text-xs"><tr><th class="px-4 py-3">${t('Image')}</th><th class="px-4 py-3">${t('Location')}</th><th class="px-4 py-3">${t('Asset')}</th><th class="px-4 py-3">${t('Qty')}</th><th class="px-4 py-3 text-right">${t('Submitted')}</th></tr></thead><tbody class="divide-y divide-gray-100">
    ${done.map(a=>`<tr class="hover:bg-gray-50 transition-colors"><td class="px-4 py-3">${img(a.asset_image,'h-10 w-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity shadow-sm border border-gray-100','<div class="h-10 w-10 bg-gray-100 rounded flex items-center justify-center text-gray-400"><i class="bi bi-image text-xs"></i></div>')}</td>
     <td class="px-4 py-3"><div class="font-bold text-gray-900">${esc(a.floor||'')}</div><div class="text-xs text-gray-500">${esc(roomName(a)??'N/A')} (${esc(a.room_number||'')})</div></td>
@@ -238,7 +238,7 @@ function vAsset(){
   const locate=(P,done)=>{if(navigator.geolocation)navigator.geolocation.getCurrentPosition(q=>{P.pos=[q.coords.latitude,q.coords.longitude];done&&done()},()=>{P.geoErr=1;done&&done()},{enableHighAccuracy:true,timeout:15000,maximumAge:60000})};
   const geoShow=n=>{const P=pend[n],el=$(`[data-shot="${n}"] [data-geo]`);if(!el)return;el.className='nv-geo';if(!P){el.textContent='';return}
     if(!P.pos){el.textContent=P.geoErr?tx('📍 تعذر تحديد الموقع — فعّل GPS','📍 Location unavailable — turn on GPS'):tx('📍 جارٍ تحديد الموقع…','📍 Locating…');return}
-    if(!ref){el.textContent=tx('📍 تم تسجيل الموقع','📍 Location recorded');return}const d=geoDist(P.pos,ref.p);P.dist=d;el.textContent=(d>G.m?'⚠️ ':'📍 ')+fmtDist(d)+' '+tx('من المدرسة','from the school');if(d>G.m)el.className='nv-geo far'};$$('[data-shot] input').forEach(inp=>inp.onchange=()=>{const n=+inp.dataset.n,f=inp.files[0],tile=inp.closest('.nv-shot');$('#e_img').textContent='';if(!f)return;
+    if(!ref){el.textContent=tx('📍 تم تسجيل الموقع','📍 Location recorded');return}const d=geoDist(P.pos,ref.p);P.dist=d;el.textContent=(d>G.m?'⚠️ ':'📍 ')+fmtDist(d)+' '+tx('من المبنى','from the building');if(d>G.m)el.className='nv-geo far'};$$('[data-shot] input').forEach(inp=>inp.onchange=()=>{const n=+inp.dataset.n,f=inp.files[0],tile=inp.closest('.nv-shot');$('#e_img').textContent='';if(!f)return;
     if(!/^image\//.test(f.type||'image/')){inp.value='';tile.classList.add('bad');tile.querySelector('small').textContent=tx('الملف ليس صورة','Not an image');return}
     pend[n]={f,at:f.lastModified};const P=pend[n];geoShow(n);locate(P,()=>pend[n]===P&&geoShow(n));tile.classList.remove('bad');tile.classList.add('ok');tile.querySelector('.nv-shot-pv').innerHTML=`<img src="${URL.createObjectURL(f)}" alt="">`;tile.querySelector('small').textContent=tx('✓ تمت الإضافة — يمكنك تغييرها','✓ Added — you can change it');inp.value=''});
   /* extra photos: kept ones, new ones, and the + tile */
@@ -275,8 +275,8 @@ function vAsset(){
       const miss=SHOTS.map((x,n)=>!pend[n]&&!c[x.k]?x.t():null).filter(Boolean);if(miss.length){$('#e_img').textContent=tx('التقط الصور المطلوبة: ','Take the required photos: ')+miss.join('، ');$('#sb').disabled=false;$('.nv-shots').scrollIntoView({block:'center'});return}
       if(!await dupOk(c,vals)){$('#sb').disabled=false;return}
       const ds=pend.filter(Boolean).concat(pendX).map(P=>P.pos&&ref?geoDist(P.pos,ref.p):ref&&lat!=null?geoDist([+lat,+lng],ref.p):null).filter(d=>d!=null);const far=ds.length?Math.max(...ds):null;
-      if(far!=null&&far>G.m){if(G.block){$('#e_img').textContent=tx(`أنت على بعد ${fmtDist(far)} من موقع المدرسة (المسموح ${fmtDist(G.m)}). صوّر الأصل من داخل المدرسة.`,`You are ${fmtDist(far)} from the school (allowed ${fmtDist(G.m)}). Take the photos inside the school.`);$('#sb').disabled=false;return}
-        if(!confirm(tx(`تنبيه: الصور ملتقطة على بعد ${fmtDist(far)} من موقع المدرسة (المسموح ${fmtDist(G.m)}).\nهل الأصل فعلاً في هذه المدرسة؟ ستُسجَّل المسافة للمراجعة.`,`Warning: the photos were taken ${fmtDist(far)} from the school (allowed ${fmtDist(G.m)}).\nIs the asset really in this school? The distance is recorded for review.`))){$('#sb').disabled=false;return}}
+      if(far!=null&&far>G.m){if(G.block){$('#e_img').textContent=tx(`أنت على بعد ${fmtDist(far)} من موقع المبنى (المسموح ${fmtDist(G.m)}). صوّر الأصل من داخل المبنى.`,`You are ${fmtDist(far)} from the building (allowed ${fmtDist(G.m)}). Take the photos inside the building.`);$('#sb').disabled=false;return}
+        if(!confirm(tx(`تنبيه: الصور ملتقطة على بعد ${fmtDist(far)} من موقع المبنى (المسموح ${fmtDist(G.m)}).\nهل الأصل فعلاً في هذا المبنى؟ ستُسجَّل المسافة للمراجعة.`,`Warning: the photos were taken ${fmtDist(far)} from the building (allowed ${fmtDist(G.m)}).\nIs the asset really in this building? The distance is recorded for review.`))){$('#sb').disabled=false;return}}
       if(pend.some(Boolean)||pendX.length)vals.geo_dist=far!=null?Math.round(far):null;vals.review_status=null;
       const sc=get('schools',c.school_id)||{},rm=get('rooms',c.room_name_id)||{};const oldImg=[];
       for(let n=0;n<SHOTS.length;n++){const P=pend[n];if(!P)continue;const k=SHOTS[n].k;
@@ -326,8 +326,8 @@ function vSuccess(){
   if($('#like'))$('#like').onclick=()=>{const b=curColl();const x={};for(const k of LIKE_KEYS)x[k]=b[k];x._msg=tx('نُسخت بيانات الأصل السابق — أضف الصور والرقم التسلسلي وراجع الحالة.','The previous asset was copied — add the photos and the serial number, and check the condition.');add(true,x)};
   if($('#tplNext'))$('#tplNext').onclick=()=>{const q=tplQ();const it=q.shift();setSess({tq:q});const ty=get('types',it.t)||{};add(true,{category_id:ty.cat||null,type_id:it.t,quantity:it.q||1,_msg:tx(`من قالب الغرفة: ${ty.ar||''} — أضف الصور والحالة.`,`From the room template: ${ty.ar||''} — add the photos and the condition.`)})};
   if($('#tplStop'))$('#tplStop').onclick=()=>{setSess({tq:[]});route()};
-  $('#fin').onclick=()=>{const nl=list.filter(a=>a.employee_id===e.id&&a.type_id&&!labelOf(a)).length;if(nl&&!confirm(tx(`${nl} أصل لم يُؤكَّد لصق ملصقه بصورة بعد. إنهاء المدرسة رغم ذلك؟`,`${nl} assets have no confirmed label photo yet. Finish anyway?`)))return;
-    if(!confirm(tx('إنهاء جرد هذه المدرسة؟ لن يمكن إضافة أصول لها بعد ذلك.','Finish this school? No more assets can be added after that.')))return;
+  $('#fin').onclick=()=>{const nl=list.filter(a=>a.employee_id===e.id&&a.type_id&&!labelOf(a)).length;if(nl&&!confirm(tx(`${nl} أصل لم يُؤكَّد لصق ملصقه بصورة بعد. إنهاء المبنى رغم ذلك؟`,`${nl} assets have no confirmed label photo yet. Finish anyway?`)))return;
+    if(!confirm(tx('إنهاء جرد هذا المبنى؟ لن يمكن إضافة أصول إليه بعد ذلك.','Finish this building? No more assets can be added after that.')))return;
     S.collections=S.collections.filter(x=>!(x.school_id===sc.id&&x.employee_id===e.id&&!x.submitted_at));
     Object.assign(sc,{completed_at:now(),completed_by:e.id,status:'inactive'});save('schools');save('collections');setSess({school:null,coll:null,tq:[]});if(Cloud.on)queueSchoolMail(sc.id,e.id);go('#job-completed')};
 }
@@ -336,7 +336,7 @@ function vSuccess(){
 function vJobDone(){
   fieldLayout(`<section id="screen-job-completed" class="w-full max-w-2xl"><div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 text-center">
   <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
-  <h2 class="text-2xl font-bold text-gray-800 mb-2">${t('Job Completed!')}</h2><p class="text-gray-500 mb-8">${t('Thank you! The collection job for this school has been officially closed.')}</p>
+  <h2 class="text-2xl font-bold text-gray-800 mb-2">${t('Job Completed!')}</h2><p class="text-gray-500 mb-8">${t('Thank you! The collection job for this building has been officially closed.')}</p>
   <a href="javascript:void 0" id="out" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-200">${t('Finish and Log Out')}</a></div></section>`);
   $('#out').onclick=async()=>{if(!await cloudLogoutOk())return;clearSess();go('#login')};
 }
@@ -349,7 +349,7 @@ function vHistory(){
   <div class="flex flex-col md:flex-row justify-between items-md-center mb-8 gap-4"><div><h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2"><i class="bi bi-clock-history text-blue-600"></i>${t('Collection History')}</h2><p class="text-gray-500 text-sm mt-1">${t('Review and edit your past submissions')}</p></div>
    <a href="#employee-data" class="text-gray-500 hover:text-gray-700 font-medium flex items-center gap-1"><i class="bi bi-arrow-left"></i>${t('Back to Profile')}</a></div>
   ${printBar(list,null)}
-  ${list.length?`<div class="overflow-hidden border border-gray-100 rounded-2xl"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-gray-50 text-gray-600 uppercase text-xs"><tr><th class="px-6 py-4">${t('Image')}</th><th class="px-6 py-4">${t('School & Location')}</th><th class="px-6 py-4">${t('Asset Details')}</th><th class="px-6 py-4">${t('Submitted')}</th><th class="px-6 py-4 text-right">${t('Action')}</th></tr></thead><tbody class="divide-y divide-gray-100">
+  ${list.length?`<div class="overflow-hidden border border-gray-100 rounded-2xl"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-gray-50 text-gray-600 uppercase text-xs"><tr><th class="px-6 py-4">${t('Image')}</th><th class="px-6 py-4">${t('Building & Location')}</th><th class="px-6 py-4">${t('Asset Details')}</th><th class="px-6 py-4">${t('Submitted')}</th><th class="px-6 py-4 text-right">${t('Action')}</th></tr></thead><tbody class="divide-y divide-gray-100">
    ${list.map(a=>`<tr class="hover:bg-blue-50/30 transition-colors"><td class="px-6 py-4">${img(a.asset_image,'h-12 w-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity shadow-sm border border-gray-100','<div class="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400"><i class="bi bi-image"></i></div>')}</td>
     <td class="px-6 py-4"><div class="font-bold text-gray-900">${esc((get('schools',a.school_id)||{}).name||'')}</div><div class="text-xs text-gray-500 flex items-center gap-1 mt-1"><i class="bi bi-geo-alt"></i>${esc(a.floor||'')} • ${esc(roomName(a)??'N/A')}</div></td>
     <td class="px-6 py-4"><div class="text-gray-900 font-medium">${esc((get('types',a.type_id)||{}).ar||'')}${a.review_status==='returned'?` <span class="nv-badge r">${tx('مُرجع','Returned')}</span>`:a.review_status==='ok'?` <span class="nv-badge g">${tx('معتمد','Approved')}</span>`:''}</div><div class="text-xs text-gray-500">${esc((get('categories',a.category_id)||{}).ar||'')}</div></td>
@@ -374,7 +374,7 @@ function vAssetCard(c){const s=get('schools',c.school_id)||{},ty=get('types',c.t
   fieldLayout(`<section class="w-full max-w-2xl"><div class="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
    <div class="text-center mb-4"><div class="text-xs text-gray-500">Tag Number</div><div class="text-2xl font-bold">${esc(assetLabel(c))}</div><div class="text-lg font-bold text-blue-700 mt-1">${esc(ty.ar||'')}</div>${ty.critical?`<span class="nv-badge r">${tx('أصل حرج','Critical')}</span>`:''}</div>
    <div class="nv-shots mb-4">${SHOTS.map(x=>`<div class="nv-shot ok"><div class="nv-shot-pv">${img(c[x.k],'',CAM)}</div><b>${x.t()}</b></div>`).join('')}${(c.extra_images||[]).map(k=>`<div class="nv-shot ok"><div class="nv-shot-pv">${img(k,'','')}</div></div>`).join('')}</div>
-   ${row(tx('المدرسة','School'),[s.name,s.moe].filter(Boolean).join(' · '))}${row(tx('الموقع','Location'),[c.floor,roomName(c),c.room_number].filter(Boolean).join(' · '))}${row(tx('الكود','Code'),ty.code)}${row(tx('الحالة الفنية','Condition'),co.ar)}
+   ${row(tx('المبنى','Building'),[s.name,s.moe].filter(Boolean).join(' · '))}${row(tx('الموقع','Location'),[c.floor,roomName(c),c.room_number].filter(Boolean).join(' · '))}${row(tx('الكود','Code'),ty.code)}${row(tx('الحالة الفنية','Condition'),co.ar)}
    ${row(tx('الكمية','Quantity'),c.quantity)}${row(tx('الماركة','Brand'),c.brand)}${row(tx('الموديل','Model'),c.model)}${row(tx('الرقم التسلسلي','Serial'),c.serial)}${row(tx('السعة','Capacity'),c.capacity)}${row(tx('تاريخ الجرد','Collected'),c.submitted_at?ymd(c.submitted_at):'')}
    ${c.employee_id===sess().emp&&can('edit_sent')&&!(Cloud.sub&&Cloud.sub.ok===false)?`<a href="javascript:void 0" id="cardEdit" class="block mt-6 text-center bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl">✎ ${tx('تحديث بيانات الأصل','Update this asset')}</a>`:''}
    <a href="javascript:void 0" id="cardScan" class="block mt-3 text-center bg-white border border-blue-200 text-blue-700 font-bold py-3 rounded-xl">📷 ${tx('مسح ملصق آخر','Scan another label')}</a>
@@ -407,10 +407,7 @@ function tplCard(c){if(c.submitted_at||c.type_id||!c.room_name_id){const q=tplQ(
    ${T.items.map(x=>{const ty=get('types',x.t)||{};return `<label class="nv-tplrow"><input type="checkbox" data-tplon="${esc(x.t)}" checked><span>${esc(ty.ar||'')}${ty.critical?' <em>⚠️</em>':''}</span><input type="number" min="1" value="${esc(x.q||1)}" data-tplq="${esc(x.t)}" aria-label="${tx('الكمية','Quantity')}"></label>`}).join('')}
    <button type="button" id="tplGo" class="nv-tplgo"></button></div>`}
 /* before saving: the same serial number elsewhere, or the same asset in the same room a few minutes ago */
-async function dupOk(c,vals){const sn=normSN(vals.serial);
-  if(sn.length>=4&&(normSN(c.serial)!==sn||!c.submitted_at)){let hits=S.collections.filter(x=>x!==c&&x.type_id&&normSN(x.serial)===sn).map(x=>({label:assetLabel(x),school:(get('schools',x.school_id)||{}).name||''}));
-    if(Cloud.on&&navigator.onLine!==false){try{const cl=await Cloud.sb();const {data}=await cl.rpc('nv_serial_dupes',{p_serial:vals.serial,p_id:c.id});if(Array.isArray(data))for(const d of data)if(!hits.some(h=>h.label===d.label))hits.push(d)}catch(e){}}
-    if(hits.length&&!confirm(tx(`الرقم التسلسلي «${vals.serial}» مسجّل لأصل آخر:\n${hits.slice(0,3).map(h=>`• Tag ${h.label||'—'} — ${h.school||''}`).join('\n')}\n\nقد يكون الأصل مجروداً من قبل. حفظ رغم ذلك؟`,`Serial «${vals.serial}» is already on another asset:\n${hits.slice(0,3).map(h=>`• Tag ${h.label||'—'} — ${h.school||''}`).join('\n')}\n\nIt may have been collected already. Save anyway?`)))return false}
+async function dupOk(c,vals){if(!await duplicatePreflight([{...c,...vals}]))return false;
   if(!c.submitted_at){const rec=S.collections.filter(x=>x!==c&&x.submitted_at&&x.school_id===c.school_id&&x.type_id===vals.type_id&&String(x.floor)===String(c.floor)&&String(x.room_number)===String(c.room_number)&&x.room_name_id===c.room_name_id&&Date.now()-new Date(x.submitted_at).getTime()<15*6e4);
     if(rec.length){const m=Math.max(1,Math.round((Date.now()-new Date(rec[0].submitted_at).getTime())/6e4));if(!confirm(tx(`سجّلت «${(get('types',vals.type_id)||{}).ar||''}» في نفس الغرفة قبل ${m} دقيقة (الكمية ${num(rec[0].quantity)}).\nإذا كان نفس الأصل فعدّل كميته بدلاً من تكراره.\n\nهل هو أصل آخر فعلاً؟`,`You saved the same asset in this room ${m} min ago. If it is the same asset, change its quantity instead.\n\nIs this really another asset?`)))return false}}
   return true}
@@ -457,7 +454,8 @@ window.nvLabelRefresh=()=>{const w=$('#lblCard[data-wait]');if(w&&lblReady(curCo
 /* NV32 — after printing, the supervisor confirms the label is stuck on the asset with a photo of it. The QR is read from the photo:
    another asset's number is refused, an unreadable code is saved as «unread» for the management. Print time and confirmation reach the
    database through nv_label_printed / nv_label_confirm (queued in localStorage nv_label_q while offline; a supervisor never pushes label_* fields). */
-const labelQ=()=>lsGet('nv_label_q',[]);const labelQSet=q=>lsSet('nv_label_q',q);
+const labelQueueKey=()=>Cloud.on?'nv_label_q_'+Cloud.scope()+'_'+(Cloud.user&&Cloud.user.id||'signed-out'):'nv_label_q_local';
+const labelQ=()=>lsGet(labelQueueKey(),[]);const labelQSet=q=>lsSet(labelQueueKey(),q);window.labelQ=labelQ;
 function labelOf(c){if(c.label_at)return {at:c.label_at,photo:c.label_photo,check:c.label_check};const q=labelQ().find(x=>x.id===c.id&&x.op==='confirm');return q?{at:q.at,photo:q.key,check:q.check,pending:1}:null}
 /* every print (admin or field) records the first print time */
 function markLabelsPrinted(list){const t=now();let ch=0;for(const c of list)if(!c.label_printed_at){c.label_printed_at=t;ch++}if(!ch)return;

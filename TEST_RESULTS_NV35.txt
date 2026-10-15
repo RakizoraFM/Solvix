@@ -1,0 +1,15 @@
+Solvix NV35 — 2026-10-14
+
+PASS: 16 client regression tests in tests/nv34_test.js.
+PASS: 21 NV35 tests in tests/nv35_test.mjs.
+TOTAL: 37 local automated tests passed.
+
+NV35 tests use mocked Auth, database clients and mail transport: no live service was contacted.
+Coverage includes separate client backends, account creation and recovery, subscription updates, encrypted credentials and key rotation, lock ownership, cross-client deletion isolation, deleting privileged accounts, welcome mail failure/retry, separate CC summary, reminders and duplicate suppression, project-scoped browser Auth, and legacy spreadsheet imports.
+
+PASS: generated executable JavaScript parses; client-manager handler.js and shared.js syntax checks pass.
+PASS: full-install SQL contains the exact NV35 migration; SQL string/dollar delimiters balance. This is NOT a PostgreSQL execution check.
+
+NOT RUN: live PostgreSQL/RLS/Storage integration, full browser E2E, real email delivery, live scheduler, actual deployment.
+SQL test files are provided for an isolated test database.
+See UPGRADE_NV35_AR.md for installation, required secrets, independent client project preparation and scheduled reminders.

@@ -1,5 +1,5 @@
 const {chromium}=(()=>{try{return require('playwright')}catch(e){return require('/opt/node-tools/node_modules/playwright')}})();require('fs').mkdirSync(__dirname+'/shots',{recursive:true});const fs=require('fs');
-const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-server.js')();M.noCols.add('nv_collections.geo_dist');M.noCols.add('nv_collections.review_status');/* NV27: a database where solvix_setup.sql was not re-run yet */
+const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-server.js')();/* NV34 requires the migration; schema mismatch behavior is tested in nv34_test.js. */
 (async()=>{
  const br=await chromium.launch();const errs=[];
  const mk=async(vw)=>{const ctx=await br.newContext({ignoreHTTPSErrors:true,acceptDownloads:true,permissions:['geolocation'],geolocation:{latitude:26.33,longitude:43.97},viewport:vw||{width:1280,height:900}});
@@ -13,6 +13,8 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await a.fill('#em','admin@x.com');await a.fill('#pw','wrong');await a.click('button[type=submit]');await a.waitForSelector('.sx-err');ok(true,'wrong password refused');
  await a.fill('#pw','adminpass');await a.click('button[type=submit]');await a.waitForSelector('#initCloud');ok(true,'empty-cloud banner');
  await a.click('#initCloud');await a.waitForSelector('.alert-success',{timeout:60000});
+ // Fixture-only data: production initialization now loads dictionaries without buildings or users.
+ await a.evaluate(async()=>{const demo=seedLists({});S.schools=demo.schools;S.employees=demo.employees;reindex();save('schools');save('employees');await Cloud.sync()});
  ok(M.db.nv_schools.length===2170&&M.db.nv_types.length===279&&M.db.nv_types.every(t=>t.code&&t.l2&&t.l3)&&M.db.nv_employees.length===142,`lists in cloud ${M.db.nv_schools.length}/${M.db.nv_types.length}/${M.db.nv_employees.length}`);
  await a.goto(U+'#admin/employees?search=22912');await a.waitForSelector('[data-setpw]');await a.click('[data-setpw]');await a.waitForTimeout(800);
  const pw=(dlg.match(/كلمة المرور: (\S+)/)||[])[1];ok(!!pw&&M.db.nv_employees.find(e=>e.number==='22912').user_id,'technician login created '+pw);
@@ -31,7 +33,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await fill(3);await t.click('#sb');await t.waitForSelector('#same');await t.waitForTimeout(1500);
  const c1=M.db.nv_collections.filter(c=>c.submitted_at);ok(c1.length===1&&c1[0].quantity===3&&c1[0].no===1,'record in cloud: '+c1.length);
  ok(M.files[c1[0].asset_image+'.jpg']&&M.files[c1[0].school_image+'.jpg'],'photos uploaded');
- ok(!('geo_dist' in c1[0])&&(await t.evaluate(()=>(Cloud.dbOld||[]).join())).includes('geo_dist'),'NV27: old database (no geo_dist / review_status) — the record is still sent without those columns');
+ ok('geo_dist' in c1[0]&&'review_status' in c1[0],'NV34: synchronization keeps all schema fields');
  // offline: the next asset waits on the phone, then goes when the connection returns
  await T.ctx.setOffline(true);await t.evaluate(()=>{window.__mockCallSaved=window.__mockCall;window.__mockCall=()=>Promise.reject(new Error('Failed to fetch'))});
  await t.click('#same');await t.waitForSelector('#a_category_id');await fill(2);await t.click('#sb');await t.waitForSelector('#same');await t.waitForTimeout(800);
@@ -41,10 +43,10 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  ok(M.db.nv_collections.filter(c=>c.submitted_at).length===2,'online again: sent ('+M.db.nv_collections.filter(c=>c.submitted_at).length+')');
  await t.waitForSelector('#lblCard:not([data-wait]) #lblPrev .lb svg',{timeout:15000});{const no=M.db.nv_collections.filter(c=>c.submitted_at).map(c=>c.no).sort((a,b)=>b-a)[0];ok((await t.textContent('#lblCard')).includes('101'+String(no).padStart(8,'0')),'NV31: after the upload the label appears with the database number '+no)}
  {const [pw]=await Promise.all([T.ctx.waitForEvent('page'),t.click('#lblPrint')]);await pw.waitForSelector('.lb');await pw.close();
-  const cur=await t.evaluate(()=>curColl().id);await t.waitForFunction(id=>!lsGet('nv_label_q',[]).some(x=>x.id===id),cur,{timeout:15000}).catch(()=>{});
+  const cur=await t.evaluate(()=>curColl().id);await t.waitForFunction(id=>!labelQ().some(x=>x.id===id),cur,{timeout:15000}).catch(()=>{});
   ok(!!(M.db.nv_collections.find(c=>c.id===cur)||{}).label_printed_at,'NV32: print time sent to the database (nv_label_printed)');
   const lb=await t.evaluate(()=>assetLabel(curColl()));const png=Buffer.from((await t.evaluate(async l=>{await needQR();const q=qrcode(0,'M');q.addData('x#a/'+l);q.make();return q.createDataURL(8,6)},lb)).split(',')[1],'base64');
-  await t.waitForTimeout(800);await t.setInputFiles('#lcCam',{name:'l.png',mimeType:'image/png',buffer:png});await t.waitForSelector('#lcDone',{timeout:15000}).catch(()=>{});await t.waitForFunction(id=>!lsGet('nv_label_q',[]).some(x=>x.id===id),cur,{timeout:15000}).catch(()=>{});await t.waitForTimeout(500);
+  await t.waitForTimeout(800);await t.setInputFiles('#lcCam',{name:'l.png',mimeType:'image/png',buffer:png});await t.waitForSelector('#lcDone',{timeout:15000}).catch(()=>{});await t.waitForFunction(id=>!labelQ().some(x=>x.id===id),cur,{timeout:15000}).catch(()=>{});await t.waitForTimeout(500);
   const r=M.db.nv_collections.find(c=>c.id===cur)||{};ok(r.label_check==='ok'&&!!M.files[r.label_photo+'.jpg'],'NV32: label confirmed in the database + photo uploaded (nv_label_confirm)')}
  await t.evaluate(()=>nvPendUI());await t.waitForTimeout(500);const pb2=await t.$eval('#nvPend',e=>({c:e.className,tx:e.textContent}));ok(/\bok\b/.test(pb2.c)&&pb2.tx.includes('مرفوعة'),'NV26 upload bar after sending: '+JSON.stringify(pb2));
  const school=M.db.nv_collections[0].school_id;

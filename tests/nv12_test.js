@@ -28,8 +28,8 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  let rows=await p.$$eval('.app-main tbody tr',r=>r.length);ok(rows===2,'drill-down level 1: 2 categories ('+rows+')');
  const tot=await p.$$eval('[data-kpi=qty],[data-kpi=cost],[data-kpi=rec]',x=>x.map(y=>y.dataset.val));ok(tot[0]==='11'&&tot[1]==='590'&&tot[2]==='5','totals: qty 11, cost 590, 5 records ('+tot+')');
  await p.goto(U+'#admin/analytics?cat='+ids.cat0);await p.waitForSelector('.breadcrumb');await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/cond=/.test(location.hash));
- await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/type=/.test(location.hash));await p.waitForFunction(()=>{const h=document.querySelector('.app-main thead');return h&&h.textContent.includes('المدرسة')});rows=await p.$$eval('.app-main tbody tr',r=>r.length);
- ok((await p.textContent('.app-main thead')).includes('المدرسة')&&rows>=1&&!(await p.textContent('.app-main tbody')).includes('s1'),'drill-down to schools by name ('+rows+')');await p.screenshot({path:B+'/shots/40-analytics.png'});
+ await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/type=/.test(location.hash));await p.waitForFunction(()=>{const h=document.querySelector('.app-main thead');return h&&h.textContent.includes('المبنى')});rows=await p.$$eval('.app-main tbody tr',r=>r.length);
+ ok((await p.textContent('.app-main thead')).includes('المبنى')&&rows>=1&&!(await p.textContent('.app-main tbody')).includes('s1'),'drill-down to schools by name ('+rows+')');await p.screenshot({path:B+'/shots/40-analytics.png'});
  // group view: label numbers, labels window, school report
  await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#lbl');
  ok(/^101\d{8}$/.test((await p.textContent('.app-main tbody tr td')).trim()),'label number 101XXXXXXXX');
@@ -61,14 +61,14 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.evaluate(async c0=>{const c=S.collections.find(x=>x.id===c0);c.asset_image=await storePhoto(await (await fetch('/tests/b.png')).blob());save('collections')},ids.c0);
  const [dF]=await Promise.all([p.waitForEvent('download',{timeout:60000}),p.click('#full')]);const fx=await p.evaluate(async b=>{const wb=new ExcelJS.Workbook();await wb.xlsx.load(Uint8Array.from(atob(b),c=>c.charCodeAt(0)).buffer);const d=wb.getWorksheet('البيانات'),ph=wb.getWorksheet('صور الأصول');return [d.rowCount,d.getRow(1).getCell(1).value,ph.rowCount,ph.getImages().length,d.getRow(1).values.slice(1).join('|')]},require('fs').readFileSync(await dF.path()).toString('base64'));
  ok(fx[0]===4&&fx[1]==='ID'&&fx[2]===4&&fx[3]===4,'full Excel: 3 assets, 3 QR + 1 photo');
- ok(fx[4]==='ID|Employee|Employee #|School Name|MOE Number|School Identifier|City|District|Site|Floor|Room Number|Room Name|Category|Asset Type|Level 2|Level 3|Asset Code|Critical|Condition|Quantity|Price|Manufacturer|Brand|Model|Capacity|Serial Number|Agency|Warranty|Installation Date|Tag Number|Parent/Child|Notes|School Image URL|Location Diagram URL|Asset Image URL|Asset Image 2 URL|Submitted At|Created At|Label Number|Label Confirmed At','columns in the approved order, no Status');require('fs').copyFileSync(await dF.path(),B+'/shots/full-report.xlsx');
+ ok(fx[4]==='ID|Employee|Employee #|Building Name|Building Number|Building Identifier|City|District|Site|Floor|Room Number|Room Name|Category|Asset Type|Level 2|Level 3|Asset Code|Critical|Condition|Quantity|Price|Manufacturer|Brand|Model|Capacity|Serial Number|Agency|Warranty|Installation Date|Tag Number|Parent/Child|Notes|Building Image URL|Location Diagram URL|Asset Image URL|Asset Image 2 URL|Submitted At|Created At|Label Number|Label Confirmed At','columns in the approved order, no Status');require('fs').copyFileSync(await dF.path(),B+'/shots/full-report.xlsx');
  await p.goto(U+'#admin/collections/'+ids.c0);await p.waitForSelector('#qr1 svg',{timeout:20000});ok(true,'QR on the asset page');
  // notifications
  await p.goto(U+'#admin');await p.waitForSelector('[data-nv-notif] .badge');ok((await p.textContent('[data-nv-notif] .badge')).trim()==='2','2 new notifications');
  await p.click('[data-nv-notif]');await p.click('[data-nv-notif-read]');await p.waitForTimeout(500);ok(!(await p.$('[data-nv-notif] .badge')),'marked as read');
  // import: a bad file is refused as a whole, a good one is added
  const mkFile=aoa=>p.evaluate(a=>{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'S');return XLSX.write(wb,{type:'base64',bookType:'xlsx'})},aoa);
- const H=['Employee #','School Identifier','Room Name','Category','Asset Type','Condition','Quantity','Price','Floor','Room Number'];
+ const H=['Employee #','Building Identifier','Room Name','Category','Asset Type','Condition','Quantity','Price','Floor','Room Number'];
  const room=await p.evaluate(()=>S.rooms[0].ar),cat=await p.evaluate(c=>get('categories',c).ar,ids.cat0),cond=await p.evaluate(()=>S.conditions[0].ar);
  const before=await p.evaluate(()=>S.collections.length);
  const imp=async aoa=>{await p.goto(U+'#admin/data');await p.waitForSelector('#ic');const [fc]=await Promise.all([p.waitForEvent('filechooser'),p.click('#ic')]);await fc.setFiles({name:'c.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(await mkFile(aoa),'base64')});await p.waitForTimeout(1500)};

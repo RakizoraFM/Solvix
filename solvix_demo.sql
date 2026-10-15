@@ -54,12 +54,12 @@ begin
 
   -- 2) demo schools
   insert into public.nv_schools(id, moe, ident, site, name, district, city, description, status, completed_at, completed_by, created_at) values
-    ('demo-s1','990001','DEMO-SCH-01','DEMO','مدرسة تجريبية ١ — ابتدائية','الريان','بريده','بيانات تجريبية','inactive', now() - interval '6 days','demo-e1', now() - interval '30 days'),
-    ('demo-s2','990002','DEMO-SCH-02','DEMO','مدرسة تجريبية ٢ — متوسطة','الصفراء','بريده','بيانات تجريبية','inactive', now() - interval '3 days','demo-e2', now() - interval '30 days'),
-    ('demo-s3','990003','DEMO-SCH-03','DEMO','مدرسة تجريبية ٣ — ثانوية','الخبيب','عنيزه','بيانات تجريبية','inactive', now() - interval '1 day','demo-e1', now() - interval '30 days'),
-    ('demo-s4','990004','DEMO-SCH-04','DEMO','مدرسة تجريبية ٤ — قيد الجرد','الفايزية','بريده','بيانات تجريبية','active', null, null, now() - interval '30 days'),
-    ('demo-s5','990005','DEMO-SCH-05','DEMO','مدرسة تجريبية ٥ — لم تبدأ','النخيل','الرس','بيانات تجريبية','active', null, null, now() - interval '30 days'),
-    ('demo-s6','990006','DEMO-SCH-06','DEMO','مدرسة تجريبية ٦ — غير نشطة','الشفاء','المذنب','بيانات تجريبية','inactive', null, null, now() - interval '30 days');
+    ('demo-s1','990001','DEMO-SCH-01','DEMO','مبنى تجريبية ١ — ابتدائية','الريان','بريده','بيانات تجريبية','inactive', now() - interval '6 days','demo-e1', now() - interval '30 days'),
+    ('demo-s2','990002','DEMO-SCH-02','DEMO','مبنى تجريبية ٢ — متوسطة','الصفراء','بريده','بيانات تجريبية','inactive', now() - interval '3 days','demo-e2', now() - interval '30 days'),
+    ('demo-s3','990003','DEMO-SCH-03','DEMO','مبنى تجريبية ٣ — ثانوية','الخبيب','عنيزه','بيانات تجريبية','inactive', now() - interval '1 day','demo-e1', now() - interval '30 days'),
+    ('demo-s4','990004','DEMO-SCH-04','DEMO','مبنى تجريبية ٤ — قيد الجرد','الفايزية','بريده','بيانات تجريبية','active', null, null, now() - interval '30 days'),
+    ('demo-s5','990005','DEMO-SCH-05','DEMO','مبنى تجريبية ٥ — لم تبدأ','النخيل','الرس','بيانات تجريبية','active', null, null, now() - interval '30 days'),
+    ('demo-s6','990006','DEMO-SCH-06','DEMO','مبنى تجريبية ٦ — غير نشطة','الشفاء','المذنب','بيانات تجريبية','inactive', null, null, now() - interval '30 days');
 
   -- 3) asset records from the approved catalog (a spread of levels, some critical)
   select array_agg(id order by code) into types from (select id, code, row_number() over (partition by cat order by code) rn from public.nv_types where code is not null) q where rn <= 4;
@@ -92,5 +92,5 @@ end $demo$;
 -- what was created
 select 'حساب' as "النوع", email as "البريد", role as "الدور" from public.nv_staff where email like '%@solvix-demo.test'
 union all select 'مشرف ميدان', email, number from public.nv_employees where id like 'demo-e%'
-union all select 'مدرسة', ident, name from public.nv_schools where id like 'demo-s%'
+union all select 'مبنى', ident, name from public.nv_schools where id like 'demo-s%'
 union all select 'سجلات الجرد', count(*)::text, '' from public.nv_collections where id like 'demo-c-%';

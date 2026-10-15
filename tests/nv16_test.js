@@ -21,7 +21,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.click('#nvt-schools [data-nvb="del"]');await p.waitForSelector('.alert-success');ok(await p.evaluate(n=>S.schools.length===2170-n,nCity),'bulk delete '+nCity+' schools (typed confirmation)');
  await p.click('#nvt-schools [data-nvt="clear"]');const [d2]=await Promise.all([p.waitForEvent('download'),p.click('#nvt-schools [data-nvt="xl"]')]);ok((await xlRows(d2))===2170-nCity,'export all schools');
  const one=await p.evaluate(()=>({ident:S.schools[0].ident,name:S.schools[0].name}));
- const [fc]=await Promise.all([p.waitForEvent('filechooser'),p.click('#nvt-schools [data-nvt="imp"]')]);await fc.setFiles({name:'s.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:await mkFile([['school_identifier','Name (Arabic)','City'],[one.ident,one.name+' (محدث)',''],['NEW-0001','مدرسة جديدة','بريدة']])});
+ const [fc]=await Promise.all([p.waitForEvent('filechooser'),p.click('#nvt-schools [data-nvt="imp"]')]);await fc.setFiles({name:'s.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:await mkFile([['building_identifier','Name (Arabic)','City'],[one.ident,one.name+' (محدث)',''],['NEW-0001','مبنى جديدة','بريدة']])});
  await p.waitForSelector('.alert-success');ok(await p.evaluate(o=>S.schools.find(s=>s.ident===o.ident).name.endsWith('(محدث)')&&!!S.schools.find(s=>s.ident==='NEW-0001'),one),'import schools: updated + added');
  await p.screenshot({path:B+'/shots/60-schools-table.png'});
  // ---- field supervisors

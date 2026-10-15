@@ -1,0 +1,78 @@
+// node tests/nv35_test.mjs (Node 24+). No network or live Supabase is used.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {fileURLToPath} from 'node:url';
+import * as H from '../supabase/functions/client-manager/shared.js';
+let passed=0;const test=async(name,fn)=>{await fn();passed++;console.log('PASS '+name)};
+const db={nv_clients:[],nv_audit:[]},backends=new Map(),mail=[],env={SUPABASE_URL:'https://provider.supabase.co',SUPABASE_ANON_KEY:'sb_publishable_provider',SUPABASE_SERVICE_ROLE_KEY:'sb_secret_provider',CLIENTS_ENCRYPTION_KEY:Buffer.alloc(32,7).toString('base64'),RESEND_API_KEY:'test-only',MAIL_FROM:'test@test.invalid',CRON_SECRET:'test-cron'};
+let failMail=false,handler;
+const clone=x=>structuredClone(x);
+function query(tables,table){let action='select',payload,filters=[],limit=Infinity;const q={
+ select(){return q},insert(p){action='insert';payload=p;return q},update(p){action='update';payload=p;return q},upsert(p){action='upsert';payload=p;return q},
+ eq(k,v){filters.push(r=>r[k]===v);return q},neq(k,v){filters.push(r=>r[k]!==v);return q},or(s){if(s.includes('last_reminder_check')){const cutoff=s.split('last_reminder_check.lt.')[1];filters.push(r=>!r.last_reminder_check||r.last_reminder_check<cutoff)}return q},
+ order(){return q},limit(n){limit=n;return q},then(ok,bad){try{
+  const rows=tables[table]??(tables[table]=[]);let selected=rows.filter(r=>filters.every(fn=>fn(r))).slice(0,limit);
+  if(action==='insert'){for(const p of Array.isArray(payload)?payload:[payload]){if(table==='nv_clients'&&rows.some(r=>r.project_url===p.project_url))return Promise.resolve({error:{message:'duplicate project_url'}}).then(ok,bad);rows.push({status:'provisioning',mail_status:'pending',remote_user_id:null,cc:[],created_at:new Date().toISOString(),...clone(p)})}selected=[]}
+  if(action==='update')for(const row of selected)Object.assign(row,clone(payload));
+  if(action==='upsert'){const found=rows.find(r=>r.user_id===payload.user_id);if(found)Object.assign(found,payload);else rows.push(clone(payload));selected=[]}
+  return Promise.resolve({data:clone(selected),error:null}).then(ok,bad);
+ }catch(e){return Promise.reject(e).then(ok,bad)}}};return q}
+function backend(url){if(!backends.has(url)){const tables={nv_staff:[],nv_subscription:[{id:1}],nv_employees:[],nv_collections:[]},users=new Map();let due=null,claimed=false,marked=false;
+ backends.set(url,{tables,users,setDue:v=>{due=v;claimed=false;marked=false},client:{from:t=>query(tables,t),rpc:async(fn,a)=>{
+  if(fn==='nv_public_settings')return {data:{schema_version:38}};
+  if(fn==='nv_sub_reminder_due')return {data:marked?null:clone(due)};
+  if(fn==='nv_sub_reminder_claim'){const result=!claimed;claimed=true;return {data:result}}
+  if(fn==='nv_sub_reminder_mark'){marked=true;return {data:null}}
+  if(fn==='nv_delete_user'){const u=users.get(a.p_user);if(!u)return {error:{message:'user not found'}};users.delete(a.p_user);tables.nv_staff=tables.nv_staff.filter(r=>r.user_id!==a.p_user);for(const e of tables.nv_employees)if(e.user_id===a.p_user){e.archived=true;e.user_id=null}return {data:{ok:true}}}
+  throw Error('Unexpected remote RPC '+fn)
+ },auth:{admin:{listUsers:async()=>({data:{users:[...users.values()].map(({password,...u})=>clone(u))}}),
+  createUser:async input=>{if([...users.values()].some(u=>u.email===input.email))return {error:{message:'email already exists'}};const u={id:crypto.randomUUID(),...clone(input)};users.set(u.id,u);return {data:{user:clone(u)}}},
+  updateUserById:async(id,p)=>{const u=users.get(id);if(!u)return {error:{message:'user not found'}};Object.assign(u,clone(p));return {data:{user:clone(u)}}}}}}})}return backends.get(url)}
+globalThis.__mockCreateClient=(url,key,options)=>{
+ if(url===env.SUPABASE_URL&&key===env.SUPABASE_SERVICE_ROLE_KEY)return {from:t=>query(db,t),rpc:async(fn,a)=>{assert.equal(fn,'nv_client_lock');const row=db.nv_clients.find(r=>r.id===a.p_id);if(!row||row.lock_token)return {data:null};row.lock_token=a.p_token;row.busy_until=new Date(Date.now()+600000).toISOString();return {data:clone(row)}}};
+ if(url===env.SUPABASE_URL){const sys=options?.global?.headers.Authorization==='Bearer admin';return {auth:{getUser:async()=>({data:{user:{id:sys?'provider-admin':'ordinary-owner'}}})},rpc:async()=>({data:{sys}})}}
+ return backend(url).client;
+};
+globalThis.Deno={env:{get:k=>env[k]},serve:fn=>{handler=fn}};
+const realFetch=globalThis.fetch;globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.resend.com/emails');if(failMail)return new Response(JSON.stringify({message:'simulated send failure'}),{status:503});mail.push(JSON.parse(options.body));return new Response(JSON.stringify({id:'mail-'+mail.length}),{status:200})};
+const source=fs.readFileSync(new URL('../supabase/functions/client-manager/handler.js',import.meta.url),'utf8')
+ .replace("import {createClient} from 'jsr:@supabase/supabase-js@2';",'const createClient=globalThis.__mockCreateClient;')
+ .replace("from './shared.js'",`from '${new URL('../supabase/functions/client-manager/shared.js',import.meta.url).href}'`);
+await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+async function call(action,payload={},auth='admin'){const res=await handler(new Request('https://example.invalid/client-manager',{method:'POST',headers:auth==='cron'?{'x-cron-secret':'test-cron'}:{Authorization:'Bearer '+auth},body:JSON.stringify({action,...payload})}));return {status:res.status,...await res.json()}}
+const make=(n='a')=>({name:'عميل '+n,contact_name:'مسؤول '+n,email:`owner-${n}@test.invalid`,cc:'copy@test.invalid',portal_url:'https://portal.example/index.html',project_url:`https://tenant-${n}.supabase.co`,publishable_key:'sb_publishable_123456789012345678901234567890',plan:'yearly',starts_at:'2026-10-01T00:00:00Z',ends_at:'2027-10-01T00:00:00Z',grace_days:7,max_staff:3,max_field:10,max_schools:20,max_assets:10000});
+try{
+ await test('CC validation and deduplication',()=>{assert.deepEqual(H.ccList('A@x.test, a@x.test; owner@x.test','owner@x.test'),['a@x.test']);assert.throws(()=>H.ccList('bad address'))});
+ await test('reject SSRF endpoints and public/secret key confusion',()=>{for(const url of ['http://tenant.supabase.co','https://127.0.0.1','https://supabase.co.evil.test','https://tenant.supabase.co/path'])assert.throws(()=>H.projectUrl(url));assert.ok(!H.isPublicKey('sb_secret_hello'));assert.ok(!H.isServiceKey('sb_publishable_hello'))});
+ await test('credential encryption is authenticated and tenant bound',async()=>{const cipher=await H.encryptCredential('private-key',env.CLIENTS_ENCRYPTION_KEY,'client-a');assert.equal(await H.decryptCredential(cipher,env.CLIENTS_ENCRYPTION_KEY,'client-a'),'private-key');assert.ok(!JSON.stringify(cipher).includes('private-key'));await assert.rejects(()=>H.decryptCredential(cipher,env.CLIENTS_ENCRYPTION_KEY,'client-b'))});
+ await test('ordinary client owner cannot administer provider',async()=>{assert.equal((await call('create',{client:make()},'owner')).status,403)});
+ let first,second;
+ await test('create isolated client and send credentials plus separate CC summary',async()=>{const r=await call('create',{client:make(),service_key:'sb_secret_123456789012345678901234567890'});assert.equal(r.ok,true);assert.equal(r.sent,true);first=r.client_id;const c=db.nv_clients.find(c=>c.id===first),remote=backend(c.project_url);assert.equal(remote.users.size,1);assert.equal(remote.tables.nv_subscription[0].max_schools,20);assert.equal(remote.tables.nv_staff[0].role,'owner');assert.equal(mail.length,2);assert.ok(!mail[0].cc);assert.deepEqual(mail[1].cc,['copy@test.invalid']);const pw=[...remote.users.values()][0].password;assert.ok(mail[0].html.includes(pw));assert.ok(!mail[1].html.includes(pw));assert.ok(!JSON.stringify(c).includes(pw));assert.ok(!JSON.stringify(c).includes('sb_secret_123456789012345678901234567890'));assert.ok(mail[0].html.includes('عدد')||mail[0].html.includes('المستخدمين'));});
+ await test('second client gets an independent backend',async()=>{const r=await call('create',{client:make('b'),service_key:'sb_secret_999999999999999999999999999999'});assert.equal(r.ok,true);second=r.client_id;assert.equal(backend('https://tenant-a.supabase.co').users.size,1);assert.equal(backend('https://tenant-b.supabase.co').users.size,1);assert.notEqual(db.nv_clients[0].remote_user_id,db.nv_clients[1].remote_user_id)});
+ await test('reject reusing a backend or provider project',async()=>{assert.equal((await call('create',{client:make(),service_key:'sb_secret_123456789012345678901234567890'})).ok,false);const c=make('x');c.project_url=env.SUPABASE_URL;assert.equal((await call('create',{client:c,service_key:'sb_secret_123456789012345678901234567890'})).ok,false)});
+ await test('update one subscription without affecting another client',async()=>{const changed={...make(),max_schools:55,cc:'newcopy@test.invalid'};assert.equal((await call('save',{client_id:first,client:changed})).ok,true);assert.equal(backend('https://tenant-a.supabase.co').tables.nv_subscription[0].max_schools,55);assert.equal(backend('https://tenant-b.supabase.co').tables.nv_subscription[0].max_schools,20)});
+ await test('service credential rotation preserves encrypted storage',async()=>{const key='sb_secret_rotated123456789012345678901234567890';assert.equal((await call('save',{client_id:second,client:make('b'),service_key:key})).ok,true);const c=db.nv_clients.find(x=>x.id===second);assert.equal(await H.decryptCredential(c.credential_cipher,env.CLIENTS_ENCRYPTION_KEY,c.id),key);assert.ok(!JSON.stringify(c).includes(key))});
+ await test('an operation cannot release another request lock',async()=>{const c=db.nv_clients.find(x=>x.id===second);c.lock_token='existing-operation';assert.equal((await call('users',{client_id:second})).ok,false);assert.equal(c.lock_token,'existing-operation');c.lock_token=null;c.busy_until=null});
+ await test('deleting through one client never targets another project',async()=>{const c=db.nv_clients.find(x=>x.id===second);assert.equal((await call('delete_user',{client_id:first,user_id:c.remote_user_id})).ok,false);assert.ok(backend(c.project_url).users.has(c.remote_user_id))});
+ await test('mail failure preserves created account and can retry delivery',async()=>{failMail=true;const r=await call('create',{client:make('c'),service_key:'sb_secret_888888888888888888888888888888'});assert.equal(r.ok,true);assert.equal(r.sent,false);const c=db.nv_clients.find(x=>x.id===r.client_id),old=backend(c.project_url).users.get(c.remote_user_id).password;assert.equal(c.status,'active');failMail=false;const retry=await call('resend',{client_id:c.id});assert.equal(retry.sent,true);assert.notEqual(backend(c.project_url).users.get(c.remote_user_id).password,old);assert.equal(backend(c.project_url).users.size,1)});
+ await test('list and delete any remote account including sysadmin',async()=>{const c=db.nv_clients.find(x=>x.id===first),b=backend(c.project_url),id=crypto.randomUUID();b.users.set(id,{id,email:'sys@test.invalid',user_metadata:{full_name:'System'}});b.tables.nv_staff.push({user_id:id,role:'sysadmin'});b.tables.nv_collections.push({id:'asset-1',employee_id:'history'});const users=await call('users',{client_id:first});assert.ok(users.users.some(u=>u.id===id));assert.equal((await call('delete_user',{client_id:first,user_id:id})).ok,true);assert.ok(!b.users.has(id));assert.equal(b.tables.nv_collections.length,1)});
+ await test('deleting client owner permits explicit account restoration',async()=>{const c=db.nv_clients.find(x=>x.id===first),old=c.remote_user_id;assert.equal((await call('delete_user',{client_id:first,user_id:old})).ok,true);assert.equal(c.remote_user_id,null);assert.equal((await call('provision',{client_id:first})).ok,true);assert.ok(c.remote_user_id);assert.notEqual(c.remote_user_id,old)});
+ await test('scheduled reminders include CC and are not repeated after marking',async()=>{const c=db.nv_clients.find(x=>x.id===second);backend(c.project_url).setDue({stage:7,days:5,ends_at:c.ends_at,grace_days:7,to:[c.email],cc:['extra@test.invalid']});const before=mail.length,r=await call('reminders',{},'cron');assert.ok(r.results.some(x=>x.id===c.id&&x.sent));assert.equal(mail.length,before+1);assert.ok(mail.at(-1).cc.includes('extra@test.invalid'));for(const row of db.nv_clients)row.last_reminder_check=null;await call('reminders',{},'cron');assert.equal(mail.length,before+1)});
+ await test('cron secret cannot create or delete clients',async()=>{assert.equal((await call('delete_user',{client_id:first,user_id:'x'},'cron')).status,403)});
+ await test('public portal link contains only the public project configuration',()=>{const c=db.nv_clients.find(x=>x.id===first),url=new URL(H.clientLink(c)),config=JSON.parse(atob(url.searchParams.get('project')));assert.equal(config.url,c.project_url);assert.ok(H.isPublicKey(config.key));assert.ok(!H.clientLink(c).includes('credential_cipher'))});
+ await test('subscription template escapes supplied names',()=>{const c={...make(),name:'<img src=x onerror=alert(1)>'};assert.ok(!H.welcomeHtml(c,'Temp!123').includes('<img'));assert.ok(H.welcomeHtml(c).includes('13'));assert.ok(H.welcomeHtml(c).includes('20'))});
+ await test('all generated executable scripts parse and NV35 controls exist',()=>{const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/application\/json|\bsrc=/.test(m[1]))new vm.Script(m[2]);for(const text of ['nv-clients','data-user-delete','data-system-delete','data-client-resend','رقم المبنى'])assert.ok(html.includes(text));assert.ok(!/مدرسة|مدارس|مدرسه|الرقم الوزاري/.test(html))});
+ await test('browser project links override defaults and isolate Auth storage',async()=>{
+  const script=fs.readFileSync(new URL('../src/parts/cloud.js',import.meta.url),'utf8').replace(/<\/?script[^>]*>/g,'');const storageKeys=[];
+  for(const name of ['a','b']){const c=make(name),store=new Map();store.set('solvix_cloud_cfg',JSON.stringify({url:'https://wrong.supabase.co',key:c.publishable_key}));
+   const sandbox={URL,URLSearchParams,atob,btoa,escape,unescape,location:{search:new URL(H.clientLink(c)).search,hash:''},localStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},window:{addEventListener(){},supabase:{createClient:(url,key,options)=>{assert.equal(url,c.project_url);storageKeys.push(options.auth.storageKey);return {}}}}};vm.createContext(sandbox);vm.runInContext(script,sandbox);const cloud=sandbox.window.Cloud;
+   assert.equal(cloud.cfg().url,c.project_url);store.set('solvix_cloud_cfg','null');assert.equal(cloud.cfg().url,c.project_url);await cloud.sb();assert.equal(cloud.scope(),new URL(c.project_url).hostname);
+  }assert.notEqual(storageKeys[0],storageKeys[1]);
+ });
+ await test('legacy spreadsheet headings still import as building data',async()=>{
+  const source=fs.readFileSync(new URL('../src/parts/core.js',import.meta.url),'utf8').split('\n').find(x=>x.startsWith('async function readXlsx('));const sandbox={needXLSX:async()=>{},XLSX:{read:()=>({Sheets:{first:{}},SheetNames:['first']}),utils:{sheet_to_json:()=>[{'MOE Number':'100','اسم المدرسة':'موقع تجريبي','school_identifier':'B-1'}]}}};vm.createContext(sandbox);vm.runInContext(source,sandbox);
+  const [r]=await sandbox.readXlsx({arrayBuffer:async()=>new ArrayBuffer(0)});assert.equal(r['Building Number'],'100');assert.equal(r['اسم المبنى'],'موقع تجريبي');assert.equal(r.building_identifier,'B-1');
+ });
+ console.log(passed+' NV35 tests passed');
+}finally{globalThis.fetch=realFetch;delete globalThis.__mockCreateClient;delete globalThis.Deno}

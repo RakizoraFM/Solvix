@@ -60,8 +60,12 @@ Deno.serve(async (req) => {
         ${stage === 0 ? `<p>يعمل النظام الآن في فترة السماح (${esc(due.grace_days)} أيام)، ثم يصبح <b>للقراءة فقط</b>: يبقى العرض والتصدير متاحين ولا يُحذف أي شيء، ويتوقف الجرد والتعديل حتى التجديد.</p>`
           : `<p>متبقٍ <b>${esc(due.days)}</b> ${Number(due.days) === 1 ? "يوم" : "أيام"}. بعد الانتهاء وفترة السماح يصبح النظام للقراءة فقط حتى التجديد.</p>`}
         <p>للتجديد: من ${esc(app0)} ← الإعدادات العامة ← «طلب تجديد»، أو تواصل مع مزوّد الخدمة.</p></div>`;
+      const { data: claimed, error: claimError } = await a.rpc("nv_sub_reminder_claim", { p_stage: stage, p_ends_at: due.ends_at });
+      if (claimError) return json({ error: claimError.message }, 500);
+      if (!claimed) return json({ ok: true, sent: false });
       const id = await send(to.length ? to : cc, to.length ? cc : [], subject, html);
-      await a.rpc("nv_sub_reminder_mark", { p_stage: stage, p_ends_at: due.ends_at, p_to: to.concat(cc) });
+      const { error: markError } = await a.rpc("nv_sub_reminder_mark", { p_stage: stage, p_ends_at: due.ends_at, p_to: to.concat(cc) });
+      if (markError) return json({ error: markError.message }, 500);
       return json({ ok: true, sent: true, stage, to, cc, id });
     }
     if (body.kind === "renew_request") {
@@ -78,12 +82,12 @@ Deno.serve(async (req) => {
         <div>تاريخ الانتهاء الحالي: ${rq.ends_at ? esc(fmtD(rq.ends_at)) : "—"} ${rq.ok ? "" : "· <b style='color:#b91c1c'>منتهٍ (قراءة فقط)</b>"}</div>
         ${rq.note ? `<p style="background:#f1f5f9;padding:8px 12px;border-radius:8px">${esc(rq.note)}</p>` : ""}
         <table cellpadding="6" style="border-collapse:collapse;border:1px solid #e2e8f0"><tr style="background:#f8fafc"><th>البند</th><th>المستخدم</th><th>الحد</th></tr>
-        ${L("schools", "المدارس")}${L("field", "مشرفو الميدان")}${L("staff", "حسابات الإدارة")}${L("assets", "الأصول")}</table>
+        ${L("schools", "المباني")}${L("field", "مشرفو الميدان")}${L("staff", "حسابات الإدارة")}${L("assets", "الأصول")}</table>
         <p>جدّد من «الإعدادات ← إدارة النظام (Admin)».</p></div>`;
       const id = await send(to, [], `Solvix — طلب تجديد من ${rq.customer || rq.by}`, html);
       return json({ ok: true, to, id });
     }
-    const { data: st } = await sb.from("nv_settings").select("data").eq("id", 1).maybeSingle();
+    const { data: st } = await adm().from("nv_settings").select("data").eq("id", 1).maybeSingle();
     const cfg = (st && st.data) || {};
     const app = cfg.app_name || "Solvix";
     let to: string[] = String(cfg.admin_email || "").split(/[,;\s]+/).map((x: string) => x.trim().toLowerCase()).filter(isMail);
@@ -91,17 +95,17 @@ Deno.serve(async (req) => {
     let attachments: { filename: string; content: string }[] | undefined;
 
     if (body.kind === "test") {
-      if (me.role !== "admin") return json({ error: "not allowed" }, 403);
+      if (!me.sys && !(me.perms || []).includes("settings")) return json({ error: "not allowed" }, 403);
       const { data: u } = await sb.auth.getUser();
       const em = (u?.user?.email || "").toLowerCase();
       if (isMail(em)) to.push(em);
       subject = `${app} — رسالة تجريبية`;
-      html = `<div dir="rtl" style="font-family:Tahoma,Arial">تم ضبط إرسال البريد في ${esc(app)} بنجاح ✅<br>تصل تقارير المدارس إلى: ${esc(to.join("، "))}</div>`;
+      html = `<div dir="rtl" style="font-family:Tahoma,Arial">تم ضبط إرسال البريد في ${esc(app)} بنجاح ✅<br>تصل تقارير المباني إلى: ${esc(to.join("، "))}</div>`;
     } else if (body.kind === "school") {
       const { data: s } = await sb.from("nv_schools").select("id,name,moe,ident,city,district,completed_at,completed_by").eq("id", body.school_id).maybeSingle();
-      if (!s) return json({ error: "school not found" }, 404);
-      if (!s.completed_at) return json({ error: "school not completed" }, 409);
-      if (me.role === "tech" && s.completed_by !== me.emp?.id) return json({ error: "not your school" }, 403);
+      if (!s) return json({ error: "building not found" }, 404);
+      if (!s.completed_at) return json({ error: "building not completed" }, 409);
+      if (me.role === "tech" && s.completed_by !== me.emp?.id) return json({ error: "not your building" }, 403);
       if (me.role !== "tech" && me.role !== "admin") return json({ error: "not allowed" }, 403);
       const empId = me.role === "tech" ? me.emp.id : (body.emp_id || s.completed_by);
       const { data: emp } = await sb.from("nv_employees").select("name,number,email").eq("id", empId).maybeSingle();
@@ -109,12 +113,15 @@ Deno.serve(async (req) => {
       const b64 = String(body.file_b64 || "");
       if (!b64 || b64.length > 34_000_000) return json({ error: "file missing or larger than 25 MB" }, 413);
       const fname = String(body.filename || "report.xlsx").replace(/[\\/:*?"<>|\r\n]/g, "-").slice(0, 120);
+      const { data: totals, error: totalsError } = await sb.rpc("nv_school_report_totals", { p_school: s.id });
+      if (totalsError) return json({ error: totalsError.message }, 500);
+      const assetCount = totals?.count || 0, assetQty = totals?.qty || 0;
       subject = `${app} — اكتمل جرد ${s.name}`;
       html = `<div dir="rtl" style="font-family:Tahoma,Arial;line-height:1.8">
-        <h3 style="margin:0 0 8px">اكتمل جرد مدرسة: ${esc(s.name)}</h3>
-        <div>الرقم الوزاري: ${esc(s.moe)} · المعرّف: ${esc(s.ident)} · ${esc(s.city)} ${esc(s.district)}</div>
+        <h3 style="margin:0 0 8px">اكتمل جرد مبنى: ${esc(s.name)}</h3>
+        <div>رقم المبنى: ${esc(s.moe)} · المعرّف: ${esc(s.ident)} · ${esc(s.city)} ${esc(s.district)}</div>
         <div>مشرف الميدان: ${esc(emp?.name)} (${esc(emp?.number)})</div>
-        <div>عدد الأصول: ${esc(body.count)} · إجمالي الكمية: ${esc(body.qty)}</div>
+        <div>عدد الأصول: ${esc(assetCount)} · إجمالي الكمية: ${esc(assetQty)}</div>
         <div>تاريخ الإنهاء: ${esc(new Date(s.completed_at).toLocaleString("ar-SA-u-ca-gregory", { timeZone: "Asia/Riyadh" }))}</div>
         <p>مرفق ملف Excel: ورقة «البيانات» وورقة «صور الأصول» (صورة كل أصل ورمز QR ورقمه).</p></div>`;
       attachments = [{ filename: fname, content: b64 }];
@@ -122,6 +129,9 @@ Deno.serve(async (req) => {
 
     to = [...new Set(to)];
     if (!to.length) return json({ error: "no recipients: add «بريد المستلمين» in the settings or the supervisor's e-mail" }, 422);
+    const { data: claimed, error: claimError } = await sb.rpc("nv_mail_claim", { p_kind: body.kind, p_school: body.kind === "school" ? String(body.school_id) : "" });
+    if (claimError) return json({ error: claimError.message }, 403);
+    if (!claimed) return json({ error: "Please wait 10 minutes before sending this report again" }, 429);
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },

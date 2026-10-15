@@ -5,6 +5,9 @@ function route(){
   if(/[#&]cfg=/.test(location.hash)){/* a connection link opened in a tab that was already open */try{const m=location.hash.match(/[#&]cfg=([^&]+)/);const o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));if(cfgOk(o))localStorage.setItem(NV_CFG_KEY,JSON.stringify({url:o.url.replace(/\/+$/,''),key:o.key}))}catch(e){}location.replace(location.pathname+location.search+'#login');location.reload();return}
   const path=decodeURIComponent(location.hash.replace(/^#/,'').split('?')[0]);const seg=path.split('/');window.scrollTo(0,0);
   if(Cloud.on&&seg[0]==='forgot'){destroyCharts();const ae=Cloud.authErr;Cloud.authErr=null;return vForgot('',ae?'رابط الاستعادة غير صالح أو انتهت صلاحيته — اطلب رابطاً جديداً.':'')}if(Cloud.on&&seg[0]==='reset-password'){destroyCharts();return vResetPw()}
+  if(seg[0]==='tasks'){if(!curEmp()&&!Cloud.role)return go('#login');return vMyTasks()}
+  if(seg[0]==='guide'){if(!curEmp()&&!Cloud.role)return go('#login');return vPlatformGuide()}
+  if(seg[0]==='conflicts'&&Cloud.on&&Cloud.role)return vConflicts();
   if(seg[0]==='a'&&seg[1]){destroyCharts();return openAssetLink(seg[1])}
   if(seg[0]==='admin'){
     if(seg[1]==='login'||!isAuthed())return vAdminLogin();
@@ -16,7 +19,7 @@ function route(){
     if(a==='schools'){if(!b)return vSchools();if(b==='create')return vSchoolForm(null);return vSchoolForm(b)}
     if(a==='employees'){if(!b)return vEmployees();if(b==='create')return vEmployeeForm(null);return vEmployeeForm(b)}
     if(LK[a]){if(!b)return vLookup(a);if(b==='create')return vLookupForm(a,null);return vLookupForm(a,b)}
-    if(a==='analytics')return vAnalytics();if(a==='system')return vSystem();if(a==='subscription')return vSubscription();if(a==='room-templates')return vRoomTpl();if(a==='review')return vReview();if(a==='label')return vLabelSettings();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
+    if(a==='tasks')return vMyTasks();if(a==='trash')return vTrash();if(a==='guide')return vPlatformGuide();if(a==='releases')return vReleases();if(a==='usage')return vPlatformUsage();if(a==='approvals')return vApprovals();if(a==='approval-path')return vApprovalPath();if(a==='quality')return vQuality();if(a==='conflicts')return vConflicts();if(a==='clients')return vClients();if(a==='analytics')return vAnalytics();if(a==='system')return vSystem();if(a==='subscription')return vSubscription();if(a==='room-templates')return vRoomTpl();if(a==='review')return vReview();if(a==='label')return vLabelSettings();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
     return vDashboard();
   }
   destroyCharts();setMode('field');
@@ -34,8 +37,8 @@ window.addEventListener('hashchange',route);
   const H=location.hash;const recovery=/type=recovery/.test(H);const authErr=/error_description=/.test(H)?decodeURIComponent((H.match(/error_description=([^&]+)/)||[])[1]||'').replace(/\+/g,' '):'';
   if(!local){
     await loadState(true);Cloud.on=true;
-    let ok=true;try{const c=await Cloud.sb();const {error}=await c.from('nv_settings').select('id').limit(1);if(error&&/does not exist|schema cache|nv_settings/i.test(error.message))ok=false}catch(e){/* offline: work from the cached copy */}
-    if(!ok){Cloud.on=false;Cloud.tablesMissing=true;IDB.db.close();IDB.name='novaro_v2';for(const t of TABLES)S[t]=null;await loadState(false)}
+    let ok=true;try{const c=await Cloud.sb();const {data,error}=await c.rpc('nv_public_settings');if(error&&/does not exist|schema cache|nv_public_settings/i.test(error.message))ok=false;else if(error)throw error;else if(!data||data.schema_version!==38)ok=false}catch(e){/* offline: work from the cached copy */}
+    if(!ok)throw new Error('يلزم تحديث قاعدة البيانات إلى NV38: شغّل ترقيات NV34 إلى NV37 ثم migrations/038_duplicates_tasks_trash.sql ثم أعد فتح التطبيق. لم تُحذف البيانات المحلية.');
     else{await Cloud.init();await Cloud.loadPublicSettings();
       if(recovery){history.replaceState(null,'',location.pathname+location.search+'#reset-password')}else if(authErr){history.replaceState(null,'',location.pathname+location.search+'#forgot');Cloud.authErr=authErr}
       if(Cloud.role){app().innerHTML='<div class="nv-skel" dir="rtl" aria-busy="true"><i style="height:54px"></i><div class="r"><i style="height:110px"></i><i style="height:110px"></i><i style="height:110px"></i><i style="height:110px"></i></div><i style="height:260px"></i><p>جارٍ تحميل البيانات…</p></div>';
@@ -44,7 +47,7 @@ window.addEventListener('hashchange',route);
   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
   route();
   if(Cloud.tablesMissing&&location.hash.startsWith('#admin'))toast('قاعدة بيانات Solvix غير مجهزة بعد — شغّل solvix_setup.sql في SQL Editor. يعمل التطبيق الآن على هذا الجهاز فقط.',8000);
-}catch(e){document.body.innerHTML=`<p dir="rtl" style="padding:20px;font-family:Cairo,Tahoma,sans-serif">تعذر فتح قاعدة البيانات المحلية: ${esc(e.message||e)}. جرّب متصفحاً آخر أو اخرج من وضع التصفح الخاص.</p>`}})();
+}catch(e){document.body.innerHTML=`<p dir="rtl" style="padding:20px;font-family:Cairo,Tahoma,sans-serif">تعذر تشغيل Solvix: ${esc(e.message||e)}.</p>`}})();
 </script>
 <script id="nv-update">
 /* NV9 — new version notice: compares <meta name="fm-version"> with the copy on the server (on open, every 10 minutes and when the tab comes back) */
