@@ -85,7 +85,7 @@ declare t public.nv_asset_trash; restored text;begin
  if not found or t.restored_at is not null or t.expires_at<=now() then raise exception 'TRASH_EXPIRED: انتهت مهلة الاستعادة أو تمت الاستعادة بالفعل';end if;
  if exists(select 1 from public.nv_collections where id=t.asset_id) then raise exception 'الأصل موجود بالفعل؛ حدّث القائمة';end if;
  -- Foreign keys, subscription limits and identity checks still run. Old approvals never silently return.
- insert into public.nv_collections select (jsonb_populate_record(null::public.nv_collections,t.snapshot||
+ insert into public.nv_collections overriding system value select (jsonb_populate_record(null::public.nv_collections,t.snapshot||
  jsonb_build_object('updated_at',now(),'review_status',null,'review_note','','reviewed_at',null,'reviewed_by',null))).* returning id into restored;
  update public.nv_asset_trash set restored_at=now(),restored_by=auth.uid() where id=t.id;
  insert into public.nv_audit(actor,table_name,operation,row_id,new_data) values(auth.uid(),'nv_collections','RESTORE',restored,jsonb_build_object('trash_id',t.id));
