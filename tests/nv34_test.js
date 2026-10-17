@@ -35,6 +35,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await a.click(`[data-cuse="${tb.id}"]`);await a.waitForFunction(()=>/^#admin\/?$/.test(location.hash)&&Cloud.tenant&&Cloud.tenant.name==='Customer B',null,{timeout:30000});
  ok(await a.evaluate(()=>S.schools.length===0&&S.collections.length===0&&S.employees.length===0),'inside B: no buildings / assets / supervisors of the first customer');
  await a.waitForSelector('[data-nv-tenant]');ok((await a.textContent('[data-nv-tenant]')).includes('Customer B'),'navbar shows the customer');
+ await a.waitForSelector('[data-new-tenant]');ok(!(await a.$('#initCloud')),'new customer: start box, no «القوائم الجاهزة» of the first customer');await a.screenshot({path:B+'/shots/34-new-customer.png'});
  // building template: hide «رقم المبنى», rename the district, add a number field
  await a.goto(U+'#admin/site-form');await a.waitForSelector('#sfF');
  await a.uncheck('[data-fon="moe"]');await a.fill('[data-fl="district"]','الحي');await a.click('#sfAdd');await a.fill('[data-xl="0"]','عدد الأدوار');await a.selectOption('[data-xt="0"]','number');

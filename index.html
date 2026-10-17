@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="fm-version" content="NV33">
+<meta name="fm-version" content="NV34">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Solvix</title>
@@ -339,7 +339,7 @@ body.sx-body{margin:0;background:#f4f7fb}
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV33',date:'2026-10-14'};
+const NV={version:'NV34',date:'2026-10-17'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings'];
@@ -1718,7 +1718,7 @@ function vLog(){const pg=paginate(S.log,50);
 </script>
 <script id="nv-admin-cloud">
 /* fill an empty cloud with the built-in lists (seeders), then send them */
-async function initCloudLists(){if(S.schools.length&&!confirm('قاعدة البيانات فيها مباني بالفعل. إضافة القوائم الجاهزة رغم ذلك؟ (السجلات الموجودة تبقى)'))return;
+async function initCloudLists(){if(idSuffix())return alert('القوائم الجاهزة (مدارس القصيم ومشرفوها) خاصة بالعميل الأول. أضف مبانيك ومشرفيك أو استوردهم من Excel.');if(S.schools.length&&!confirm('قاعدة البيانات فيها مباني بالفعل. إضافة القوائم الجاهزة رغم ذلك؟ (السجلات الموجودة تبقى)'))return;
   const T=seedLists({});{const hs=new Set(S.schools.map(x=>x.id)),he=new Set(S.employees.map(x=>x.id));if(!await limitOk('schools',T.schools.filter(x=>!hs.has(x.id)).length)||!await limitOk('field',T.employees.filter(x=>!he.has(x.id)).length))return}for(const t of ['categories','conditions','rooms','types','employees','schools']){const have=new Set(S[t].map(x=>x.id));for(const r of T[t])if(!have.has(r.id))S[t].push(r)}
   reindex();for(const t of ['categories','conditions','rooms','types','employees','schools'])save(t);toast('جارٍ إرسال القوائم إلى قاعدة البيانات…',4000);await Cloud.sync();
   setAFlash(Cloud.err?('لم يُرسل كل شيء: '+Cloud.err.message):'القوائم الجاهزة الآن في قاعدة البيانات.',Cloud.err?'danger':'success');route()}
@@ -2025,9 +2025,9 @@ function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,d
 const SCH_ST={completed:'مكتملة',in_progress:'قيد التنفيذ',not_started:'لم تبدأ'};
 function vSchools(){const sst=schoolStats();const lastEmp=new Map();for(const c of S.collections){const x=lastEmp.get(c.school_id);if(!x||(c.submitted_at||'')>(x.submitted_at||''))lastEmp.set(c.school_id,c)}
   const T=nvTable({key:'schools',title:'المباني',icon:'bi-building',empty:'لا توجد مباني بعد',emptyHint:'أضف مبنى أو استورد ملف Excel بالمباني.',minW:1000,sort:'name',actW:'100px',
-    init:st=>{const s=qp().get('status');if(s&&SCH_ST[s])st.f.work=SCH_ST[s];else if(s==='active'||s==='inactive')st.f.status=s==='active'?'نشطة':'غير نشطة';const q=qp().get('search');if(q)st.f.q=q},
+    init:st=>{const s=qp().get('status');if(s&&SCH_ST[s])st.f.work=SCH_ST[s];else if(s==='active'||s==='inactive')st.f.status=s==='active'?'نشط':'غير نشط';const q=qp().get('search');if(q)st.f.q=q},
     rows:()=>S.schools.map(s=>{const x=sst.get(s.id);const le=lastEmp.get(s.id);return {id:s.id,s,no:num(dispId(s.id))||0,moe:s.moe||'',ident:s.ident||'',name:s.name||'',city:s.city||'',district:s.district||'',site:s.site||'',
-      emp:s.completed_by?empName(s.completed_by):le?empName(le.employee_id):'',work:SCH_ST[schoolState(s,x)],status:s.status==='active'?'نشطة':'غير نشطة',recs:x?x.any:0,created:fmtYmd(s.created_at)}}),
+      emp:s.completed_by?empName(s.completed_by):le?empName(le.employee_id):'',work:SCH_ST[schoolState(s,x)],status:s.status==='active'?'نشط':'غير نشط',recs:x?x.any:0,created:fmtYmd(s.created_at)}}),
     cols:[{k:'no',l:'#',w:'60px',cls:'text-muted small',hide:1},{k:'moe',l:'رقم المبنى',w:'95px'},{k:'ident',l:'المعرّف',w:'150px',cls:'small',html:r=>`<code class="text-primary">${esc(r.ident)}</code>`},
       {k:'name',l:'اسم المبنى',html:r=>{const rel=r.s.completed_by||(lastEmp.get(r.id)||{}).employee_id;return `<a class="fw-bold link-primary" href="${rel?`#admin/collections/view/${encodeURIComponent(rel)}/${encodeURIComponent(r.id)}`:`#admin/collections?school_id=${encodeURIComponent(r.id)}`}">${esc(r.name)}</a>`}},
       {k:'city',l:'المحافظة',w:'95px',filter:'select',resets:['district']},{k:'district',l:'الحي / المكتب',w:'105px',filter:'select',dep:['city']},{k:'site',l:'الموقع',w:'120px',hide:1},{k:'emp',l:'مشرف الميدان',w:'120px',filter:'select'},
@@ -2590,7 +2590,7 @@ function vDashboard(){
   const alertsHtml=al.length?`<ul class="nv33-al">${al.map(([n,ic,c,t,h,s])=>`<li><a href="${h}"><span class="nvk-ic" style="--c:${c}"><i class="bi ${ic}"></i></span><span class="flex-grow-1"><b>${t}</b><small>${s}</small></span>${n>1||!/subscription/.test(h)?`<span class="nv33-n">${nf(n)}</span>`:''}</a></li>`).join('')}</ul>`:'<div class="text-center text-muted small py-4"><i class="bi bi-check2-circle fs-3 d-block mb-1" style="color:#0ca30c"></i>لا توجد تنبيهات عاجلة.</div>';
   adminShell('dashboard','لوحة التحكم',`
   <div class="nvd nv33">
-  ${empty?`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2"><div class="flex-grow-1"><strong>لا توجد بيانات في قاعدة Solvix بعد.</strong> حمّل القوائم الجاهزة (المباني، دليل الأصول، أسماء الغرف، الموظفين) مرة واحدة للبدء.</div>${Cloud.role==='admin'?'<button class="btn btn-warning btn-sm" id="initCloud">تحميل القوائم الجاهزة</button>':''}</div>`:''}
+  ${empty&&idSuffix()?`<div class="alert alert-info d-flex flex-wrap align-items-center gap-2" data-new-tenant><div class="flex-grow-1"><strong>مرحباً بك في ${esc(Cloud.tenant.name)}.</strong> ابدأ بإضافة مبانيك ومشرفي الميدان؛ دليل الأصول وحالاتها وأسماء الغرف جاهزة.</div><a class="btn btn-sm btn-primary" href="#admin/schools/create"><i class="bi bi-building-add me-1"></i>إضافة مبنى</a><a class="btn btn-sm btn-outline-primary" href="#admin/employees"><i class="bi bi-person-plus me-1"></i>المستخدمون</a><a class="btn btn-sm btn-outline-secondary" href="#admin/site-form"><i class="bi bi-building-gear me-1"></i>نموذج بيانات المباني</a></div>`:empty?`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2"><div class="flex-grow-1"><strong>لا توجد بيانات في قاعدة Solvix بعد.</strong> حمّل القوائم الجاهزة (المباني، دليل الأصول، أسماء الغرف، الموظفين) مرة واحدة للبدء.</div>${Cloud.role==='admin'?'<button class="btn btn-warning btn-sm" id="initCloud">تحميل القوائم الجاهزة</button>':''}</div>`:''}
   <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
    <div class="nv33-q position-relative flex-grow-1"><i class="bi bi-search"></i><input type="search" class="form-control form-control-sm" id="dQ" placeholder="ابحث عن أصل، رقم، مبنى، مشرف، رقم تسلسلي…" autocomplete="off" aria-label="بحث عن أصل"><div class="nv33-qr d-none" id="dQr"></div></div>
    <select class="form-select form-select-sm" style="width:auto" id="dCity"><option value="">كل المحافظات</option>${cities.map(c=>`<option ${F.city===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
@@ -2714,7 +2714,7 @@ async function sendWelcome(t,owner,pw){const c=await Cloud.sb();const url=locati
   const {data,error}=await c.functions.invoke('solvix-mail',{body:{kind:'tenant_welcome',tenant_id:t.id,owner_email:owner.email,owner_name:owner.name||'',owner_password:pw,url}});
   if(error)throw new Error(error.message||String(error));if(data&&data.error)throw new Error(data.error);return data}
 async function vCustomers(){if(!isSys())return go('#admin');
-  adminShell('customers','العملاء',`${settingsTabs('customers')}<div id="custBox">${skel(120)}<div class="mt-3">${skel(300)}</div></div>`);
+  adminShell('customers','العملاء',`<div id="custBox">${skel(120)}<div class="mt-3">${skel(300)}</div></div>`);
   let list=null,err='';try{list=await custRpc('nv_tenant_list')}catch(e){err=e.message}
   if(!$('#custBox'))return;
   if(err||!Array.isArray(list)){$('#custBox').innerHTML=`<div class="alert alert-danger">${esc(err||'لا توجد قائمة عملاء')} — شغّل <code>solvix_setup.sql</code> (NV34) في Supabase ← SQL Editor.</div>`;return}
@@ -2825,7 +2825,7 @@ function siteExtraPick(r){const C=siteCfg();if(!C.extra.length)return null;const
 /* settings tab «نموذج بيانات المباني» */
 function vSiteForm(){if(!can('settings'))return go('#admin/settings');const C=siteCfg();const st=vSiteForm.st||(vSiteForm.st=JSON.parse(JSON.stringify({one:C.one,f:C.f,extra:C.extra})));
   const TL={text:'نص',number:'رقم',date:'تاريخ',select:'قائمة اختيار'};
-  adminShell('site-form','نموذج بيانات المباني',`${settingsTabs('site-form')}<div>
+  adminShell('site-form','نموذج بيانات المباني',`<div>
   <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>هذا النموذج خاص بـ<b>${esc(Cloud.tenant?Cloud.tenant.name:'هذا العميل')}</b>: يحدد أي حقول تظهر عند إضافة المباني واستيرادها، وأسماءها، وحقولاً إضافية حسب نشاطك. لا يؤثر على العملاء الآخرين.</div>
   <form id="sfF"><div class="card mb-3"><div class="card-header py-3"><h3 class="card-title mb-0"><i class="bi bi-ui-checks me-2 text-primary"></i>الحقول الأساسية</h3><small class="text-muted d-block">أوقف ما لا تحتاجه وغيّر اسم أي حقل. «المعرّف» و«الاسم» إلزاميان دائماً.</small></div>
    <div class="card-body p-0"><table class="table align-middle mb-0"><thead class="bg-light"><tr><th class="ps-3" style="width:90px">يظهر</th><th>اسم الحقل</th><th class="text-muted small">الافتراضي</th></tr></thead><tbody>
