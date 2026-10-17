@@ -65,17 +65,17 @@ select pg_temp.as_user(:sys); select 'log entries', jsonb_array_length(public.nv
 reset role;
 -- NV29: reminders (service role only, once per stage) and «طلب تجديد»
 \set o9 '''' `psql -h /tmp/nvpg -p 5544 -U postgres -d sx -Atc "select user_id from nv_staff where email='own9@x.com'"` ''''
-update nv_subscription set ends_at = now() + interval '6 days 2 hours';
-set role service_role; select 'due (7)', public.nv_sub_reminder_due()->>'stage', public.nv_sub_reminder_due()->'to'; select public.nv_sub_reminder_mark((public.nv_sub_reminder_due()->>'stage')::int,(public.nv_sub_reminder_due()->>'ends_at')::timestamptz,'[]');
+update nv_tenants set ends_at = now() + interval '6 days 2 hours' where id = 't1';
+set role service_role; select 'due (7)', public.nv_sub_reminder_due()->0->>'stage', public.nv_sub_reminder_due()->0->'to'; select public.nv_sub_reminder_mark((public.nv_sub_reminder_due()->0->>'stage')::int,(public.nv_sub_reminder_due()->0->>'ends_at')::timestamptz,'[]');
 select 'after mark (null)', public.nv_sub_reminder_due() is null; reset role;
-update nv_subscription set ends_at = now() + interval '20 hours'; set role service_role; select 'due (1)', public.nv_sub_reminder_due()->>'stage'; reset role;
-update nv_subscription set ends_at = now() - interval '1 day', grace_days = 7; set role service_role; select 'ended (0)', public.nv_sub_reminder_due()->>'stage'; reset role;
+update nv_tenants set ends_at = now() + interval '20 hours' where id = 't1'; set role service_role; select 'due (1)', public.nv_sub_reminder_due()->0->>'stage'; reset role;
+update nv_tenants set ends_at = now() - interval '1 day', grace_days = 7 where id = 't1'; set role service_role; select 'ended (0)', public.nv_sub_reminder_due()->0->>'stage'; reset role;
 set role authenticated; select pg_temp.as_user(:o9);
 select 'owner calls reminder helper (expect error)'; select public.nv_sub_reminder_due();
 select 'owner renew request', public.nv_renew_request('نرجو التجديد سنة')->>'customer';
 select 'second request (expect error)'; select public.nv_renew_request('x');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1'); select 'Admin renew request (expect error)'; select public.nv_renew_request('x');
-reset role; update nv_subscription set ends_at = now() + interval '3 months', grace_days = 7;
+reset role; update nv_tenants set ends_at = now() + interval '3 months', grace_days = 7 where id = 't1';
 
 -- NV30: the same serial number on another asset (normalised: «sn 1234x» = «SN-1234X»)
 insert into nv_categories(id,ar) values ('gz','cat') on conflict do nothing; insert into nv_types(id,cat,ar) values ('tz','gz','t') on conflict do nothing;
@@ -94,9 +94,9 @@ select 'unread check', public.nv_label_confirm('rc','p_lbl2','maybe')->>'label_c
 reset role; select 'no change-log line for the label (expect 0)', count(*) from nv_log where changes ?| array['label_photo','label_at','label_check'];
 set role authenticated; select pg_temp.as_user(:co); insert into nv_collections(id,employee_id,school_id,type_id,submitted_at) values ('rz','ec','rs','tz',now());
 select pg_temp.as_user(:o9); select 'another account can (edit perm)', public.nv_label_confirm('rz','p_x','ok')->>'label_check';
-reset role; update nv_subscription set ends_at = now() - interval '30 days', grace_days = 0;
+reset role; update nv_tenants set ends_at = now() - interval '30 days', grace_days = 0 where id = 't1';
 set role authenticated; select pg_temp.as_user(:ek); select 'after the end (expect error)'; select public.nv_label_confirm('rc','p_lbl3','ok');
-reset role; update nv_subscription set ends_at = now() + interval '3 months', grace_days = 7;
+reset role; update nv_tenants set ends_at = now() + interval '3 months', grace_days = 7 where id = 't1';
 set role authenticated; select pg_temp.as_user(:ek); select 'printed (own rc, own rz)', public.nv_label_printed(array['rc']), public.nv_label_printed(array['rz']);
 select 'printed kept + confirm implies printed', label_printed_at is not null from nv_collections where id='rc';
 reset role; select pg_temp.as_user(:sys); select public.nv_emp_perms('ec', null); reset role;

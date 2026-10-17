@@ -560,6 +560,384 @@ grant execute on function public.nv_label_printed(text[]) to authenticated;
 revoke all on function public.nv_label_confirm(text,text,text), public.nv_label_only(public.nv_collections, public.nv_collections) from public, anon;
 grant execute on function public.nv_label_confirm(text,text,text) to authenticated;
 
+-- =====================================================================
+-- NV34 — customers (multi-tenant): every customer has its own data (management accounts, field supervisors, buildings, assets,
+-- change log, settings), its own subscription and limits. The system Admin keeps the list of customers and works inside one of them
+-- at a time (nv_staff.cur_tenant). The asset catalog, conditions and room names are shared (tenant_id null, edited by the system Admin);
+-- a customer may add its own (tenant_id = that customer). The existing data becomes the first customer 't1'.
+-- =====================================================================
+create table if not exists public.nv_tenants(id text primary key, name text not null, plan text not null default 'trial',
+  starts_at timestamptz, ends_at timestamptz, grace_days int not null default 7 check(grace_days between 0 and 90),
+  max_schools int, max_field int, max_staff int, max_assets int, notes text not null default '',
+  contact_name text not null default '', contact_email text not null default '', contact_phone text not null default '',
+  active boolean not null default true, created_at timestamptz not null default now(), updated_at timestamptz not null default now(), updated_by text);
+alter table public.nv_tenants add column if not exists cc_emails text not null default ''; -- extra recipients (CC) of the customer's mails
+alter table public.nv_tenants enable row level security;
+revoke all on public.nv_tenants from anon, authenticated;
+insert into public.nv_tenants(id, name, plan, starts_at, ends_at, grace_days, max_schools, max_field, max_staff, max_assets, notes, created_at)
+  select 't1', coalesce(nullif(trim(s.customer),''), 'العميل الأول'), s.plan, s.starts_at, s.ends_at, s.grace_days, s.max_schools, s.max_field, s.max_staff, s.max_assets, s.notes, '2000-01-01'
+  from public.nv_subscription s where s.id = 1
+on conflict (id) do nothing;
+insert into public.nv_tenants(id, name, created_at) values ('t1', 'العميل الأول', '2000-01-01') on conflict (id) do nothing;
+alter table public.nv_staff add column if not exists tenant_id text references public.nv_tenants(id) on delete cascade;
+alter table public.nv_staff add column if not exists cur_tenant text references public.nv_tenants(id) on delete set null;
+update public.nv_staff set tenant_id = 't1' where tenant_id is null and role <> 'sysadmin';
+do $t$ declare t text; begin
+  foreach t in array array['nv_employees','nv_schools','nv_collections','nv_log','nv_settings','nv_sub_log','nv_categories','nv_types','nv_conditions','nv_rooms'] loop
+    execute format('alter table public.%I add column if not exists tenant_id text references public.nv_tenants(id) on delete cascade', t);
+  end loop;
+end $t$;
+-- the customer of the caller: his own, or (system Admin) the one he works in now, else the first one
+create or replace function public.nv_tenant() returns text language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select case when s.role = 'sysadmin' then coalesce(s.cur_tenant, (select t.id from public.nv_tenants t order by t.created_at, t.id limit 1)) else s.tenant_id end
+       from public.nv_staff s where s.user_id = auth.uid() and s.active),
+    (select e.tenant_id from public.nv_employees e where e.user_id = auth.uid() and auth.uid() is not null)) $$;
+-- the shared catalog: what the system Admin adds is shared, what a customer adds is his own
+create or replace function public.nv_cat_tenant() returns text language sql stable security definer set search_path = public as $$
+  select case when public.nv_is_sys() then null else public.nv_tenant() end $$;
+do $t$ declare t text; begin
+  foreach t in array array['nv_employees','nv_schools','nv_collections','nv_log'] loop
+    execute format('update public.%I set tenant_id = ''t1'' where tenant_id is null', t);
+    execute format('alter table public.%I alter column tenant_id set default public.nv_tenant()', t);
+    execute format('alter table public.%I alter column tenant_id set not null', t);
+    execute format('create index if not exists %I on public.%I(tenant_id)', t || '_tenant', t);
+  end loop;
+  foreach t in array array['nv_categories','nv_types','nv_conditions','nv_rooms'] loop
+    execute format('alter table public.%I alter column tenant_id set default public.nv_cat_tenant()', t);
+  end loop;
+end $t$;
+update public.nv_sub_log set tenant_id = 't1' where tenant_id is null;
+-- one settings row per customer (row 1 = the first customer; the sign-in pages read its name and logo)
+alter table public.nv_settings drop constraint if exists nv_settings_id_check;
+create sequence if not exists public.nv_settings_id_seq start 2;
+alter table public.nv_settings alter column id set default nextval('public.nv_settings_id_seq');
+update public.nv_settings set tenant_id = 't1' where id = 1 and tenant_id is null;
+create unique index if not exists nv_settings_tenant_u on public.nv_settings(tenant_id);
+insert into public.nv_settings(tenant_id, data) select t.id, jsonb_build_object('app_name', 'Solvix') from public.nv_tenants t
+  where not exists(select 1 from public.nv_settings s where s.tenant_id = t.id);
+-- numbers / identifiers are unique inside a customer, not across customers
+alter table public.nv_employees drop constraint if exists nv_employees_number_key;
+create unique index if not exists nv_employees_tenant_number_u on public.nv_employees(tenant_id, number);
+alter table public.nv_schools drop constraint if exists nv_schools_ident_key;
+create unique index if not exists nv_schools_tenant_ident_u on public.nv_schools(tenant_id, ident);
+drop index if exists public.nv_types_code_u;
+create unique index if not exists nv_types_code_u2 on public.nv_types(coalesce(tenant_id,'*'), code) where code is not null and code <> '';
+-- custom building fields of the customer (NV34 «نموذج بيانات المباني»)
+alter table public.nv_schools add column if not exists extra jsonb not null default '{}';
+
+-- subscription and limits now belong to the customer
+create or replace function public.nv_sub_ok() returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select t.active and (t.ends_at is null or now() < t.ends_at + make_interval(days => t.grace_days)) from public.nv_tenants t where t.id = public.nv_tenant()), true) $$;
+create or replace function public.nv_usage(p_tenant text) returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('schools', (select count(*) from public.nv_schools where tenant_id = p_tenant), 'field', (select count(*) from public.nv_employees where tenant_id = p_tenant),
+    'staff', (select count(*) from public.nv_staff where tenant_id = p_tenant and role <> 'sysadmin' and active),
+    'assets', (select count(*) from public.nv_collections where tenant_id = p_tenant and type_id is not null)) $$;
+create or replace function public.nv_limit_trg() returns trigger language plpgsql security definer set search_path = public as $$
+declare s public.nv_tenants; n int; lim int; what text;
+begin
+  if public.nv_is_sys() and tg_table_name <> 'nv_staff' then return new; end if;
+  if tg_table_name = 'nv_staff' then if new.role = 'sysadmin' or new.tenant_id is null then return new; end if; end if;
+  select * into s from public.nv_tenants where id = new.tenant_id;
+  if s.id is null then return new; end if;
+  if tg_table_name = 'nv_schools' then lim := s.max_schools; what := 'schools'; select count(*) into n from public.nv_schools where tenant_id = new.tenant_id;
+  elsif tg_table_name = 'nv_employees' then lim := s.max_field; what := 'field supervisors'; select count(*) into n from public.nv_employees where tenant_id = new.tenant_id;
+  elsif tg_table_name = 'nv_staff' then if public.nv_is_sys() then return new; end if; lim := s.max_staff; what := 'management accounts';
+    select count(*) into n from public.nv_staff where tenant_id = new.tenant_id and role <> 'sysadmin' and active and user_id <> new.user_id;
+  else
+    if new.type_id is null or (tg_op = 'UPDATE' and old.type_id is not null) then return new; end if;
+    lim := s.max_assets; what := 'assets'; select count(*) into n from public.nv_collections where tenant_id = new.tenant_id and type_id is not null;
+  end if;
+  if lim is not null and n >= lim then raise exception 'subscription limit reached: % (%)', what, lim using errcode = 'P0001'; end if;
+  return new;
+end $$;
+create or replace function public.nv_sub_get() returns jsonb language sql stable security definer set search_path = public as $$
+  select case when public.nv_member() then to_jsonb(t) - 'updated_by' || jsonb_build_object('customer', t.name, 'ok', public.nv_sub_ok(), 'now', now(), 'usage', public.nv_usage(t.id),
+    'log', case when public.nv_is_sys() then coalesce((select jsonb_agg(l order by l.at desc) from (select * from public.nv_sub_log where tenant_id = t.id order by at desc limit 50) l), '[]') end) end
+  from public.nv_tenants t where t.id = public.nv_tenant() $$;
+create or replace function public.nv_tenant_upd(p_id text, p jsonb) returns void language sql security definer set search_path = public as $$
+  update public.nv_tenants set name = coalesce(nullif(trim(coalesce(p->>'name', p->>'customer')),''), name), plan = coalesce(p->>'plan', plan),
+    starts_at = case when p ? 'starts_at' then nullif(p->>'starts_at','')::timestamptz else starts_at end,
+    ends_at = case when p ? 'ends_at' then nullif(p->>'ends_at','')::timestamptz else ends_at end,
+    grace_days = coalesce(nullif(p->>'grace_days','')::int, grace_days),
+    max_schools = case when p ? 'max_schools' then nullif(p->>'max_schools','')::int else max_schools end,
+    max_field = case when p ? 'max_field' then nullif(p->>'max_field','')::int else max_field end,
+    max_staff = case when p ? 'max_staff' then nullif(p->>'max_staff','')::int else max_staff end,
+    max_assets = case when p ? 'max_assets' then nullif(p->>'max_assets','')::int else max_assets end,
+    notes = coalesce(p->>'notes', notes), contact_name = coalesce(p->>'contact_name', contact_name), contact_email = coalesce(lower(trim(p->>'contact_email')), contact_email),
+    contact_phone = coalesce(p->>'contact_phone', contact_phone), cc_emails = coalesce(lower(regexp_replace(p->>'cc_emails', '\s+', '', 'g')), cc_emails), active = coalesce((p->>'active')::boolean, active),
+    updated_at = now(), updated_by = (select email from public.nv_staff where user_id = auth.uid()) where id = p_id $$;
+revoke all on function public.nv_tenant_upd(text,jsonb) from public, anon, authenticated;
+create or replace function public.nv_sub_save(p jsonb, p_action text default 'edit') returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  if not public.nv_is_sys() then raise exception 'only the system Admin' using errcode = '42501'; end if;
+  perform public.nv_tenant_upd(public.nv_tenant(), p);
+  insert into public.nv_sub_log(tenant_id, by, action, data) values (public.nv_tenant(), (select email from public.nv_staff where user_id = auth.uid()), coalesce(nullif(p_action,''),'edit'), p);
+  return public.nv_sub_get();
+end $$;
+-- the list of customers with their usage (system Admin)
+create or replace function public.nv_tenant_list() returns jsonb language sql stable security definer set search_path = public as $$
+  select case when public.nv_is_sys() then coalesce(jsonb_agg(to_jsonb(t) || jsonb_build_object('usage', public.nv_usage(t.id),
+      'ok', t.active and (t.ends_at is null or now() < t.ends_at + make_interval(days => t.grace_days)),
+      'owners', (select coalesce(jsonb_agg(jsonb_build_object('email', s.email, 'name', s.name) order by s.created_at), '[]') from public.nv_staff s where s.tenant_id = t.id and s.active and s.role in ('owner','admin')),
+      'current', t.id = public.nv_tenant()) order by t.created_at, t.id), '[]') end
+  from public.nv_tenants t $$;
+-- add or change a customer; a new customer can get its owner account at once (owner_email / owner_password / owner_name)
+create or replace function public.nv_tenant_save(p jsonb) returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_id text := nullif(p->>'id',''); prev text; me text := (select email from public.nv_staff where user_id = auth.uid());
+begin
+  if not public.nv_is_sys() then raise exception 'only the system Admin' using errcode = '42501'; end if;
+  if v_id is null then
+    if coalesce(trim(p->>'name'),'') = '' then raise exception 'customer name required'; end if;
+    v_id := 't' || substr(md5(random()::text || clock_timestamp()::text), 1, 8);
+    insert into public.nv_tenants(id, name) values (v_id, trim(p->>'name'));
+    insert into public.nv_settings(tenant_id, data) values (v_id, jsonb_build_object('app_name', 'Solvix'));
+    insert into public.nv_sub_log(tenant_id, by, action, data) values (v_id, me, 'create', p - 'owner_password');
+  elsif not exists(select 1 from public.nv_tenants where id = v_id) then raise exception 'customer not found';
+  else insert into public.nv_sub_log(tenant_id, by, action, data) values (v_id, me, 'edit', p - 'owner_password'); end if;
+  perform public.nv_tenant_upd(v_id, p);
+  if coalesce(p->>'owner_email','') <> '' then
+    select cur_tenant into prev from public.nv_staff where user_id = auth.uid();
+    update public.nv_staff set cur_tenant = v_id where user_id = auth.uid();
+    perform public.nv_staff_create(p->>'owner_email', p->>'owner_password', coalesce(p->>'owner_name',''), 'owner');
+    update public.nv_staff set cur_tenant = prev where user_id = auth.uid();
+  end if;
+  return (select x from jsonb_array_elements(public.nv_tenant_list()) x where x->>'id' = v_id);
+end $$;
+-- the system Admin opens a customer's data
+create or replace function public.nv_tenant_use(p_id text) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.nv_is_sys() then raise exception 'only the system Admin' using errcode = '42501'; end if;
+  if not exists(select 1 from public.nv_tenants where id = p_id) then raise exception 'customer not found'; end if;
+  update public.nv_staff set cur_tenant = p_id where user_id = auth.uid();
+end $$;
+revoke all on function public.nv_tenant(), public.nv_cat_tenant(), public.nv_usage(text), public.nv_tenant_list(), public.nv_tenant_save(jsonb), public.nv_tenant_use(text) from public, anon;
+grant execute on function public.nv_tenant(), public.nv_cat_tenant(), public.nv_tenant_list(), public.nv_tenant_save(jsonb), public.nv_tenant_use(text) to authenticated;
+revoke all on function public.nv_usage(text) from authenticated;
+
+-- policies: every row of a customer is seen and changed only inside that customer
+do $$ declare t text; begin
+  foreach t in array array['nv_categories','nv_types','nv_conditions','nv_rooms'] loop
+    execute format('drop policy if exists p_%1$s_read on public.%1$s', t);
+    execute format('create policy p_%1$s_read on public.%1$s for select using (public.nv_member() and (tenant_id is null or tenant_id = public.nv_tenant()))', t);
+    execute format('drop policy if exists p_%1$s_write on public.%1$s', t);
+    execute format('create policy p_%1$s_write on public.%1$s for all using ((tenant_id is null and public.nv_is_sys()) or (tenant_id = public.nv_tenant() and public.nv_perm(''catalog'')))
+      with check ((tenant_id is null and public.nv_is_sys()) or (tenant_id = public.nv_tenant() and public.nv_perm(''catalog'')))', t);
+  end loop;
+  foreach t in array array['nv_schools','nv_employees'] loop
+    execute format('drop policy if exists p_%1$s_ins on public.%1$s', t);execute format('drop policy if exists p_%1$s_upd on public.%1$s', t);execute format('drop policy if exists p_%1$s_del on public.%1$s', t);
+    execute format('create policy p_%1$s_ins on public.%1$s for insert with check (tenant_id = public.nv_tenant() and public.nv_perm(''edit''))', t);
+    execute format('create policy p_%1$s_upd on public.%1$s for update using (tenant_id = public.nv_tenant() and public.nv_perm(''edit'')) with check (tenant_id = public.nv_tenant() and public.nv_perm(''edit''))', t);
+    execute format('create policy p_%1$s_del on public.%1$s for delete using (tenant_id = public.nv_tenant() and public.nv_perm(''delete''))', t);
+  end loop;
+end $$;
+drop policy if exists p_nv_schools_read on public.nv_schools;
+create policy p_nv_schools_read on public.nv_schools for select using (tenant_id = public.nv_tenant() and public.nv_member());
+drop policy if exists p_nv_emp_read on public.nv_employees;
+create policy p_nv_emp_read on public.nv_employees for select using (tenant_id = public.nv_tenant() and (public.nv_can_read() or user_id = auth.uid()));
+create or replace function public.nv_school_open_for_me(p_school text) returns boolean language sql stable security definer set search_path = public as $$
+  select exists(select 1 from public.nv_schools s where s.id = p_school and s.tenant_id = public.nv_tenant() and s.status = 'active' and s.completed_at is null)
+     and not exists(select 1 from public.nv_collections c where c.school_id = p_school and c.employee_id <> public.nv_my_emp()) $$;
+drop policy if exists p_nv_coll_read on public.nv_collections;
+create policy p_nv_coll_read on public.nv_collections for select using (tenant_id = public.nv_tenant() and (public.nv_can_read() or employee_id = public.nv_my_emp()));
+drop policy if exists p_nv_coll_ins on public.nv_collections;
+create policy p_nv_coll_ins on public.nv_collections for insert with check (tenant_id = public.nv_tenant() and (public.nv_perm('edit') or (employee_id = public.nv_my_emp() and public.nv_emp_perm('collect') and public.nv_school_open_for_me(school_id))));
+drop policy if exists p_nv_coll_upd on public.nv_collections;
+create policy p_nv_coll_upd on public.nv_collections for update using (tenant_id = public.nv_tenant() and (public.nv_perm('edit') or public.nv_perm('review') or (employee_id = public.nv_my_emp() and public.nv_sub_ok() and (submitted_at is null or public.nv_emp_perm('edit_sent')))))
+  with check (tenant_id = public.nv_tenant() and (public.nv_perm('edit') or public.nv_perm('review') or (employee_id = public.nv_my_emp() and public.nv_sub_ok())));
+drop policy if exists p_nv_coll_del on public.nv_collections;
+create policy p_nv_coll_del on public.nv_collections for delete using (tenant_id = public.nv_tenant() and (public.nv_perm('delete') or (employee_id = public.nv_my_emp() and submitted_at is null and public.nv_sub_ok())));
+drop policy if exists p_nv_log_read on public.nv_log;
+create policy p_nv_log_read on public.nv_log for select using (tenant_id = public.nv_tenant() and public.nv_can_read());
+drop policy if exists p_nv_set_read on public.nv_settings;
+create policy p_nv_set_read on public.nv_settings for select using (tenant_id = public.nv_tenant() or (auth.uid() is null and id = 1));
+drop policy if exists p_nv_set_write on public.nv_settings;
+create policy p_nv_set_write on public.nv_settings for update using (tenant_id = public.nv_tenant() and public.nv_perm('settings')) with check (tenant_id = public.nv_tenant() and public.nv_perm('settings'));
+drop policy if exists p_nv_staff_read on public.nv_staff;
+create policy p_nv_staff_read on public.nv_staff for select using (user_id = auth.uid() or (public.nv_can_users() and (tenant_id = public.nv_tenant() or (role = 'sysadmin' and public.nv_is_sys()))));
+
+-- the change log line carries the customer of the asset
+create or replace function public.nv_coll_trg() returns trigger language plpgsql security definer set search_path = public as $$
+declare ch jsonb := '{}'; k text; o jsonb; n jsonb;
+begin
+  new.updated_at := now();
+  if tg_op = 'UPDATE' and public.nv_label_only(old, new) then return new; end if;
+  if not public.nv_perm('review') then
+    if tg_op = 'INSERT' then new.review_status := null; new.review_note := ''; new.reviewed_at := null; new.reviewed_by := null;
+    elsif public.nv_my_emp() is not null and not public.nv_can_read() then new.review_status := null; new.review_note := old.review_note; new.reviewed_at := old.reviewed_at; new.reviewed_by := old.reviewed_by;
+    else new.review_status := old.review_status; new.review_note := old.review_note; new.reviewed_at := old.reviewed_at; new.reviewed_by := old.reviewed_by; end if;
+  end if;
+  if tg_op = 'UPDATE' and old.submitted_at is not null then
+    o := to_jsonb(old); n := to_jsonb(new);
+    for k in select unnest(array['category_id','type_id','condition_id','quantity','price','status','manufacturer','brand','model','capacity','serial','agency',
+               'warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','notes','floor','room_number','room_name_id','employee_id','school_id','school_image']) loop
+      if (o->k) is distinct from (n->k) then ch := ch || jsonb_build_object(k, jsonb_build_object('old', o->k, 'new', n->k)); end if;
+    end loop;
+    if ch <> '{}' then
+      insert into public.nv_log(tenant_id, by, coll, school, emp, changes) values (new.tenant_id, case when public.nv_is_admin() then 'admin' else 'emp:'||coalesce(public.nv_my_emp(),'?') end,
+        new.id, new.school_id, new.employee_id, ch);
+    end if;
+  end if;
+  return new;
+end $$;
+-- server functions stay inside the caller's customer
+create or replace function public.nv_busy_schools() returns setof text language sql stable security definer set search_path = public as $$
+  select distinct c.school_id from public.nv_collections c where public.nv_member() and c.tenant_id = public.nv_tenant() and c.employee_id is distinct from public.nv_my_emp() $$;
+create or replace function public.nv_complete_school(p_school text) returns void language plpgsql security definer set search_path = public as $$
+declare me text := public.nv_my_emp();
+begin
+  if me is null or not public.nv_emp_perm('finish') then raise exception 'not allowed' using errcode = '42501'; end if;
+  if not exists(select 1 from public.nv_collections where school_id = p_school and employee_id = me and submitted_at is not null) then raise exception 'no submitted assets'; end if;
+  delete from public.nv_collections where school_id = p_school and employee_id = me and submitted_at is null;
+  update public.nv_schools set completed_at = coalesce(completed_at, now()), completed_by = coalesce(completed_by, me), status = 'inactive' where id = p_school and tenant_id = public.nv_tenant();
+end $$;
+create or replace function public.nv_emp_logins() returns table(id text, has_login boolean) language sql stable security definer set search_path = public as $$
+  select e.id, e.user_id is not null from public.nv_employees e where public.nv_can_read() and e.tenant_id = public.nv_tenant() $$;
+create or replace function public.nv_emp_perms(p_emp text, p_perms jsonb) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.nv_is_sys() then raise exception 'only the system Admin' using errcode = '42501'; end if;
+  update public.nv_employees set perms = p_perms where id = p_emp and tenant_id = public.nv_tenant(); if not found then raise exception 'employee not found'; end if;
+end $$;
+create or replace function public.nv_staff_list() returns setof jsonb language sql stable security definer set search_path = public as $$
+  select to_jsonb(s) from public.nv_staff s where public.nv_is_sys() and (s.role = 'sysadmin' or s.tenant_id = public.nv_tenant()) order by s.role = 'sysadmin' desc, s.created_at $$;
+create or replace function public.nv_staff_perms(p_user uuid, p_perms jsonb) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.nv_is_sys() then raise exception 'only the system Admin' using errcode = '42501'; end if;
+  update public.nv_staff set perms = p_perms where user_id = p_user and role <> 'sysadmin'; if not found then raise exception 'user not found'; end if;
+end $$;
+-- a supervisor's sign-in is created / moved only for the caller's own customer
+-- (a sign-in without an e-mail is nv<number>@novaro.local, which is unique only for the first customer: the others need the supervisor's e-mail)
+create or replace function public.nv_emp_in_tenant(p_emp text) returns void language plpgsql stable security definer set search_path = public as $$
+declare e public.nv_employees;
+begin
+  select * into e from public.nv_employees where id = p_emp and tenant_id = public.nv_tenant();
+  if e.id is null then raise exception 'employee not found'; end if;
+  if e.tenant_id <> 't1' and coalesce(trim(e.email),'') = '' and e.user_id is null then raise exception 'e-mail required for the field supervisor sign-in'; end if;
+end $$;
+revoke all on function public.nv_emp_in_tenant(text) from public, anon, authenticated;
+do $w$ declare f text; src text; begin
+  -- wrap nv_emp_set_login / nv_emp_sync_email: the same bodies, plus the customer check first
+  foreach f in array array['nv_emp_set_login(text,text)','nv_emp_sync_email(text)'] loop
+    select pg_get_functiondef(f::regprocedure) into src;
+    if src not like '%nv_emp_in_tenant%' then
+      src := replace(src, 'if not public.nv_is_admin() then raise exception ''not allowed'' using errcode = ''42501''; end if;',
+                          'if not public.nv_is_admin() then raise exception ''not allowed'' using errcode = ''42501''; end if; perform public.nv_emp_in_tenant(p_emp);');
+      execute src;
+    end if;
+  end loop;
+end $w$;
+-- management accounts: created inside the caller's customer (an Admin account has none); never one of another customer's accounts
+create or replace function public.nv_staff_in_tenant(p_user uuid) returns void language plpgsql stable security definer set search_path = public as $$
+begin
+  if p_user is not null and not public.nv_is_sys() and exists(select 1 from public.nv_staff where user_id = p_user and tenant_id is distinct from public.nv_tenant()) then
+    raise exception 'this account belongs to another customer' using errcode = '42501'; end if;
+end $$;
+revoke all on function public.nv_staff_in_tenant(uuid) from public, anon, authenticated;
+do $w$ declare src text; begin
+  select pg_get_functiondef('public.nv_staff_create(text,text,text,text)'::regprocedure) into src;
+  if src not like '%nv_staff_in_tenant%' then
+    src := replace(src, 'select id into v_id from auth.users where lower(email) = v_email;', 'select id into v_id from auth.users where lower(email) = v_email; perform public.nv_staff_in_tenant(v_id);');
+    src := replace(src, 'insert into public.nv_staff(user_id, email, name, role) values (v_id, v_email, coalesce(nullif(trim(p_name),''''), split_part(v_email,''@'',1)), p_role)
+  on conflict (user_id) do update set name = excluded.name, role = excluded.role, active = true;',
+      'insert into public.nv_staff(user_id, email, name, role, tenant_id) values (v_id, v_email, coalesce(nullif(trim(p_name),''''), split_part(v_email,''@'',1)), p_role, case when p_role = ''sysadmin'' then null else public.nv_tenant() end)
+  on conflict (user_id) do update set name = excluded.name, role = excluded.role, active = true, tenant_id = excluded.tenant_id;');
+    execute src;
+  end if;
+  foreach src in array array['public.nv_staff_set(uuid,text,boolean)','public.nv_staff_set_password(uuid,text)'] loop
+    select pg_get_functiondef(src::regprocedure) into src;
+    if src not like '%nv_staff_in_tenant%' then
+      src := replace(src, 'if not public.nv_can_users() then raise exception ''not allowed'' using errcode = ''42501''; end if;',
+                          'if not public.nv_can_users() then raise exception ''not allowed'' using errcode = ''42501''; end if; perform public.nv_staff_in_tenant(p_user);');
+      execute src;
+    end if;
+  end loop;
+end $w$;
+-- delete a management account (its sign-in too); the same rules as changing it, never yourself
+create or replace function public.nv_staff_delete(p_user uuid) returns void language plpgsql security definer set search_path = public, auth as $$
+declare r public.nv_staff;
+begin
+  if not public.nv_can_users() then raise exception 'not allowed' using errcode = '42501'; end if;
+  if p_user = auth.uid() then raise exception 'you cannot delete your own account'; end if;
+  select * into r from public.nv_staff where user_id = p_user;
+  if r.user_id is null then raise exception 'user not found'; end if;
+  perform public.nv_staff_in_tenant(p_user);
+  if r.role = 'sysadmin' and not public.nv_is_sys() then raise exception 'only the system Admin can change an Admin' using errcode = '42501'; end if;
+  if r.role = 'sysadmin' and (select count(*) from public.nv_staff where role = 'sysadmin' and active) <= 1 then raise exception 'the last Admin cannot be deleted'; end if;
+  if r.role in ('owner','admin') and not public.nv_is_owner() then raise exception 'only an owner can change an owner' using errcode = '42501'; end if;
+  delete from public.nv_staff where user_id = p_user;
+  -- the sign-in goes too, unless the same account is also a field supervisor
+  if not exists(select 1 from public.nv_employees where user_id = p_user) then delete from auth.users where id = p_user; end if;
+end $$;
+revoke all on function public.nv_staff_delete(uuid) from public, anon;
+grant execute on function public.nv_staff_delete(uuid) to authenticated;
+-- serial duplicates and labels: inside the customer
+create or replace function public.nv_serial_dupes(p_serial text, p_id text default null) returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object('label', '101' || lpad(c.no::text, 8, '0'), 'school', s.name, 'mine', c.employee_id = public.nv_my_emp()) order by c.no), '[]')
+  from (select * from public.nv_collections c0
+         where public.nv_member() and c0.tenant_id = public.nv_tenant() and length(regexp_replace(upper(coalesce(p_serial,'')), '[^A-Z0-9]', '', 'g')) >= 4 and c0.id is distinct from p_id and c0.type_id is not null
+           and regexp_replace(upper(c0.serial), '[^A-Z0-9]', '', 'g') = regexp_replace(upper(p_serial), '[^A-Z0-9]', '', 'g') limit 5) c
+  left join public.nv_schools s on s.id = c.school_id $$;
+do $w$ declare f text; src text; begin
+  foreach f in array array['public.nv_label_confirm(text,text,text)'] loop
+    select pg_get_functiondef(f::regprocedure) into src;
+    if src not like '%tenant_id = public.nv_tenant()%' then
+      src := replace(src, 'select * into c from public.nv_collections where id = p_id;', 'select * into c from public.nv_collections where id = p_id and tenant_id = public.nv_tenant();');
+      execute src;
+    end if;
+  end loop;
+  select pg_get_functiondef('public.nv_label_printed(text[])'::regprocedure) into src;
+  if src not like '%tenant_id = public.nv_tenant()%' then
+    src := replace(src, 'where id = any(p_ids) and submitted_at', 'where id = any(p_ids) and tenant_id = public.nv_tenant() and submitted_at'); execute src;
+  end if;
+end $w$;
+-- renewal request and reminders per customer
+create or replace function public.nv_renew_request(p_note text default '') returns jsonb language plpgsql security definer set search_path = public as $$
+declare me public.nv_staff; s public.nv_tenants;
+begin
+  select * into me from public.nv_staff where user_id = auth.uid() and active;
+  if me.user_id is null or me.role = 'sysadmin' then raise exception 'not allowed' using errcode = '42501'; end if;
+  if exists(select 1 from public.nv_sub_log where action = 'renew_request' and by = me.email and at > now() - interval '12 hours') then
+    raise exception 'a renewal request was already sent in the last 12 hours'; end if;
+  select * into s from public.nv_tenants where id = me.tenant_id;
+  insert into public.nv_sub_log(tenant_id, by, action, data) values (s.id, me.email, 'renew_request', jsonb_build_object('note', left(coalesce(p_note,''), 1000), 'ends_at', s.ends_at::text));
+  return jsonb_build_object('by', me.email, 'name', me.name, 'role', me.role, 'note', left(coalesce(p_note,''), 1000), 'customer', s.name, 'plan', s.plan, 'ends_at', s.ends_at,
+    'ok', public.nv_sub_ok(), 'max_schools', s.max_schools, 'max_field', s.max_field, 'max_staff', s.max_staff, 'max_assets', s.max_assets, 'usage', public.nv_usage(s.id));
+end $$;
+-- reminders due for every customer (a list; the Edge Function sends one mail each)
+create or replace function public.nv_sub_reminder_due() returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare s public.nv_tenants; d int; st int; out jsonb := '[]';
+begin
+  for s in select * from public.nv_tenants where active and ends_at is not null loop
+    d := ceil(extract(epoch from (s.ends_at - now())) / 86400)::int;
+    st := case when d <= 0 and now() < s.ends_at + make_interval(days => greatest(s.grace_days, 1)) then 0 when d = 1 then 1 when d between 2 and 7 then 7 when d between 8 and 14 then 14 end;
+    if st is null then continue; end if;
+    if exists(select 1 from public.nv_sub_log where tenant_id = s.id and action = 'reminder' and data->>'stage' = st::text and data->>'ends_at' = s.ends_at::text) then continue; end if;
+    out := out || jsonb_build_array(jsonb_build_object('tenant', s.id, 'stage', st, 'days', d, 'ends_at', s.ends_at, 'grace_days', s.grace_days, 'customer', s.name, 'plan', s.plan,
+      'app_name', (select data->>'app_name' from public.nv_settings where tenant_id = s.id),
+      'to', (select coalesce(jsonb_agg(distinct lower(email)), '[]') from public.nv_staff where tenant_id = s.id and active and role in ('owner','admin')),
+      'cc', (select coalesce(jsonb_agg(distinct x), '[]') from (select lower(email) x from public.nv_staff where active and role = 'sysadmin'
+              union select lower(trim(y)) from unnest(string_to_array(s.cc_emails, ',')) y where trim(y) <> '' union select lower(s.contact_email) where s.contact_email <> '') z)));
+  end loop;
+  return case when jsonb_array_length(out) = 0 then null else out end;
+end $$;
+drop function if exists public.nv_sub_reminder_mark(int,timestamptz,jsonb);
+create or replace function public.nv_sub_reminder_mark(p_stage int, p_ends_at timestamptz, p_to jsonb, p_tenant text default 't1') returns void language sql security definer set search_path = public as $$
+  insert into public.nv_sub_log(tenant_id, by, action, data) values (p_tenant, 'system', 'reminder', jsonb_build_object('stage', p_stage, 'ends_at', p_ends_at::text, 'to', p_to)) $$;
+revoke all on function public.nv_sub_reminder_due(), public.nv_sub_reminder_mark(int,timestamptz,jsonb,text) from public, anon, authenticated;
+do $g$ begin execute 'grant execute on function public.nv_sub_reminder_due(), public.nv_sub_reminder_mark(int,timestamptz,jsonb,text) to service_role'; exception when undefined_object then null; end $g$;
+-- who am I (NV34): + the customer
+create or replace function public.nv_me() returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'role', case when public.nv_perm('edit') or public.nv_perm('catalog') or public.nv_perm('users') or public.nv_perm('settings') or public.nv_perm('review') then 'admin'
+                 when public.nv_can_read() then 'reader' when public.nv_my_emp() is not null then 'tech' end,
+    'staff_role', (select case when s.role = 'admin' then 'owner' else s.role end from public.nv_staff s where s.user_id = auth.uid() and s.active),
+    'sys', public.nv_is_sys(),
+    'perms', case when public.nv_can_read() then (select coalesce(jsonb_agg(k), '[]') from unnest(array['view','edit','delete','users','settings','catalog','review','export','import','backup']) k where public.nv_perm(k))
+                  when public.nv_my_emp() is not null then (select coalesce(jsonb_agg(k), '[]') from unnest(array['collect','edit_sent','finish','gallery','extra']) k where public.nv_emp_perm(k)) end,
+    'sub', (select jsonb_build_object('ends_at', t.ends_at, 'grace_days', t.grace_days, 'ok', public.nv_sub_ok(), 'plan', t.plan, 'active', t.active) from public.nv_tenants t where t.id = public.nv_tenant()),
+    'tenant', (select jsonb_build_object('id', t.id, 'name', t.name) from public.nv_tenants t where t.id = public.nv_tenant()),
+    'emp', (select to_jsonb(e) - 'user_id' from public.nv_employees e where e.user_id = auth.uid())) $$;
+
 -- photos: private bucket nv-photos, flat names <random key>.jpg; members upload and read, admins delete
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('nv-photos','nv-photos',false,8388608,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
 do $do$ begin

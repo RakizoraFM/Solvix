@@ -12,7 +12,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  // system Admin
  const S1=await mk();const a=S1.p;await signIn(a,'sys@x.com','syspass','#initCloud');await a.click('#initCloud');await a.waitForSelector('.alert-success',{timeout:60000});
  ok(await a.evaluate(()=>Cloud.sys&&staffRole()==='sysadmin'),'signed in as Admin');
- await a.goto(U+'#admin/system');await a.waitForSelector('#subF');const tabs=await a.$$eval('.nv-set-tabs a',x=>x.map(y=>y.textContent.trim()));ok(tabs[0].includes('إدارة النظام'),'settings tab «إدارة النظام (Admin)» first: '+tabs.join(' | '));
+ await a.goto(U+'#admin/system');await a.waitForSelector('#subF');const tabs=await a.$$eval('.nv-set-tabs a',x=>x.map(y=>y.textContent.trim()));ok(tabs.slice(0,2).some(t=>t.includes('إدارة النظام')),'settings tab «إدارة النظام (Admin)» at the start: '+tabs.join(' | '));
  const in10=new Date(Date.now()+10*864e5).toISOString().slice(0,10);
  await a.fill('#s_customer','شلفا العالمية');await a.fill('#s_end',in10);await a.fill('#s_schools','3000');await a.fill('#s_field','150');await a.click('#subF button[type=submit]');await a.waitForSelector('#subF');await a.waitForSelector('.alert-success');
  ok(M.sub.customer==='شلفا العالمية'&&M.sub.max_schools===3000&&M.sub.max_field===150&&M.sub.ends_at.startsWith(in10),'subscription + limits saved '+JSON.stringify({c:M.sub.customer,e:M.sub.ends_at,ms:M.sub.max_schools}));

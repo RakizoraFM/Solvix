@@ -29,7 +29,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  const tot=await p.$$eval('[data-kpi=qty],[data-kpi=cost],[data-kpi=rec]',x=>x.map(y=>y.dataset.val));ok(tot[0]==='11'&&tot[1]==='590'&&tot[2]==='5','totals: qty 11, cost 590, 5 records ('+tot+')');
  await p.goto(U+'#admin/analytics?cat='+ids.cat0);await p.waitForSelector('.breadcrumb');await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/cond=/.test(location.hash));
  await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/type=/.test(location.hash));await p.waitForFunction(()=>{const h=document.querySelector('.app-main thead');return h&&h.textContent.includes('المدرسة')});rows=await p.$$eval('.app-main tbody tr',r=>r.length);
- ok((await p.textContent('.app-main thead')).includes('المدرسة')&&rows>=1&&!(await p.textContent('.app-main tbody')).includes('s1'),'drill-down to schools by name ('+rows+')');await p.screenshot({path:B+'/shots/40-analytics.png'});
+ ok((await p.textContent('.app-main thead')).includes('المبنى')&&rows>=1&&!(await p.textContent('.app-main tbody')).includes('s1'),'drill-down to schools by name ('+rows+')');await p.screenshot({path:B+'/shots/40-analytics.png'});
  // group view: label numbers, labels window, school report
  await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#lbl');
  ok(/^101\d{8}$/.test((await p.textContent('.app-main tbody tr td')).trim()),'label number 101XXXXXXXX');
