@@ -1,0 +1,26 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('node:assert/strict');
+const ctx={window:{},PAGE_META:{},NV36:{serialMissing:v=>['','n/a','na','none','unknown','غير متوفر','لا يوجد','بدون'].includes(String(v??'').trim().toLowerCase())},Cloud:{on:false},Date,Number,Object,Map,Set,URLSearchParams};vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/parts/inventory.js'),'utf8').replace(/^<script[^>]*>/,'').replace(/<\/script>\s*$/,''),ctx);const I=ctx.window.I42;let passed=0;function test(n,f){f();passed++;console.log('PASS '+n)}
+const l={schools:[{id:'b_1',name:'مبنى الرياض',moe:'1020',city:'الرياض'},{id:'b2',name:'مبنى جدة',city:'جدة',completed_at:'2026-10-16'}],employees:[{id:'e_1',name:'أحمد'},{id:'e2',name:'محمد'}],types:[{id:'t1',ar:'مكيف',critical:true}],conditions:[{id:'good',ar:'جيدة'}],rooms:[{id:'r1',ar:'مكتب'}]},rows=[{id:'1',no:1,school_id:'b_1',employee_id:'e_1',type_id:'t1',quantity:20,serial:'SN1',asset_image:'a',asset_image2:'b',submitted_at:'2026-10-15T22:00:00Z',updated_at:'2026-10-17T01:00:00Z',condition_id:'good',room_name_id:'r1',review_status:'ok'}, {id:'2',no:2,school_id:'b_1',employee_id:'e_1',type_id:'t1',quantity:3,serial:'N/A',submitted_at:'2026-10-15T09:00:00Z',review_status:'returned'}, {id:'3',school_id:'b2',employee_id:'e2',type_id:'t1',quantity:2,serial:'X',created_at:'2026-10-14T23:00:00Z'}, {id:'4',school_id:'b_1',employee_id:'e_1',quantity:999,created_at:'2026-10-14T09:00:00Z'}],runs=[{asset_id:'1',status:'approved'},{asset_id:'2',status:'returned'}],facts=I.facts(rows,l,runs),group=I.group(facts),q=s=>I.filter(facts,new URLSearchParams(s));
+test('records differ from units',()=>{assert.equal(group[0].records,3);assert.equal(group[0].units,23)});
+test('placeholder quantity excluded',()=>assert.equal(facts[3].units,0));
+test('draft records are visible',()=>assert.equal(q('review=draft').length,2));
+test('return shortcut deduplicates two return states',()=>assert.equal(q('returned=1').length,1));
+test('review and approval independent',()=>{assert.equal(facts[0].review,'ok');assert.equal(facts[0].approval,'approved');assert.equal(facts[2].approval,'draft')});
+test('unloaded approval not counted pending',()=>assert.equal(I.facts([rows[0]],l,[])[0].approval,'none'));
+test('missing photos and serial union not summed',()=>{assert.equal(group[0].photos,1);assert.equal(group[0].serial,1);assert.equal(group[0].missing,1)});
+test('placeholder serial treated missing',()=>assert.equal(facts[1].serial,true));
+test('complete basic fields',()=>assert.equal(q('issue=none').length,1));
+test('filter conjunction',()=>assert.equal(q('city=الرياض&review=returned&issue=serial').length,1));
+test('search all terms across fields',()=>assert.equal(q('search='+encodeURIComponent('أحمد SN1 1020')).length,1));
+test('Saudi date boundary',()=>assert.equal(facts[0].day,'2026-10-16'));
+test('inclusive dates and draft creation fallback',()=>assert.equal(q('from=2026-10-15&to=2026-10-15').length,2));
+test('latest activity distinct from last submission',()=>{assert.equal(group[0].updated,'2026-10-17T01:00:00Z');assert.equal(group[0].last,'2026-10-15T22:00:00Z')});
+test('completed building state authoritative',()=>assert.equal(group[1].work,'complete'));
+test('group identities tolerate underscores',()=>assert.deepEqual(JSON.parse(group[0].key),['e_1','b_1']));
+test('finite nonnegative quantities',()=>{for(const n of [Infinity,-1,NaN,'invalid'])assert.equal(I.finite(n),0)});
+test('layout validation excludes inherited keys',()=>assert.equal(I.validate({columns:['__proto__','toString','records','records']}).columns.join(','),'records'));
+test('unknown layout mode defaults safely',()=>assert.equal(I.validate({mode:'<script>',sort:'x'}).mode,'summary'));
+test('source records unmodified',()=>{assert.equal(rows[1].serial,'N/A');assert.equal(rows[0].work,undefined)});
+test('whole group state survives record filter',()=>{const g=new Map(I.group(facts).map(x=>[x.key,x]));for(const f of facts)f.work=g.get(I.key(f.c)).work;assert.equal(q('work=active&review=draft').length,1)});
+test('empty group safe',()=>assert.equal(I.group([]).length,0));
+console.log(passed+' NV42 calculation scenarios passed');

@@ -1,6 +1,35 @@
 <script id="nv37-system">
 const PLATFORM_GUIDE=__PLATFORM_GUIDE__;
 const PLATFORM_RELEASES=__PLATFORM_RELEASES__;
+
+// NV45: explicit grants, server recheck before rendering protected routes.
+function docAllowed45(key){return !!(Cloud.on&&Cloud.role&&Cloud.docAccess&&Cloud.docAccess[key]===true)}
+function documentChoices45(prefix){return isSys()?`<fieldset class="col-12"><legend class="fs-6">إظهار صفحات النظام لهذا المستخدم</legend>${[['guide','دليل المنصة'],['releases','الإصدارات والفحص']].map(([k,l])=>`<label class="me-4"><input type="checkbox" id="${prefix}_doc_${k}"> ${l}</label>`).join('')}<small class="d-block text-muted">اختياران مستقلان؛ يمكن تغييرهما من الإعدادات ← إدارة النظام.</small></fieldset>`:''}
+function documentSelection45(prefix){return {p_guide:!!$('#'+prefix+'_doc_guide')?.checked,p_releases:!!$('#'+prefix+'_doc_releases')?.checked}}
+async function refreshDocumentAccess45(){
+ Cloud.docAccess={};if(!Cloud.on||!Cloud.role||navigator.onLine===false)return;
+ const uid=Cloud.user?.id,scope=Cloud.scope(),c=await Cloud.sb(),access=Cloud.chk(await c.rpc('nv_document_access45'))||{};if(Cloud.user?.id===uid&&Cloud.scope()===scope&&Cloud.role)Cloud.docAccess=access;
+}
+async function documentGuard45(key){const hash=location.hash;
+ // Clear any previously rendered document while verifying; fail closed offline or on old databases.
+ const box=document.getElementById('app');if(box)box.innerHTML='';
+ try{await refreshDocumentAccess45()}catch(e){Cloud.docAccess={}}
+ if(location.hash!==hash)return false;
+ if(docAllowed45(key))return true;
+ const html='<p class="alert alert-warning">هذه الصفحة غير متاحة لحسابك. يلزم اختيار صلاحيتها من مدير النظام واتصال للتحقق منها.</p>';
+ if(hash.startsWith('#admin/'))opsShell(key,'صلاحية الصفحة',html);else{setMode('field');fieldLayout(html)}return false;
+}
+function releaseShell45(html){if(location.hash.startsWith('#releases')){setMode('field');fieldLayout(`<section class="sx36-page">${html}</section>`)}else opsShell('releases','سجل الإصدارات والفحص',html)}
+async function renderDocumentSettings45(){
+ const box=$('#documentSettings45');if(!box||!isSys())return;box.innerHTML='<p>جارٍ تحميل صلاحيات الدليل والإصدارات…</p>';
+ try{const c=await Cloud.sb(),users=Cloud.chk(await c.rpc('nv_document_users45'))||[];if(!document.body.contains(box))return;
+ box.innerHTML=`<section class="card mb-3"><div class="card-body"><h3>ظهور دليل المنصة والإصدارات</h3><p>لكل حساب اختياران مستقلان، بما يشمل Admin. الافتراضي مغلق. احفظ كل صف بعد التعديل.</p><div class="table-responsive"><table class="table"><thead><tr><th>المستخدم</th><th>دليل المنصة</th><th>الإصدارات والفحص</th><th>الحفظ</th></tr></thead><tbody>${users.map((u,i)=>`<tr data-doc-row="${i}"><td>${esc(u.name||u.email)}<br><small>${esc(u.email)} — ${esc(ROLE_L[u.role]||u.role)}</small></td><td><input aria-label="دليل المنصة: ${esc(u.name||u.email)}" type="checkbox" data-doc="guide" ${u.guide?'checked':''}></td><td><input aria-label="الإصدارات: ${esc(u.name||u.email)}" type="checkbox" data-doc="releases" ${u.releases?'checked':''}></td><td><button type="button" class="btn btn-sm btn-primary" data-doc-save="${i}">حفظ</button><span role="status"></span></td></tr>`).join('')}</tbody></table></div></div></section>`;
+ box.querySelectorAll('[data-doc-save]').forEach(b=>b.onclick=async()=>{const row=b.closest('tr'),u=users[+b.dataset.docSave],status=row.querySelector('[role=status]');b.disabled=true;status.textContent='جارٍ الحفظ…';try{Cloud.chk(await c.rpc('nv_document_set45',{p_user:u.id,p_guide:row.querySelector('[data-doc=guide]').checked,p_releases:row.querySelector('[data-doc=releases]').checked}));await refreshDocumentAccess45();status.textContent='تم الحفظ';if(u.id===Cloud.user?.id)vSystem()}catch(e){status.textContent='لم يُحفظ: '+e.message}finally{b.disabled=false}});
+ }catch(e){box.innerHTML=`<p class="alert alert-warning">تعذر تحميل صلاحيات الصفحات: ${esc(e.message)}. طبّق ترقية NV45.</p>`}
+}
+// Refresh visible links and revoke an open page within 30 seconds of a server-side change.
+setInterval(async()=>{if(!Cloud.on||!Cloud.role||document.hidden)return;const before=JSON.stringify(Cloud.docAccess||{}),hash=location.hash;try{await refreshDocumentAccess45()}catch(e){Cloud.docAccess={}}if(location.hash===hash&&before!==JSON.stringify(Cloud.docAccess||{}))route()},30000);
+
 const NV37={
  guideSearch(query){const q=String(query||'').trim().toLocaleLowerCase('ar');return PLATFORM_GUIDE.features.filter(f=>[f.name,f.what,f.where,f.who,...f.steps].join(' ').toLocaleLowerCase('ar').includes(q))},
  dateBound(value,end=false){if(!value)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(value))throw Error('تاريخ غير صالح');const d=new Date(value+'T00:00:00');if(isNaN(d)||ymd(d)!==value)throw Error('تاريخ غير صالح');if(end)d.setDate(d.getDate()+1);return d.toISOString()},
@@ -12,18 +41,19 @@ window.NV37=NV37;
 PAGE_META.guide=['bi-book','ما هي كل خاصية، وأين تجدها، وكيف تستخدمها، ومن يستخدمها'];
 PAGE_META.releases=['bi-clock-history','الإصدارات والتغييرات ونتائج الاختبار وحدود التحقق'];
 PAGE_META.usage=['bi-person-lines-fill','نشاط المستخدمين وتسجيل الدخول في المشروع الحالي'];
-function guideShell(html){if(location.hash.startsWith('#guide'))fieldLayout(`<section class="sx36-page">${html}</section>`);else opsShell('guide','دليل المنصة',html)}
-function vPlatformGuide(){
+function guideShell(html){if(location.hash.startsWith('#guide')){setMode('field');fieldLayout(`<section class="sx36-page">${html}</section>`);}else opsShell('guide','دليل المنصة',html)}
+async function vPlatformGuide(){
+ if(!await documentGuard45('guide'))return;
  const query=qp().get('q')||'',list=NV37.guideSearch(query),field=location.hash.startsWith('#guide'),base=field?'#guide':'#admin/guide';
  guideShell(`<div class="sx36-row"><h3>دليل المنصة</h3><span class="sx36-badge">${esc(PLATFORM_GUIDE.version)}</span></div><p>لكل خاصية: التعريف والمكان والخطوات والمستخدمون. آخر مراجعة: ${esc(PLATFORM_GUIDE.updated_at)}. ظهور الخاصية وإمكانية استخدامها يعتمدان على صلاحيات حسابك وإعداد المشروع.</p>
  <form id="guideSearch" class="sx36-actions"><input class="sx36-input" name="q" value="${esc(query)}" placeholder="ابحث عن خاصية أو طريقة استخدام" aria-label="البحث في دليل المنصة"><button>بحث</button><a href="${base}">عرض الكل</a></form><p>${nf(list.length)} خاصية</p>
  ${list.map(f=>`<details class="sx36-card" id="guide-${esc(f.id)}"><summary><b>${esc(f.name)}</b></summary><p><b>ما هي؟</b> ${esc(f.what)}</p><p><b>أين تجدها؟</b> ${esc(f.where)}</p><p><b>كيف تستخدمها؟</b></p><ol>${f.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol><p><b>من يستخدمها؟</b> ${esc(f.who)}</p><small>تمت المراجعة في ${esc(f.reviewed_in)}</small></details>`).join('')||'<p class="sx36-card">لا توجد نتائج. جرّب كلمة أخرى.</p>'}`);
  $('#guideSearch').onsubmit=e=>{e.preventDefault();go(base+'?q='+encodeURIComponent(new FormData(e.target).get('q')||''))};
 }
-function systemHistoryLinks(active){return `<nav class="sx36-actions" aria-label="سجلات النظام">${[['system','إدارة النظام'],['clients','العملاء والاشتراكات'],['releases','سجل الإصدارات والفحص'],['usage','نشاط المستخدمين'],['guide','دليل المنصة']].map(([k,l])=>`<a href="#admin/${k}" ${active===k?'aria-current="page"':''}>${l}</a>`).join('')}</nav>`}
-function vReleases(){if(!isSys())return go('#admin/guide');
+function systemHistoryLinks(active){return `<nav class="sx36-actions" aria-label="سجلات النظام">${[['system','إدارة النظام'],['clients','العملاء والاشتراكات'],['releases','سجل الإصدارات والفحص'],['usage','نشاط المستخدمين'],['guide','دليل المنصة']].filter(([k])=>k==='guide'||k==='releases'?docAllowed45(k):isSys()).map(([k,l])=>`<a href="#admin/${k}" ${active===k?'aria-current="page"':''}>${l}</a>`).join('')}</nav>`}
+async function vReleases(){if(!await documentGuard45('releases'))return;
  const status={passed:'نجح',pending:'قيد التحقق',not_run:'لم يُنفذ'};
- opsShell('releases','سجل الإصدارات والفحص',`${systemHistoryLinks('releases')}<h3>سجل الإصدارات والفحص</h3><p class="sx36-note">هذه نتائج اختبار الحزمة المسجلة عند إعداد الإصدار، وليست فحصاً مباشراً لقاعدة بياناتك أو إثباتاً لنجاح النشر. يشمل السجل الإصدارات التي تتوفر لها نتائج موثقة.</p>
+ releaseShell45(`${systemHistoryLinks('releases')}<h3>سجل الإصدارات والفحص</h3><p class="sx36-note">هذه نتائج اختبار الحزمة المسجلة عند إعداد الإصدار، وليست فحصاً مباشراً لقاعدة بياناتك أو إثباتاً لنجاح النشر. يشمل السجل الإصدارات التي تتوفر لها نتائج موثقة.</p>
  ${PLATFORM_RELEASES.releases.map(r=>`<article class="sx36-card"><div class="sx36-row"><h4>${esc(r.version)}</h4><span>${esc(r.date)}</span>${r.version===NV.version?'<span class="sx36-badge">الإصدار الحالي</span>':''}</div><ul>${r.changes.map(c=>`<li>${esc(c)}</li>`).join('')}</ul><h5>الفحص</h5>${r.checks.map(c=>`<p><b>${esc(c.name)} — ${esc(status[c.status]||c.status)}</b><br>${esc(c.detail)}</p>`).join('')}<h5>حدود التحقق</h5><ul>${r.limitations.map(s=>`<li>${esc(s)}</li>`).join('')}</ul></article>`).join('')}`);
 }
 async function vPlatformUsage(){if(!isSys())return go('#admin/guide');

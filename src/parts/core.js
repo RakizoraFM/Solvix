@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV41',date:'2026-10-15'};
+const NV={version:'NV45',date:'2026-10-17'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings','approval_paths','approvals','trash'];

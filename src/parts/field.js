@@ -30,8 +30,10 @@ function fieldLayout(inner){
   app().className='contents';
   app().innerHTML=`<header class="bg-white shadow-sm py-4 px-6 flex justify-between items-center">
     <a href="#login" class="flex items-center gap-3 text-decoration-none"><img src="${esc(S.settings.logo||NV_ICON)}" alt="${esc(appName())}" class="h-12 w-auto"><h1 class="text-xl font-bold text-gray-800">${esc(appName())}</h1></a>
+    ${curEmp()?'<a href="#inventory44" class="nv-scanbtn">▣ '+tx('دورات الجرد','Inventory cycles')+'</a>':''}
     ${curEmp()?'<a href="#tasks" class="nv-scanbtn">✓ '+tx('مهامي','My tasks')+'</a>':''}
-    ${curEmp()?'<a href="#guide" class="nv-scanbtn">📖 '+tx('دليل المنصة','Platform guide')+'</a>':''}
+    ${curEmp()&&docAllowed45('releases')?'<a href="#releases" class="nv-scanbtn">الإصدارات والفحص</a>':''}
+    ${curEmp()&&docAllowed45('guide')?'<a href="#guide" class="nv-scanbtn">📖 '+tx('دليل المنصة','Platform guide')+'</a>':''}
     ${curEmp()?`<a href="javascript:void 0" id="scanQR" class="nv-scanbtn" title="${tx('مسح ملصق أصل','Scan an asset label')}">📷 ${tx('مسح','Scan')}</a>`:''}<a href="javascript:void 0" id="langSw" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-bold">${ar?'English':'العربية'}</a></header>
   ${Cloud.on&&Cloud.role==='tech'&&curEmp()?'<div id="nvPend" class="nv-pend" hidden></div>':''}${Cloud.on&&Cloud.role==='tech'&&Cloud.sub&&Cloud.sub.ok===false?`<div class="nv-pend err" data-sub="over">🔒 ${tx('انتهى الاشتراك — التطبيق للقراءة فقط. لا يمكن جرد أو تعديل أصول حتى التجديد.','The subscription has ended — read only. No new or edited assets until it is renewed.')}</div>`:''}<main class="flex-grow flex items-center justify-center p-4">${inner}</main>
   <div id="lb" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4" x-cloak style="display:none">
@@ -163,12 +165,14 @@ function vLocation(){
    <div><label for="notes" class="block text-sm font-medium text-gray-700 mb-1">${t('Additional Notes')}</label><textarea name="notes" id="notes" rows="3" class="${INPUT}" placeholder="${esc(t('Any additional notes here...'))}">${esc(c.notes||'')}</textarea></div>
    <div class="flex flex-col sm:flex-row gap-4 pt-4"><a href="#school" class="${BTN_BACK}">${t('Back')}</a><button type="submit" id="submit-btn" class="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-200">${t('Save')}</button></div>
   </form></div></section>`);
+  if(window.L44)l44LockLocation($('#f'),c);
   const rs=$('#room-name'),sb=$('#submit-btn');
   const upd=()=>{const o=rs.options[rs.selectedIndex];const closed=o&&o.getAttribute('data-name-en')==='Closed room';sb.innerText=closed?t('Save and Finish Room'):t('Save');
     ['bg-blue-600','hover:bg-blue-700','shadow-blue-200'].forEach(k=>sb.classList.toggle(k,!closed));['bg-green-600','hover:bg-green-700','shadow-green-200'].forEach(k=>sb.classList.toggle(k,closed))};
   rs.onchange=upd;upd();
   $('#f').onsubmit=ev=>{ev.preventDefault();const old=Object.assign({},c);const was=!!c.submitted_at;
     c.floor=$('#floor-select').value;c.room_number=$('#room-number').value;c.room_name_id=rs.value;c.notes=$('#notes').value.trim();c.updated_at=now();
+    if(was){c.floor=old.floor;c.room_number=old.room_number;c.room_name_id=old.room_name_id;}
     if(isClosedRoom(c.room_name_id)){Object.assign(c,{category_id:null,type_id:null,condition_id:null,quantity:0,price:null,status:null,asset_image:null,asset_image2:null});if(!c.submitted_at)c.submitted_at=now();
       if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,TRACK));save('collections');setFlash(t('Room marked as closed and finished.'));go('#success');return}
     if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,['floor','room_number','room_name_id','notes']));save('collections');setFlash(t('Location details saved successfully.'));go('#asset')};

@@ -10,6 +10,9 @@ releases=json.loads(r('releases.json'))
 version=re.search(r"version:'(NV\d+)'",r('parts/core.js')).group(1)
 if guide['version']!=version or releases['version']!=version or releases['releases'][0]['version']!=version:
     raise ValueError('Update the platform guide and release history for '+version)
+current=releases['releases'][0]
+if not current.get('changes') or not current.get('checks') or any(c.get('status') not in ['passed','pending','not_run'] for c in current['checks']):
+    raise ValueError('Release changes and valid verification results are required')
 ids=set()
 for feature in guide['features']:
     if feature['id'] in ids or feature['reviewed_in']!=version or not all(feature.get(k) for k in ['id','name','what','where','steps','who','route']):
@@ -19,7 +22,8 @@ if '--release' in sys.argv and any(c['status']=='pending' for c in releases['rel
     raise ValueError('Complete release verification before packaging')
 payload=lambda value:json.dumps(value,ensure_ascii=False).replace('<','\\u003c')
 system=r('parts/system.js').replace('__PLATFORM_GUIDE__',payload(guide)).replace('__PLATFORM_RELEASES__',payload(releases))
-out=head+r('parts/auth.css')+r('parts/operations.css')+r('parts/analytics.css')+''.join(r('parts/'+f) for f in ['core.js','cloud.js','field.js','auth.js','admin.js','clients.js','operations.js'])+system+r('parts/productivity.js')+r('parts/analytics.js')+r('parts/boot.js')
+vendor='<script id="qrcode-generator-bundled">\n/* qrcode-generator 1.4.4\n'+r('vendor/qrcode-LICENSE.txt')+'\n*/\n'+r('vendor/qrcode.min.js').replace('</script','<\\/script')+'\n</script><script id="jsqr-bundled44">\n/*\n'+r('vendor/jsQR-LICENSE.txt')+'\n*/\n'+r('vendor/jsQR.js').replace('</script','<\\/script')+'\n</script>'
+out=head+vendor+r('parts/auth.css')+r('parts/operations.css')+r('parts/analytics.css')+r('parts/inventory.css')+r('parts/building.css')+r('parts/lifecycle.css')+''.join(r('parts/'+f) for f in ['core.js','cloud.js','field.js','auth.js','admin.js','clients.js','operations.js'])+system+r('parts/productivity.js')+r('parts/analytics.js')+r('parts/inventory.js')+r('parts/building.js')+r('parts/lifecycle.js')+r('parts/boot.js')
 open(os.path.join(H,'..','index.html'),'w',encoding='utf-8').write(out)
 manual=['# دليل منصة Solvix — '+version,'','آخر مراجعة: '+guide['updated_at'],'']
 for f in guide['features']:

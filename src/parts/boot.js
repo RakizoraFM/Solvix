@@ -5,7 +5,9 @@ function route(){
   if(/[#&]cfg=/.test(location.hash)){/* a connection link opened in a tab that was already open */try{const m=location.hash.match(/[#&]cfg=([^&]+)/);const o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));if(cfgOk(o))localStorage.setItem(NV_CFG_KEY,JSON.stringify({url:o.url.replace(/\/+$/,''),key:o.key}))}catch(e){}location.replace(location.pathname+location.search+'#login');location.reload();return}
   const path=decodeURIComponent(location.hash.replace(/^#/,'').split('?')[0]);const seg=path.split('/');window.scrollTo(0,0);
   if(Cloud.on&&seg[0]==='forgot'){destroyCharts();const ae=Cloud.authErr;Cloud.authErr=null;return vForgot('',ae?'رابط الاستعادة غير صالح أو انتهت صلاحيته — اطلب رابطاً جديداً.':'')}if(Cloud.on&&seg[0]==='reset-password'){destroyCharts();return vResetPw()}
+  if(seg[0]==='inventory44'){if(!curEmp()&&!Cloud.role)return go('#login');return seg[1]?vCycle44(seg[1]):vInventory44()}
   if(seg[0]==='tasks'){if(!curEmp()&&!Cloud.role)return go('#login');return vMyTasks()}
+  if(seg[0]==='releases'){if(!curEmp()&&!Cloud.role)return go('#login');return vReleases()}
   if(seg[0]==='guide'){if(!curEmp()&&!Cloud.role)return go('#login');return vPlatformGuide()}
   if(seg[0]==='conflicts'&&Cloud.on&&Cloud.role)return vConflicts();
   if(seg[0]==='a'&&seg[1]){destroyCharts();return openAssetLink(seg[1])}
@@ -15,11 +17,11 @@ function route(){
     if(Cloud.on&&LIST_PAGES.test(path)&&Date.now()-Cloud.lastPull>60000){const h=location.hash;Cloud.lastPull=Date.now();nvBusy(1);Cloud.sync().then(()=>Cloud.pull()).then(()=>{if(location.hash===h)route()}).catch(()=>{}).finally(()=>nvBusy(0))}
     const [ ,a,b,c,d]=seg;
     if(!a)return vDashboard();
-    if(a==='collections'){if(!b)return vCollections();if(b==='view')return vCollectionGroup(c,d);if(c==='edit')return vCollectionEdit(b);return vCollectionShow(b)}
+    if(a==='collections'){if(!b)return vCollections();if(b==='building')return vBuilding43(c);if(b==='view')return vCollectionGroup(c,d);if(c==='edit')return vCollectionEdit(b);return vCollectionShow(b)}
     if(a==='schools'){if(!b)return vSchools();if(b==='create')return vSchoolForm(null);return vSchoolForm(b)}
     if(a==='employees'){if(!b)return vEmployees();if(b==='create')return vEmployeeForm(null);return vEmployeeForm(b)}
     if(LK[a]){if(!b)return vLookup(a);if(b==='create')return vLookupForm(a,null);return vLookupForm(a,b)}
-    if(a==='tasks')return vMyTasks();if(a==='trash')return vTrash();if(a==='guide')return vPlatformGuide();if(a==='releases')return vReleases();if(a==='usage')return vPlatformUsage();if(a==='approvals')return vApprovals();if(a==='approval-path')return vApprovalPath();if(a==='quality')return vQuality();if(a==='conflicts')return vConflicts();if(a==='clients')return vClients();if(a==='analytics')return vAnalytics41();if(a==='system')return vSystem();if(a==='subscription')return vSubscription();if(a==='room-templates')return vRoomTpl();if(a==='review')return vReview();if(a==='label')return vLabelSettings();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
+    if(a==='piece44')return vPiece44(b);if(a==='inventory44')return b?vCycle44(b):vInventory44();if(a==='tasks')return vMyTasks();if(a==='trash')return vTrash();if(a==='guide')return vPlatformGuide();if(a==='releases')return vReleases();if(a==='usage')return vPlatformUsage();if(a==='approvals')return vApprovals();if(a==='approval-path')return vApprovalPath();if(a==='quality')return vQuality();if(a==='conflicts')return vConflicts();if(a==='clients')return vClients();if(a==='analytics')return vAnalytics41();if(a==='system')return vSystem();if(a==='subscription')return vSubscription();if(a==='room-templates')return vRoomTpl();if(a==='review')return vReview();if(a==='label')return vLabelSettings();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
     return vDashboard();
   }
   destroyCharts();setMode('field');
