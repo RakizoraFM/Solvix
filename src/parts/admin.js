@@ -229,6 +229,8 @@ function siteCfg(){const s=S.settings.site||{};const f={};for(const [k,l,fix] of
   return {f,extra:(Array.isArray(s.extra)?s.extra:[]).filter(x=>x&&/^[a-z0-9_]{1,24}$/i.test(x.k)&&siteName(x.l)).map(x=>({k:x.k,l:siteName(x.l),t:SITE_XT[x.t]?x.t:'text',opts:String(x.opts||''),req:!!x.req}))}}
 const siteOpts=x=>String(x.opts||'').split(/[,،]/).map(o=>o.trim()).filter(Boolean);
 const siteVal=(s,x)=>{const v=(s.extra||{})[x.k];return v==null?'':String(v)};
+/* NV47: required own fields left empty (e.g. a field made required after the buildings were added) */
+const siteMissing=(s,C)=>(C||siteCfg()).extra.filter(x=>x.req&&siteVal(s,x).trim()==='');
 function vSchoolForm(id){const isNew=!id;const s=isNew?{status:'active'}:get('schools',id);if(!s){go('#admin/schools');return}const C=siteCfg(),F=C.f;
   const fields=[{k:'ident',l:F.ident.l,req:1},{k:'name',l:F.name.l,req:1}];
   for(const k of ['moe','site','district','city'])if(F[k].on)fields.push({k,l:F[k].l});
@@ -245,7 +247,10 @@ function vSchoolForm(id){const isNew=!id;const s=isNew?{status:'active'}:get('sc
     Object.assign(s,v);if(isNew){Object.assign(s,{id:nextId('schools','s'),completed_at:null,completed_by:null,created_at:now()});S.schools.push(s)}reindex();save('schools');setAFlash(isNew?'تمت إضافة المبنى.':'تم تحديث المبنى.');go('#admin/schools')},'#admin/schools')}
 /* the buildings table follows the form: hidden built-in columns go, names change, the own fields become columns */
 function siteTable(cols){const C=siteCfg();const out=cols.filter(c=>!(['moe','city','district','site'].includes(c.k)&&!C.f[c.k].on)).map(c=>C.f[c.k]&&c.k!=='ident'?Object.assign({},c,{l:C.f[c.k].l.replace(/ \(Site\)$/,'')}):c);
-  const at=out.findIndex(c=>c.k==='emp');out.splice(at<0?out.length:at,0,...C.extra.map(x=>({k:'x_'+x.k,l:x.l,w:'110px',filter:x.t==='select'?'select':undefined,cls:x.t==='number'?'num':''})));return out}
+  const at=out.findIndex(c=>c.k==='emp');out.splice(at<0?out.length:at,0,...C.extra.map(x=>({k:'x_'+x.k,l:x.l,w:'110px',filter:x.t==='select'?'select':undefined,cls:x.t==='number'?'num':''})));
+  if(C.extra.some(x=>x.req)){const n=out.findIndex(c=>c.k==='name');out.splice(n+1,0,{k:'miss',l:'اكتمال البيانات',w:'120px',filter:'select',v:r=>r.miss&&r.miss.length?'ناقصة':'مكتملة',
+    html:r=>r.miss&&r.miss.length?`<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="${esc('ينقص: '+r.miss.map(x=>x.l).join('، '))}"><i class="bi bi-exclamation-circle"></i> ناقصة (${r.miss.length})</span>`:'<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check2"></i> مكتملة</span>'})}
+  return out}
 /* the own fields read from an imported file: the column header is the field's name */
 function siteExtraPick(r,s){const C=siteCfg();let any=false;const o=Object.assign({},s&&s.extra||{});for(const x of C.extra){const v=x.l in r?String(r[x.l]).trim():'';if(v!==''){o[x.k]=v;any=true}}return any?o:null}
 
@@ -649,18 +654,29 @@ async function catBulk(a){const ids=[...catState.sel].filter(id=>get('types',id)
 /* NV16 — one data-table component (sort on every column, a filter per column, search, selection kept across pages, bulk actions, Excel export / import),
    used by «المباني» and «المستخدمون ← مشرفو الميدان» */
 const NVT={};
-function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,dir:c.dir||'asc',f:{},sel:new Set(),page:1,per:50,hidden:new Set(c.cols.filter(k=>k.hide).map(k=>k.k))});const vis=c.cols.filter(k=>!st.hidden.has(k.k));const qs=(location.hash.split('?')[1])||'';if(c.init&&st.qs!==qs){st.qs=qs;for(const k in st.f)delete st.f[k];st.page=1;c.init(st)}
+/* NV47: saved views per table and user on this browser (filters, sort, columns, page size); the last state comes back on the next visit */
+const nvtKey=k=>'nv_tview_'+(Cloud.on&&Cloud.cfg?.()?.url?Cloud.scope():'local')+'_'+(Cloud.user?.id||'admin')+'_'+k;
+const nvtPack=st=>({f:Object.fromEntries(Object.entries(st.f).filter(([,v])=>v!=null&&v!=='')),sort:st.sort,dir:st.dir,hidden:[...st.hidden],per:st.per});
+function nvtApply(st,v,c){if(!v||typeof v!=='object')return;const ks=new Set(c.cols.map(x=>x.k));for(const k in st.f)delete st.f[k];for(const [k,x] of Object.entries(v.f||{}))if(k==='q'||ks.has(k))st.f[k]=String(x);
+  if(ks.has(v.sort))st.sort=v.sort;st.dir=v.dir==='desc'?'desc':'asc';if(Array.isArray(v.hidden))st.hidden=new Set(v.hidden.filter(k=>ks.has(k)));if([25,50,100,0].includes(v.per))st.per=v.per;st.page=1}
+function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,dir:c.dir||'asc',f:{},sel:new Set(),page:1,per:50,hidden:new Set(c.cols.filter(k=>k.hide).map(k=>k.k))});const qs=(location.hash.split('?')[1])||'';
+  if(!st.restored){st.restored=1;if(!qs){nvtApply(st,lsGet(nvtKey(c.key)+'_last',null),c);st.qs=qs}}
+  if(c.init&&st.qs!==qs){st.qs=qs;for(const k in st.f)delete st.f[k];st.page=1;c.init(st)}const vis=c.cols.filter(k=>!st.hidden.has(k.k));
+  const views=(a=>Array.isArray(a)?a.filter(v=>v&&typeof v.name==='string'):[])(lsGet(nvtKey(c.key)+'_views',[])).slice(0,20);
   const ro=Cloud.on&&Cloud.role==='reader';const F=st.f;const noDel=!can('delete'),noImp=!can('import'),noExp=!can('export');
   const head=`<style>.nvt .table{--bs-table-striped-bg:rgba(37,99,235,.035)}.nvt thead th{position:sticky;top:0;z-index:2;background:#f8fafc;white-space:nowrap;font-size:.8rem;color:#334155}
    .nvt thead tr.nvt-f th{top:37px;background:#fff;padding:.3rem .35rem}.nvt thead tr.nvt-f .form-control,.nvt thead tr.nvt-f .form-select{font-size:.74rem;padding:.2rem .35rem;width:100%;min-width:0}.nvt thead tr.nvt-f .form-select{padding-inline-start:1.4rem;background-position:left .3rem center}
    .nvt-sort{cursor:pointer;user-select:none}.nvt-sort:hover{color:#2563eb}.nvt-sort i{opacity:.35}.nvt-sort.on i{opacity:1;color:#2563eb}.nvt tbody td{font-size:.86rem;vertical-align:middle}.nvt tbody tr.sel{--bs-table-bg:#eff6ff}
-   .nvt-wrap{max-height:68vh;overflow:auto}.nvt table{table-layout:fixed;width:100%;min-width:${c.minW||900}px}.nvt td{overflow-wrap:anywhere}
+   .nvt-wrap{max-height:68vh;overflow:auto}.nvt table{table-layout:fixed;width:100%;min-width:${Math.max(c.minW||900,vis.reduce((a,k)=>a+(parseInt(k.w)||170),34+(parseInt(c.actW)||90)))}px}.nvt td{overflow-wrap:anywhere}.nvt td .btn-icon{display:inline-flex;vertical-align:middle}
    [data-bs-theme=dark] .nvt thead th{background:#1e293b;color:#cbd5e1}[data-bs-theme=dark] .nvt thead tr.nvt-f th{background:#0f172a}</style>`;
   const html=`${head}<div class="card shadow-sm border-0 nvt mb-4" id="nvt-${c.key}"><div class="card-header bg-white py-3 d-flex flex-wrap align-items-center gap-2">
    <h3 class="card-title fw-bold mb-0 me-auto"><i class="bi ${c.icon} me-2 text-primary"></i>${c.title} <span class="badge text-bg-light border fw-normal" data-nvt="count"></span>${c.sub?`<small class="text-muted d-block fw-normal mt-1" style="font-size:.78rem">${c.sub}</small>`:''}</h3>
    <div class="input-group input-group-sm" style="width:230px"><span class="input-group-text bg-white"><i class="bi bi-search"></i></span><input class="form-control" data-nvt="q" placeholder="بحث في كل الأعمدة..." value="${esc(F.q||'')}"></div>
    <button class="btn btn-sm btn-outline-secondary" data-nvt="clear"><i class="bi bi-funnel"></i> مسح الفلاتر</button>
-   <div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-layout-three-columns"></i> الأعمدة</button><div class="dropdown-menu p-2" style="min-width:200px">${c.cols.map(k=>`<label class="dropdown-item d-flex gap-2 rounded"><input type="checkbox" class="form-check-input" data-col="${k.k}" ${st.hidden.has(k.k)?'':'checked'}> ${k.l}</label>`).join('')}</div></div>
+   <div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-nvt="cols"><i class="bi bi-layout-three-columns"></i> الأعمدة</button><div class="dropdown-menu p-2" style="min-width:200px">${c.cols.map(k=>`<label class="dropdown-item d-flex gap-2 rounded"><input type="checkbox" class="form-check-input" data-col="${k.k}" ${st.hidden.has(k.k)?'':'checked'}> ${k.l}</label>`).join('')}</div></div>
+   <div class="dropdown"><button class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" data-nvt="views"><i class="bi bi-bookmark-star"></i> العروض${views.length?` <span class="badge text-bg-primary">${views.length}</span>`:''}</button><div class="dropdown-menu p-1" style="min-width:240px">
+    ${views.map((v,i)=>`<div class="d-flex align-items-center gap-1"><button type="button" class="dropdown-item rounded flex-grow-1 text-truncate" data-nvv="${i}"><i class="bi bi-bookmark me-1 text-primary"></i>${esc(v.name)}</button><button type="button" class="btn btn-sm btn-link text-danger px-2" data-nvvdel="${i}" title="حذف العرض" aria-label="حذف العرض ${esc(v.name)}"><i class="bi bi-x-lg"></i></button></div>`).join('')||'<div class="small text-muted px-2 py-1">لا توجد عروض محفوظة.</div>'}
+    <div class="dropdown-divider"></div><button type="button" class="dropdown-item rounded" data-nvt="vsave"><i class="bi bi-plus-lg me-1"></i>حفظ العرض الحالي…</button><button type="button" class="dropdown-item rounded" data-nvt="vreset"><i class="bi bi-arrow-counterclockwise me-1"></i>العرض الافتراضي</button></div></div>
    ${noExp?'':'<button class="btn btn-sm btn-success" data-nvt="xl"><i class="bi bi-file-earmark-excel me-1"></i>تصدير Excel</button>'}
    ${ro||noImp||!c.onImport?'':'<button class="btn btn-sm btn-outline-success" data-nvt="imp"><i class="bi bi-upload me-1"></i>استيراد Excel</button>'}${ro?'':(c.tools||'')}</div>
   <div data-nvt="bulk" class="px-3 py-2 border-bottom d-none flex-wrap align-items-center gap-2" style="background:#eff6ff"><b class="text-primary small"><span data-nvt="seln">0</span> محدد</b>
@@ -676,17 +692,23 @@ function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,d
     const k=st.sort,d=st.dir==='desc'?-1:1;const col=c.cols.find(x=>x.k===k)||{};return {all,rows:L.sort((a,b)=>cmp(col.sv?col.sv(a):val(a,k),col.sv?col.sv(b):val(b,k))*d)}};
   function bind(root){const Q=s=>root.querySelector(s),QA=s=>[...root.querySelectorAll(s)];
     QA('[data-f]').forEach(el=>{if(el.tagName==='INPUT')el.value=F[el.dataset.f]||'';el.oninput=el.onchange=()=>{F[el.dataset.f]=el.value;const col=c.cols.find(x=>x.k===el.dataset.f);if(col&&col.resets)col.resets.forEach(x=>F[x]='');st.page=1;draw()}});
-    Q('[data-nvt="q"]').oninput=e=>{F.q=e.target.value;st.page=1;draw()};Q('[data-nvt="clear"]').onclick=()=>{st.f={};Object.assign(F,{});for(const k in F)delete F[k];QA('[data-f]').forEach(el=>el.value='');Q('[data-nvt="q"]').value='';st.page=1;draw()};
+    Q('[data-nvt="q"]').oninput=e=>{F.q=e.target.value;st.page=1;draw()};Q('[data-nvt="clear"]').onclick=()=>{for(const k in F)delete F[k];QA('[data-f]').forEach(el=>el.value='');Q('[data-nvt="q"]').value='';st.page=1;draw()};
     QA('[data-sort]').forEach(th=>th.onclick=()=>{const k=th.dataset.sort;st.dir=st.sort===k&&st.dir==='asc'?'desc':'asc';st.sort=k;draw()});
     QA('[data-col]').forEach(x=>x.onchange=()=>{x.checked?st.hidden.delete(x.dataset.col):st.hidden.add(x.dataset.col);delete F[x.dataset.col];if(!x.checked&&st.sort===x.dataset.col)st.sort=(c.cols.find(k=>!st.hidden.has(k.k))||c.cols[0]).k;route()});
     Q('[data-nvt="per"]').onchange=e=>{st.per=+e.target.value;st.page=1;draw()};
+    const vk=nvtKey(c.key)+'_views',vlist=()=>{const a=lsGet(vk,[]);return Array.isArray(a)?a.filter(v=>v&&typeof v.name==='string'):[]};
+    Q('[data-nvt="vsave"]').onclick=()=>{const name=String(prompt('اسم العرض (مثل: مباني بريدة غير المكتملة):','')||'').trim().slice(0,60);if(!name)return;const L=vlist().filter(v=>v.name!==name);if(L.length>=20)return alert('الحد الأقصى 20 عرضاً لهذا الجدول. احذف عرضاً أولاً.');
+      L.push(Object.assign({name},nvtPack(st)));lsSet(vk,L);toast(`حُفظ العرض «${name}».`);route()};
+    QA('[data-nvv]').forEach(b=>b.onclick=()=>{const v=vlist()[+b.dataset.nvv];if(!v)return;nvtApply(st,v,c);st.qs=qs;route()});
+    QA('[data-nvvdel]').forEach(b=>b.onclick=e=>{e.stopPropagation();const L=vlist(),v=L[+b.dataset.nvvdel];if(!v||!confirm(`حذف العرض «${v.name}»؟`))return;L.splice(+b.dataset.nvvdel,1);lsSet(vk,L);route()});
+    Q('[data-nvt="vreset"]').onclick=()=>{nvtApply(st,{f:{},sort:c.sort||c.cols[0].k,dir:c.dir||'asc',hidden:c.cols.filter(k=>k.hide).map(k=>k.k),per:50},c);try{localStorage.removeItem(nvtKey(c.key)+'_last')}catch(e){}route()};
     Q('[data-nvt="all"]').onchange=e=>{rowsF().rows.forEach(r=>e.target.checked?st.sel.add(r.id):st.sel.delete(r.id));draw()};
     if(Q('[data-nvt="xl"]'))Q('[data-nvt="xl"]').onclick=()=>c.exp(rowsF().rows,c.key);if(Q('[data-nvt="imp"]'))Q('[data-nvt="imp"]').onclick=()=>c.onImport();
     QA('[data-nvb]').forEach(b=>b.onclick=async()=>{const ids=[...st.sel].filter(id=>c.rows().some(r=>r.id===id));
       if(b.dataset.nvb==='__none'){st.sel.clear();return draw()}if(b.dataset.nvb==='__xl'){const set=new Set(ids);return c.exp(c.rows().filter(r=>set.has(r.id)),c.key+'-selected')}
       const B=c.bulk.find(x=>x.id===b.dataset.nvb);if(B)await B.run(ids,st)})}
   function opts(el,vals,cur,lbl){el.innerHTML=`<option value="">الكل</option>`+vals.map(v=>`<option value="${esc(v)}" ${String(v)===cur?'selected':''}>${esc(lbl?lbl(v):v)}</option>`).join('')}
-  function draw(){const root=document.getElementById('nvt-'+c.key);if(!root)return;const Q=s=>root.querySelector(s),QA=s=>[...root.querySelectorAll(s)];const {all,rows}=rowsF();
+  function draw(){const root=document.getElementById('nvt-'+c.key);if(!root)return;lsSet(nvtKey(c.key)+'_last',nvtPack(st));const Q=s=>root.querySelector(s),QA=s=>[...root.querySelectorAll(s)];const {all,rows}=rowsF();
     for(const k of vis.filter(x=>x.filter==='select')){const src=k.dep?all.filter(r=>k.dep.every(d=>!F[d]||String(val(r,d))===F[d])):all;opts(Q(`[data-f="${k.k}"]`),[...new Set(src.map(r=>val(r,k.k)))].filter(v=>v!==''&&v!=null).sort((a,b)=>cmp(a,b)),F[k.k]||'',k.lbl)}
     QA('[data-sort]').forEach(th=>{const on=th.dataset.sort===st.sort;th.classList.toggle('on',on);th.querySelector('i').className='bi '+(on?(st.dir==='asc'?'bi-sort-up':'bi-sort-down'):'bi-arrow-down-up')});
     const per=st.per||rows.length||1,last=Math.max(1,Math.ceil(rows.length/per));st.page=Math.min(st.page,last);const items=rows.slice((st.page-1)*per,st.page*per);
@@ -703,9 +725,9 @@ function nvTable(c){const st=NVT[c.key]||(NVT[c.key]={sort:c.sort||c.cols[0].k,d
 /* ---------- «المباني» ---------- */
 const SCH_ST={completed:'مكتملة',in_progress:'قيد التنفيذ',not_started:'لم تبدأ'};
 function vSchools(){const sst=schoolStats();const lastEmp=new Map();for(const c of S.collections){const x=lastEmp.get(c.school_id);if(!x||(c.submitted_at||'')>(x.submitted_at||''))lastEmp.set(c.school_id,c)}
-  const T=nvTable({key:'schools',title:'المباني',icon:'bi-building',empty:'لا توجد مباني بعد',emptyHint:'أضف مبنى أو استورد ملف Excel بالمباني.',minW:1000,sort:'name',actW:'100px',
-    init:st=>{const s=qp().get('status');if(s&&SCH_ST[s])st.f.work=SCH_ST[s];else if(s==='active'||s==='inactive')st.f.status=s==='active'?'نشطة':'غير نشطة';const q=qp().get('search');if(q)st.f.q=q},
-    rows:()=>S.schools.map(s=>{const x=sst.get(s.id);const le=lastEmp.get(s.id);return {id:s.id,s,no:num(dispId(s.id))||0,moe:s.moe||'',ident:s.ident||'',name:s.name||'',city:s.city||'',district:s.district||'',site:s.site||'',...Object.fromEntries(siteCfg().extra.map(x=>['x_'+x.k,siteVal(s,x)])),
+  const T=nvTable({key:'schools',title:'المباني',icon:'bi-building',empty:'لا توجد مباني بعد',emptyHint:'أضف مبنى أو استورد ملف Excel بالمباني.',minW:1000,sort:'name',actW:'140px',
+    init:st=>{const s=qp().get('status');if(s&&SCH_ST[s])st.f.work=SCH_ST[s];else if(s==='active'||s==='inactive')st.f.status=s==='active'?'نشطة':'غير نشطة';const q=qp().get('search');if(q)st.f.q=q;if(qp().get('missing')==='1'){st.f.miss='ناقصة';st.hidden.delete('miss')}},
+    rows:()=>S.schools.map(s=>{const x=sst.get(s.id);const le=lastEmp.get(s.id);return {id:s.id,s,no:num(dispId(s.id))||0,moe:s.moe||'',ident:s.ident||'',name:s.name||'',city:s.city||'',district:s.district||'',site:s.site||'',...Object.fromEntries(siteCfg().extra.map(x=>['x_'+x.k,siteVal(s,x)])),miss:siteMissing(s),
       emp:s.completed_by?empName(s.completed_by):le?empName(le.employee_id):'',work:SCH_ST[schoolState(s,x)],status:s.status==='active'?'نشطة':'غير نشطة',recs:x?x.any:0,created:fmtYmd(s.created_at)}}),
     cols:siteTable([{k:'no',l:'#',w:'60px',cls:'text-muted small',hide:1},{k:'moe',l:'رقم المبنى',w:'95px'},{k:'ident',l:'المعرّف',w:'150px',cls:'small',html:r=>`<code class="text-primary">${esc(r.ident)}</code>`},
       {k:'name',l:'اسم المبنى',html:r=>{const rel=r.s.completed_by||(lastEmp.get(r.id)||{}).employee_id;return `<a class="fw-bold link-primary" href="${rel?`#admin/collections/view/${encodeURIComponent(rel)}/${encodeURIComponent(r.id)}`:`#admin/collections?school_id=${encodeURIComponent(r.id)}`}">${esc(r.name)}</a>`}},
@@ -717,6 +739,7 @@ function vSchools(){const sst=schoolStats();const lastEmp=new Map();for(const c 
     exp:(rows,name)=>writeXlsx([['المباني',[['ID','Building Number','building_identifier','Name (Arabic)','City','District','Site','Status','Collection Status','Field Supervisor','Asset Collections Count','Completed At','Description','Created At',...siteCfg().extra.map(x=>x.l)],...rows.map(r=>[r.no||r.id,r.moe,r.ident,r.name,r.city,r.district,r.site,r.s.status,r.work,r.emp,r.recs,ymdhms(r.s.completed_at),r.s.description||'',ymdhms(r.s.created_at),...siteCfg().extra.map(x=>siteVal(r.s,x))])]]],'schools-'+stampDash()+'.xlsx'),
     onImport:()=>importSchoolsFile(()=>vSchools()),
     bulk:[{id:'complete',label:'<i class="bi bi-check-circle"></i> اعتماد كمكتملة',cls:'btn-success',run:async ids=>{if(!confirm(`اعتماد ${ids.length} مبنى كمكتملة؟`))return;for(const id of ids){const s=get('schools',id);if(s)Object.assign(s,{completed_at:s.completed_at||now(),status:'inactive'})}save('schools');setAFlash('تم اعتماد المباني المحددة كمكتملة.');vSchools()}},
+      ...(siteCfg().extra.length&&can('edit')?[{id:'fill',label:'<i class="bi bi-input-cursor-text"></i> تعبئة حقل',cls:'btn-outline-primary',run:async ids=>siteFill(ids)}]:[]),
       {id:'full',label:'<i class="bi bi-images"></i> Excel كامل بالصور',cls:'btn-outline-success',run:async ids=>{const set=new Set(ids);exportFull(S.collections.filter(c=>set.has(c.school_id)),'schools-full-'+stampDash())}},
       {id:'reassign',label:'<i class="bi bi-person-gear"></i> نقل لمشرف آخر',cls:'btn-primary',run:async ids=>{NVT.schools.reIds=ids;bootstrap.Modal.getOrCreateInstance($('#reassignModal')).show()}},
       {id:'delwork',label:'<i class="bi bi-eraser"></i> حذف أعمال الجرد',cls:'btn-outline-danger',run:async ids=>{const set=new Set(ids);const n=S.collections.filter(c=>set.has(c.school_id)).length;if(!n)return alert('لا توجد أعمال جرد في المباني المحددة.');if(!confirm(`حذف ${n} سجل جرد من ${ids.length} مبنى؟ تبقى المباني نفسها.`))return;if(!await removeCollections(S.collections.filter(c=>set.has(c.school_id))))return;setAFlash('تم حذف أعمال المباني المحددة.');vSchools()}},
@@ -835,7 +858,7 @@ async function testMail(){try{const c=await Cloud.sb();const {data,error}=await 
 <script id="nv-nv23">
 /* NV23 — dashboard redesign: white KPI cards with context, one progress bar for all schools, filters (city / supervisor / period) that drive every chart,
    horizontal supervisor bars, daily columns + 7-day average, completion per city, estimated value per level 1. One colour per state everywhere. */
-const DASH={city:'',emp:'',days:30};
+const DASH={city:'',emp:'',days:30,x:{}};
 /* charts do not redraw themselves on resize (a pending redraw on a destroyed chart drew NaN paths); the dashboard re-renders once the resize settles */
 let dashRz=0;window.addEventListener('resize',()=>{clearTimeout(dashRz);dashRz=setTimeout(()=>{if(charts.length&&/^admin\/?$/.test(routePath()))vDashboard()},350)});
 const DC={done:'#0ca30c',prog:'#2a78d6',rest:'#cbd5e1',one:'#2a78d6',avg:'#eb6834'};
@@ -1221,7 +1244,10 @@ function cols33(rows,key,qPct,labAll){const mx=Math.max(1,...rows.map(r=>r.q));r
 function vDashboard(){
   destroyCharts();const tok=window.__nvDashTok=(window.__nvDashTok||0)+1;
   const F=DASH,G=DASH33,since=F.days?Date.now()-F.days*864e5:0;
-  const schools=S.schools.filter(s=>!F.city||s.city===F.city);const schSet=new Set(schools.map(s=>s.id));
+  /* NV47: the customer's own select fields filter the dashboard too */
+  const SC=siteCfg(),XS=SC.extra.filter(x=>x.t==='select');F.x=F.x||{};for(const k in F.x)if(!XS.some(x=>x.k===k))delete F.x[k];
+  if(G.loc&&G.loc.startsWith('x:')&&!SC.extra.some(x=>'x:'+x.k===G.loc))G.loc='city';
+  const schools=S.schools.filter(s=>(!F.city||s.city===F.city)&&Object.entries(F.x).every(([k,v])=>!v||siteVal(s,{k})===v));const schSet=new Set(schools.map(s=>s.id));
   const coll=S.collections.filter(c=>schSet.has(c.school_id)&&(!F.emp||c.employee_id===F.emp));
   const st=new Map();for(const c of coll){let x=st.get(c.school_id);if(!x){x={any:0};st.set(c.school_id,x)}x.any++}
   const scope=F.emp?schools.filter(s=>st.has(s.id)||s.completed_by===F.emp):schools;
@@ -1265,6 +1291,7 @@ function vDashboard(){
     [sub.filter(c=>c.geo_dist!=null&&c.geo_dist>Gc.m).length,'bi-geo-alt','#6250d6','صُوّرت بعيداً عن المبنى','#admin/review?st=far',`أبعد من ${fmtDist(Gc.m)}`],
     [sub.filter(c=>!c.label_at&&c.label_printed_at).length,'bi-tag','#eda100','ملصقات طُبعت ولم يُؤكَّد لصقها','#admin/review?st=nolabel','بانتظار صورة الملصق'],
     [dups,'bi-files','#2a78d6','أرقام تسلسلية مكررة','#admin/review?st=all','راجع الأصول المكررة'],
+    [SC.extra.some(x=>x.req)?schools.filter(s=>siteMissing(s,SC).length).length:0,'bi-building-exclamation','#eda100','مبانٍ بياناتها ناقصة','#admin/schools?missing=1','حقول إلزامية فارغة في نموذج المبنى'],
   ].filter(x=>x[0]>0);
   if(si&&si.state!=='ok')al.unshift([1,'bi-calendar-x','#d03b3b',si.state==='over'?'انتهى الاشتراك — قراءة فقط':si.state==='grace'?'الاشتراك في فترة السماح':`ينتهي الاشتراك خلال ${nf(si.days)} يوم`,can('settings')?'#admin/subscription':'#admin','جدّد الاشتراك']);
   const alertsHtml=al.length?`<ul class="nv33-al">${al.map(([n,ic,c,t,h,s])=>`<li><a href="${h}"><span class="nvk-ic" style="--c:${c}"><i class="bi ${ic}"></i></span><span class="flex-grow-1"><b>${t}</b><small>${s}</small></span>${n>1||!/subscription/.test(h)?`<span class="nv33-n">${nf(n)}</span>`:''}</a></li>`).join('')}</ul>`:'<div class="text-center text-muted small py-4"><i class="bi bi-check2-circle fs-3 d-block mb-1" style="color:#0ca30c"></i>لا توجد تنبيهات عاجلة.</div>';
@@ -1273,10 +1300,11 @@ function vDashboard(){
   ${empty?`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2"><div class="flex-grow-1"><strong>لا توجد بيانات في قاعدة Solvix بعد.</strong> حمّل القوائم الجاهزة (المباني، دليل الأصول، أسماء الغرف، الموظفين) مرة واحدة للبدء.</div>${Cloud.role==='admin'?'<button class="btn btn-warning btn-sm" id="initCloud">تحميل القوائم الجاهزة</button>':''}</div>`:''}
   <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
    <div class="nv33-q position-relative flex-grow-1"><i class="bi bi-search"></i><input type="search" class="form-control form-control-sm" id="dQ" placeholder="ابحث عن أصل، رقم، مبنى، مشرف، رقم تسلسلي…" autocomplete="off" aria-label="بحث عن أصل"><div class="nv33-qr d-none" id="dQr"></div></div>
-   <select class="form-select form-select-sm" style="width:auto" id="dCity"><option value="">كل المحافظات</option>${cities.map(c=>`<option ${F.city===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+   <select class="form-select form-select-sm" style="width:auto" id="dCity"><option value="">${SC.f.city.l==='المحافظة'?'كل المحافظات':'كل '+esc(SC.f.city.l)}</option>${cities.map(c=>`<option ${F.city===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
    <select class="form-select form-select-sm" style="width:auto;max-width:220px" id="dEmp"><option value="">كل مشرفي الميدان</option>${emps.map(e=>`<option value="${esc(e.id)}" ${F.emp===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select>
    <div class="btn-group btn-group-sm" role="group">${[[7,'7 أيام'],[30,'30 يوماً'],[90,'90 يوماً'],[0,'الكل']].map(([d,l])=>`<button type="button" class="btn ${F.days===d?'btn-primary':'btn-outline-secondary'}" data-days="${d}">${l}</button>`).join('')}</div>
-   ${F.city||F.emp||F.days!==30?'<button type="button" class="btn btn-sm btn-link" id="dReset">إعادة ضبط</button>':''}</div>
+   ${XS.map(x=>`<select class="form-select form-select-sm" style="width:auto;max-width:200px" data-dx="${esc(x.k)}" aria-label="${esc(x.l)}"><option value="">كل ${esc(x.l)}</option>${[...new Set(siteOpts(x).concat(S.schools.map(s=>siteVal(s,x)).filter(Boolean)))].map(o=>`<option ${F.x[x.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`).join('')}
+   ${F.city||F.emp||F.days!==30||Object.values(F.x).some(Boolean)?'<button type="button" class="btn btn-sm btn-link" id="dReset">إعادة ضبط</button>':''}</div>
   <div class="row row-cols-2 row-cols-lg-3 row-cols-xxl-5 g-3 nv33-kpis">
    ${kpi('assets','bi-box-seam','#2a78d6','إجمالي الأصول',nf(qtyAll),delta(dl(sub,Q)),mini(mon(sub,Q),'#2a78d6'))}
    ${kpi('good','bi-check2-circle','#0ca30c','بحالة جيدة / مناسبة',nf(Q(good)),`${qPct(Q(good))}% من الأصول`,`<span class="nv33-ring" style="--p:${qPct(Q(good))};--c:#0ca30c"></span>`)}
@@ -1290,7 +1318,7 @@ function vDashboard(){
    ${card('col-xl-4','اتجاه الأصول المجرودة',G.trend==='m'?'الكمية المجرودة كل شهر':`يومياً ${F.days?`— آخر ${F.days} يوماً`:''}، والخط = متوسط 7 أيام`,`<div id="chDaily" class="mt-1">${G.trend==='m'?'':skel(260)}</div>`,`<select class="form-select form-select-sm w-auto" id="dTrend"><option value="m" ${G.trend==='m'?'selected':''}>آخر 12 شهراً</option><option value="d" ${G.trend==='d'?'selected':''}>يومي — فترة الفلتر</option></select>`)}
   </div>
   <div class="row g-3 mt-0">
-   ${card('col-xl-3 col-lg-6','الأصول حسب الموقع',G.loc==='city'?'الكمية في كل محافظة':'أعلى المباني بالكمية',`<div id="byLoc" class="mt-2"></div>`,`<select class="form-select form-select-sm w-auto" id="dLoc"><option value="city" ${G.loc==='city'?'selected':''}>حسب المحافظة</option><option value="school" ${G.loc==='school'?'selected':''}>حسب المبنى</option></select>`)}
+   ${card('col-xl-3 col-lg-6','الأصول حسب الموقع',G.loc==='city'?'الكمية في كل محافظة':G.loc==='school'?'أعلى المباني بالكمية':'الكمية حسب '+esc((SC.extra.find(x=>'x:'+x.k===G.loc)||{}).l||''),`<div id="byLoc" class="mt-2"></div>`,`<select class="form-select form-select-sm w-auto" id="dLoc"><option value="city" ${G.loc==='city'?'selected':''}>حسب المحافظة</option><option value="school" ${G.loc==='school'?'selected':''}>حسب المبنى</option>${SC.extra.filter(x=>x.t!=='date').map(x=>`<option value="x:${esc(x.k)}" ${G.loc==='x:'+x.k?'selected':''}>حسب ${esc(x.l)}</option>`).join('')}</select>`)}
    ${card('col-xl-6 col-lg-12 order-lg-last order-xl-0','أحدث الأصول المضافة','',tbl(['رقم الأصل','الأصل / الفئة','الموقع','التاريخ','الحالة',''],latest.map(c=>`<tr><td>${tagCell(c)}</td><td class="nv33-cut" title="${esc(tname(c))} — ${esc(cname(c))}">${esc(tname(c))}<small class="d-block text-muted">${esc(cname(c))}</small></td><td class="nv33-cut" title="${esc(locOf(c))}">${esc(locOf(c))}</td><td class="num">${esc(String(c.submitted_at).slice(0,10))}</td><td>${condBadge(c)}</td><td><a href="${aLink(c)}" class="btn btn-sm btn-light border rounded-circle" title="عرض"><i class="bi bi-eye text-primary"></i></a></td></tr>`),7,'لا توجد أصول مجرودة بعد.'),`<a href="#admin/collections" class="btn btn-sm btn-outline-primary">عرض الكل</a>`)}
    ${card('col-xl-3 col-lg-6','الأصول حسب العمر','من تاريخ التركيب (إن وجد)',`<div id="chAge" class="mt-1">${skel(220)}</div><div id="lgAge"></div>`)}
   </div>
@@ -1310,7 +1338,8 @@ function vDashboard(){
   </div></div>`);
   /* filters */
   $('#dCity').onchange=e=>{F.city=e.target.value;vDashboard()};$('#dEmp').onchange=e=>{F.emp=e.target.value;vDashboard()};
-  $$('[data-days]').forEach(b=>b.onclick=()=>{F.days=+b.dataset.days;vDashboard()});if($('#dReset'))$('#dReset').onclick=()=>{Object.assign(F,{city:'',emp:'',days:30});vDashboard()};
+  $$('[data-days]').forEach(b=>b.onclick=()=>{F.days=+b.dataset.days;vDashboard()});if($('#dReset'))$('#dReset').onclick=()=>{Object.assign(F,{city:'',emp:'',days:30,x:{}});vDashboard()};
+  $$('[data-dx]').forEach(el=>el.onchange=()=>{F.x[el.dataset.dx]=el.value;vDashboard()});
   $('#dTrend').onchange=e=>{G.trend=e.target.value;vDashboard()};$('#dLoc').onchange=e=>{G.loc=e.target.value;vDashboard()};
   if($('#initCloud'))$('#initCloud').onclick=()=>initCloudLists();
   /* asset search: tag number, asset, school, supervisor, serial, room */
@@ -1321,9 +1350,9 @@ function vDashboard(){
   qi.oninput=qRun;qi.onkeydown=e=>{if(e.key==='Enter'){const a=qr.querySelector('a');if(a){e.preventDefault();location.hash=a.getAttribute('href')}}else if(e.key==='Escape'){qi.value='';qRun()}};
   qi.onblur=()=>setTimeout(()=>qr.classList.add('d-none'),200);qi.onfocus=qRun;
   /* assets per city / school (HTML bars, one hue) */
-  const lm=new Map();for(const c of sub){const s=get('schools',c.school_id)||{};const k=G.loc==='city'?(s.city||'غير محدد'):(s.name||'—');const x=lm.get(k)||{q:0,id:s.id};x.q+=num(c.quantity);lm.set(k,x)}
+  const lm=new Map();for(const c of sub){const s=get('schools',c.school_id)||{};const k=G.loc==='city'?(s.city||'غير محدد'):G.loc==='school'?(s.name||'—'):(siteVal(s,{k:G.loc.slice(2)})||'غير محدد');const x=lm.get(k)||{q:0,id:s.id};x.q+=num(c.quantity);lm.set(k,x)}
   const lr=[...lm.entries()].sort((a,b)=>b[1].q-a[1].q);const lmax=Math.max(1,...lr.map(x=>x[1].q));
-  $('#byLoc').innerHTML=lr.length?lr.slice(0,8).map(([k,x])=>`<div class="nvc-row" title="${esc(k)}: ${nf(x.q)}"><a href="${G.loc==='city'?'#admin/analytics?city='+encodeURIComponent(k):'#admin/schools?search='+encodeURIComponent(k)}">${esc(k)}</a><div class="nvc-track nvc-plain"><span style="width:${x.q/lmax*100}%;background:#2a78d6"></span></div><span class="num"><b>${nf(x.q)}</b> <small>${qPct(x.q)}%</small></span></div>`).join('')+(lr.length>8?`<div class="sub mt-1">و${nf(lr.length-8)} أخرى</div>`:''):'<div class="text-center text-muted small py-4">لا توجد أصول مجرودة بعد.</div>';
+  $('#byLoc').innerHTML=lr.length?lr.slice(0,8).map(([k,x])=>`<div class="nvc-row" title="${esc(k)}: ${nf(x.q)}"><a href="${G.loc==='city'?'#admin/analytics?city='+encodeURIComponent(k):G.loc==='school'?'#admin/schools?search='+encodeURIComponent(k):'#admin/analytics'}">${esc(k)}</a><div class="nvc-track nvc-plain"><span style="width:${x.q/lmax*100}%;background:#2a78d6"></span></div><span class="num"><b>${nf(x.q)}</b> <small>${qPct(x.q)}%</small></span></div>`).join('')+(lr.length>8?`<div class="sub mt-1">و${nf(lr.length-8)} أخرى</div>`:''):'<div class="text-center text-muted small py-4">لا توجد أصول مجرودة بعد.</div>';
   /* completion per city, supervisors, value per level 1 — as in NV23 */
   const cm=new Map();for(const s of scope){const k=s.city||'غير محدد';const x=cm.get(k)||{n:0,c:0,p:0};x.n++;const t=schoolState(s,st.get(s.id));if(t==='completed')x.c++;else if(t==='in_progress')x.p++;cm.set(k,x)}
   const cr=[...cm.entries()].sort((a,b)=>(b[1].c+b[1].p)/b[1].n-(a[1].c+a[1].p)/a[1].n||b[1].n-a[1].n);
@@ -1411,4 +1440,21 @@ function vSiteForm(keep){if(!can('settings'))return go('#admin/settings');const 
     const fields={};for(const [k,l,fix] of SITE_F){const nm=siteName(st.f[k].l);if((!fix&&!st.f[k].on)||nm!==l)fields[k]={on:fix?true:st.f[k].on,l:nm!==l?nm:''}}
     S.settings.site={fields,extra:st.extra.map(x=>({k:x.k,l:siteName(x.l),t:x.t,opts:x.t==='select'?siteOpts(x).join(', '):'',req:!!x.req}))};vSiteForm.st=null;save('settings');
     setAFlash('تم حفظ نموذج بيانات المباني.');vSiteForm()}}
+
+/* NV47 — «تعبئة حقل»: one own-field value for the selected buildings (fills the gaps the completeness column shows) */
+function siteFill(ids){const C=siteCfg();if(!C.extra.length||!ids.length)return;$('#nvFill')?.remove();
+  const req=C.extra.filter(x=>x.req),first=req.find(x=>ids.some(id=>{const s=get('schools',id);return s&&!siteVal(s,x)}))||C.extra[0];
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal fade" id="nvFill" tabindex="-1" aria-labelledby="nvFillT"><div class="modal-dialog"><form class="modal-content" id="nvFillF"><div class="modal-header"><h5 class="modal-title" id="nvFillT">تعبئة حقل لـ${nf(ids.length)} مبنى</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button></div>
+   <div class="modal-body"><label class="form-label" for="nvFillK">الحقل</label><select class="form-select mb-3" id="nvFillK">${C.extra.map(x=>`<option value="${esc(x.k)}" ${x===first?'selected':''}>${esc(x.l)}${x.req?' *':''}</option>`).join('')}</select>
+    <label class="form-label" for="nvFillV">القيمة</label><div id="nvFillVB"></div>
+    <div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="nvFillE" checked><label class="form-check-label" for="nvFillE">المباني الفارغة فقط (لا تغيّر القيم المسجلة)</label></div><div class="small text-muted mt-2" id="nvFillN"></div></div>
+   <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">إلغاء</button><button type="submit" class="btn btn-primary">تطبيق</button></div></form></div></div>`);
+  const fld=()=>C.extra.find(x=>x.k===$('#nvFillK').value);
+  const box=()=>{const x=fld();$('#nvFillVB').innerHTML=x.t==='select'?`<select class="form-select" id="nvFillV"><option value="">—</option>${siteOpts(x).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`:`<input class="form-control" id="nvFillV" type="${x.t==='number'||x.t==='date'?x.t:'text'}"${x.t==='number'?' step="any"':''}>`;cnt()};
+  const targets=()=>{const x=fld(),only=$('#nvFillE').checked;return ids.map(id=>get('schools',id)).filter(s=>s&&(!only||!siteVal(s,x)))};
+  const cnt=()=>{$('#nvFillN').textContent=`سيتغير ${nf(targets().length)} من ${nf(ids.length)} مبنى.`};
+  $('#nvFillK').onchange=box;$('#nvFillE').onchange=cnt;box();
+  const m=bootstrap.Modal.getOrCreateInstance($('#nvFill'));m.show();
+  $('#nvFillF').onsubmit=e=>{e.preventDefault();const x=fld();let v=String($('#nvFillV').value||'').trim();if(!v)return alert('اختر أو اكتب قيمة.');if(x.t==='number'){if(isNaN(+v))return alert('اكتب رقماً.');v=String(+v)}
+    const L=targets();if(!L.length)return alert('لا توجد مبانٍ تحتاج هذا التغيير.');for(const s of L){s.extra=Object.assign({},s.extra||{},{[x.k]:v})}save('schools');m.hide();setAFlash(`تمت تعبئة «${x.l}» في ${nf(L.length)} مبنى.`);vSchools()}}
 </script>
