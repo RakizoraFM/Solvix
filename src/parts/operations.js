@@ -18,7 +18,7 @@ const NV36={
   category_id:'الفئة',type_id:'نوع الأصل',condition_id:'الحالة الفنية',school_id:'المبنى',employee_id:'مشرف الميدان',school_image:'صورة المبنى',asset_image:'صورة الأصل',asset_image2:'صورة لوحة البيانات',extra_images:'الصور الإضافية',
   floor:'الدور',room_number:'رقم الغرفة',room_name_id:'اسم الغرفة',review_status:'مراجعة الصور',review_note:'ملاحظة المراجع',reviewed_by:'المراجع',reviewed_at:'وقت المراجعة',
   name:'الاسم',number:'الرقم الوظيفي',email:'البريد',ar:'الاسم بالعربية',en:'الاسم بالإنجليزية',moe:'رقم المبنى',ident:'معرّف المبنى',lat:'خط العرض',lng:'خط الطول',
-  status:'الحالة',app_name:'اسم المنصة',admin_email:'مستلمو البريد',logo:'الشعار',label:'إعدادات الملصق',geo:'ضوابط الموقع',room_tpl:'قوالب الغرف',submitted_at:'وقت الإرسال',created_at:'وقت الإنشاء',
+  status:'الحالة',app_name:'اسم المنصة',admin_email:'مستلمو البريد',logo:'الشعار',label:'إعدادات الملصق',geo:'ضوابط الموقع',room_tpl:'قوالب الغرف',site:'نموذج بيانات المباني',extra:'حقول المبنى الإضافية',submitted_at:'وقت الإرسال',created_at:'وقت الإنشاء',
   install_date:'تاريخ التركيب',agency:'الوكيل',warranty:'الضمان',tag:'الرقم الخارجي',parent_child:'رئيسي / فرعي'}
 };
 window.NV36=NV36;
@@ -30,7 +30,7 @@ const opsMessage=e=>{
 function opsShell(key,title,html){if(Cloud.role==='tech')fieldLayout(`<section class="sx36-page">${html}</section>`);else adminShell(key,title,`<section class="sx36-page">${html}</section>`)}
 const opsOffline=()=>!Cloud.on||navigator.onLine===false;
 const opsStatus=s=>({pending:'بانتظار الاعتماد',returned:'مُرجع للتصحيح',approved:'معتمد نهائياً'})[s]||'لم يُرسل';
-const opsSettings=()=>({app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null,geo:S.settings.geo||null,room_tpl:S.settings.room_tpl||null});
+const opsSettings=()=>Cloud.settingsRow();
 async function loadApprovals(){if(!Cloud.on)throw Error('إدارة مسارات الاعتماد تتطلب الاتصال بقاعدة البيانات.');
  S.approval_paths=await Cloud.fetchAll('nv_approval_paths');S.approvals=await Cloud.fetchAll('nv_approval_runs',q=>q.order('asset_id'));
  await saveNow('approval_paths');await saveNow('approvals');
@@ -121,7 +121,7 @@ async function vConflicts(){
  const pending=t==='settings'?JSON.stringify(liveCanon)!==Cloud.snap.settings.data:liveCanon?Cloud.key(t,live)!==Cloud.snap[t]?.[id]:Cloud.snap[t]?.[id]!==undefined;
  const local=!pending&&'local' in entry?entry.local:live,base=entry.base,capturedLive=JSON.parse(JSON.stringify(liveCanon)),capturedLocal=local?JSON.parse(JSON.stringify(t==='settings'?local:Cloud.canon(t,local))):null;
  let remote,remoteCanon;
- try{const sb=await Cloud.sb();if(t==='settings'){const result=Cloud.chk(await sb.rpc('nv_client_settings'));remote=remoteCanon={app_name:result.data.app_name||'Solvix',admin_email:result.data.admin_email||'',logo:result.data.logo||null,label:result.data.label||null,geo:result.data.geo||null,room_tpl:result.data.room_tpl||null};}
+ try{const sb=await Cloud.sb();if(t==='settings'){const result=Cloud.chk(await sb.rpc('nv_client_settings'));remote=remoteCanon=Cloud.settingsOf(result.data);}
   else{remote=Cloud.chk(await sb.from(NV_T[t]).select('*').eq('id',id).maybeSingle());remoteCanon=remote?Cloud.canon(t,remote):null}
  }catch(e){if($('#conflictComparison'))$('#conflictComparison').textContent='تعذر جلب نسخة الخادم. لم يتغير تعديلك المحلي. '+opsMessage(e);return}
  if(!$('#conflictComparison'))return;

@@ -12,7 +12,7 @@ const NV_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd
 const NV_T={categories:'nv_categories',conditions:'nv_conditions',rooms:'nv_rooms',types:'nv_types',employees:'nv_employees',schools:'nv_schools',collections:'nv_collections'};
 const NV_ORDER=['categories','conditions','rooms','types','employees','schools','collections'];
 const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','email','created_at'],
-  schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at','lat','lng'],
+  schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at','lat','lng','extra'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
     'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','submitted_at','created_at','geo_dist','review_status','review_note','reviewed_at','reviewed_by','label_photo','label_at','label_by','label_check','label_printed_at']};
 const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag','review_note']);
@@ -25,8 +25,15 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
   async sb(){if(this.client)return this.client;if(!(window.supabase&&window.supabase.createClient))await loadScript(NV_LIB);const c=this.cfg();
     this.client=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:c.url===SOLVIX_CFG.url?'solvix-auth':'solvix-auth-'+new URL(c.url).hostname}});return this.client},
   chk({data,error}){if(error)throw new Error(error.message||String(error));return data},
-  canon(t,r){const o={};for(const k of NV_COLS[t]){if(this.skip.has(t+'.'+k))continue;if(t==='collections'&&this.role==='tech'&&/^label_/.test(k))continue;let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='extra_images')v=Array.isArray(v)?v.filter(Boolean):[];if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
+  canon(t,r){const o={};for(const k of NV_COLS[t]){if(this.skip.has(t+'.'+k))continue;if(k==='extra'&&!this.extraOk())continue;if(t==='collections'&&this.role==='tech'&&/^label_/.test(k))continue;let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='extra')v=r.extra&&typeof r.extra==='object'&&!Array.isArray(r.extra)?r.extra:{};if(k==='extra_images')v=Array.isArray(v)?v.filter(Boolean):[];if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
   key(t,r){return JSON.stringify(this.canon(t,r))},
+  /* NV46: nv_schools.extra (custom building fields) is synced only once this project's database has the column (migration 046).
+     The flag is kept per project, so a device never compares rows with and without the column. Old snapshots get extra:{} added
+     (the server default), so turning it on does not resend every building. */
+  extraOk(){try{return localStorage.getItem('nv_extra_ok_'+this.scope())==='1'}catch(e){return false}},
+  async detectExtra(rows){let has;if(rows&&rows.length)has='extra' in rows[0];else{try{const {error}=await (await this.sb()).from('nv_schools').select('extra').limit(1);has=!error}catch(e){has=false}}
+    try{localStorage.setItem('nv_extra_ok_'+this.scope(),has?'1':'0')}catch(e){}this.dbOld=(this.dbOld||[]).filter(x=>x!=='nv_schools.extra');if(!has)this.dbOld.push('nv_schools.extra');
+    if(has){const snap=this.snap.schools||{};for(const id in snap)if(snap[id].indexOf('"extra":')<0){const o=JSON.parse(snap[id]);o.extra={};snap[id]=JSON.stringify(o)}}},
   /* ---- start-up: who is signed in, and which role he has in Novaro ---- */
   async init(){
     const cached=await IDB.get('kv','cloud_me').catch(()=>null);this.conflicts=await IDB.get('kv','sync_conflicts').catch(()=>null)||{};this.snap=await IDB.get('kv','snap').catch(()=>null)||{};this.uploaded=new Set(await IDB.get('kv','uploaded').catch(()=>null)||[]);
@@ -45,10 +52,12 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
   async signOut(){await this.sync().catch(()=>{});if(window.flushLabels)await flushLabels();if(this.pendingCount()){toast('توجد تعديلات غير مرسلة. زامنها أو صدّر نسخة احتياطية قبل تسجيل الخروج.',7000);return false}try{const c=await this.sb();await c.auth.signOut()}catch(e){}await this.wipeLocal();return true},
   async wipeLocal(){this.conflicts={};clearTimeout(this._t);clearTimeout(this._r);if(this.user)localStorage.removeItem('nv_label_q_'+this.scope()+'_'+this.user.id);for(const t of TABLES){clearTimeout(saveTimer[t]);S[t]=t==='settings'?{app_name:S.settings.app_name,logo:S.settings.logo}:[]}for(const u of urlCache.values())URL.revokeObjectURL(u);urlCache.clear();await IDB.clear('photos');await IDB.clear('kv');this.snap={};for(const t of NV_ORDER.concat(['settings']))this.snap[t]={};this.uploaded.clear();clearSess();reindex();await saveAll();await IDB.put('kv','cloud_me',null);this.role=null;this.emp=null;this.staffRole=null;this.sys=false;this.docAccess={};this.perms=null;this.sub=null;this.user=null;},
   pendingCount(){let n=0;for(const t of this.pushTables())for(const r of S[t]){const s=this.snap[t][r.id];if(s===undefined||s!==this.key(t,r))n++}
-    for(const t of this.pushTables())for(const id in this.snap[t])if(!S[t].some(r=>r.id===id))n++;if(this.role==='admin'&&this.snap.settings.data&&this.snap.settings.data!==JSON.stringify({app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null,geo:S.settings.geo||null,room_tpl:S.settings.room_tpl||null}))n++;if(this.role==='tech'&&window.labelQ)n+=labelQ().length;return n||Object.keys(this.conflicts).length},
+    for(const t of this.pushTables())for(const id in this.snap[t])if(!S[t].some(r=>r.id===id))n++;if(this.role==='admin'&&this.snap.settings.data&&this.snap.settings.data!==JSON.stringify(this.settingsRow()))n++;if(this.role==='tech'&&window.labelQ)n+=labelQ().length;return n||Object.keys(this.conflicts).length},
   pushTables(){return this.role==='admin'?NV_ORDER:this.role==='tech'?['collections','schools']:[]},
   orphanPending(){let n=0;for(const t of NV_ORDER){const snap=this.snap[t]||{};for(const row of S[t]||[]){const raw=snap[row.id];if(raw===undefined){n++;continue}const before=JSON.parse(raw),after=this.canon(t,row);if(Object.keys(before).some(k=>JSON.stringify(before[k])!==JSON.stringify(after[k])))n++}for(const id of Object.keys(snap))if(!(S[t]||[]).some(r=>r.id===id))n++}return n},
-  settingsRow(){return {app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null,geo:S.settings.geo||null,room_tpl:S.settings.room_tpl||null}},
+  /* NV46: «site» (the building form of this customer) is sent only when set, so a database without migration 046 keeps syncing the rest */
+  settingsOf(d){d=d||{};const o={app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null,geo:d.geo||null,room_tpl:d.room_tpl||null};if(d.site)o.site=d.site;return o},
+  settingsRow(){return this.settingsOf(S.settings)},
   persistConflicts(){return IDB.put('kv','sync_conflicts',this.conflicts)},
   async rememberConflict(table,id,base){const key=table+':'+id;if(!this.conflicts[key])this.conflicts[key]={table,id,base:JSON.parse(JSON.stringify(base)),local:table==='settings'?this.settingsRow():(S[table].find(r=>r.id===id)?this.canon(table,S[table].find(r=>r.id===id)):null),at:new Date().toISOString()};await saveNow(table);await this.persistConflicts()},
   async mutate(table,id,expected,patch,del){try{return this.chk(await (await this.sb()).rpc('nv_sync_mutate',{p_table:NV_T[table],p_id:id,p_expected:expected,p_patch:patch,p_delete:del}))}catch(e){if(/SOLVIX_CONFLICT/.test(e.message))await this.rememberConflict(table,id,expected);throw e}},
@@ -76,7 +85,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
           if(this.conflicts[t+':'+r.id])continue;try{await this.mutate(t,r.id,before,patch,false);snap[r.id]=js;await this.persistSnap()}catch(e){if(!/SOLVIX_CONFLICT/.test(e.message))throw e}}
         for(const id of del){if(this.conflicts[t+':'+id])continue;try{await this.mutate(t,id,JSON.parse(snap[id]),{},true);delete snap[id];await this.persistSnap()}catch(e){if(t==='collections'&&/DELETE_REASON_REQUIRED/.test(e.message)){await this.rememberConflict(t,id,JSON.parse(snap[id]));continue}if(!/SOLVIX_CONFLICT/.test(e.message))throw e}}
       }
-      if(this.role==='admin'&&(window.can?can('settings'):['owner','manager','sysadmin'].includes(this.staffRole||'owner'))){const st={app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null,geo:S.settings.geo||null,room_tpl:S.settings.room_tpl||null};const js=JSON.stringify(st);
+      if(this.role==='admin'&&(window.can?can('settings'):['owner','manager','sysadmin'].includes(this.staffRole||'owner'))){const st=this.settingsRow();const js=JSON.stringify(st);
         if(this.snap.settings.data!==js&&!this.conflicts['settings:1']){if(!this.snap.settings.data)throw new Error('اسحب الإعدادات من الخادم قبل تعديلها.');await this.writeSettings(JSON.parse(this.snap.settings.data),st);this.snap.settings.data=js;await this.persistSnap()}}
       await saveNow('collections');this.err=Object.keys(this.conflicts).length?new Error('SOLVIX_CONFLICT: توجد تعارضات محفوظة تحتاج مراجعة شاشة المقارنة.'):null;
     }catch(e){
@@ -89,7 +98,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
     if(!this.on||!this.role)return;
     const tabs=this.role==='tech'?['categories','conditions','rooms','types','employees','schools','collections']:NV_ORDER;
     for(const t of tabs){let rows=await this.fetchAll(NV_T[t],t==='collections'?r=>r.order('no'):null);
-      if(t==='employees')rows=rows.map(r=>{const o=Object.assign({},r);delete o.user_id;return o});
+      if(t==='employees')rows=rows.map(r=>{const o=Object.assign({},r);delete o.user_id;return o});if(t==='schools')await this.detectExtra(rows);
       const snap=this.snap[t],local=new Map(S[t].map(r=>[r.id,r])),cloudIds=new Set(rows.map(r=>r.id)),next=[],ns={};
       for(const r of rows){if(!discard&&!local.has(r.id)&&snap[r.id]!==undefined){ns[r.id]=snap[r.id];continue}const l=local.get(r.id);const pending=!discard&&l&&snap[r.id]!==undefined&&snap[r.id]!==this.key(t,l);
         ns[r.id]=pending?snap[r.id]:this.key(t,r);if(pending){if(t==='collections')l.no=r.no;next.push(l)}else{const o=Object.assign({},r);for(const k of ['lat','lng','price'])if(o[k]!=null)o[k]=Number(o[k]);next.push(o)}}
@@ -97,7 +106,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
       
       S[t]=next;this.snap[t]=ns}
     if(this.role!=='tech'){S.log=(await this.fetchAll('nv_log',r=>r.order('at',{ascending:false}).limit(3000))).slice(0,3000)}else S.log=[];
-    const st=this.chk(await (await this.sb()).rpc('nv_client_settings'));if(st&&st.data&&!(this.snap.settings.data&&!discard&&this.snap.settings.data!==JSON.stringify({app_name:S.settings.app_name||'Solvix',admin_email:S.settings.admin_email||'',logo:S.settings.logo||null,label:S.settings.label||null,geo:S.settings.geo||null,room_tpl:S.settings.room_tpl||null}))){const d=st.data;Object.assign(S.settings,{app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null,geo:d.geo||null,room_tpl:d.room_tpl||null});this.snap.settings.data=JSON.stringify({app_name:S.settings.app_name,admin_email:S.settings.admin_email,logo:S.settings.logo,label:S.settings.label,geo:S.settings.geo||null,room_tpl:S.settings.room_tpl||null})}
+    const st=this.chk(await (await this.sb()).rpc('nv_client_settings'));if(st&&st.data&&!(this.snap.settings.data&&!discard&&this.snap.settings.data!==JSON.stringify(this.settingsRow()))){const d=st.data;Object.assign(S.settings,this.settingsOf(d),{site:d.site||null});this.snap.settings.data=JSON.stringify(this.settingsRow())}
     if(this.role==='tech'){try{this.busy=new Set(this.chk(await (await this.sb()).rpc('nv_busy_schools'))||[])}catch(e){}}
     reindex();await saveAll();await this.persistSnap();this.lastPull=Date.now();this.badge();
   },
