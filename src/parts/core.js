@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV47',date:'2026-10-18'};
+const NV={version:'NV48',date:'2026-10-18'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings','approval_paths','approvals','trash'];
@@ -146,7 +146,21 @@ const EXPORT_COLS=[['ID',(c)=>c.no||''],['Employee',(c,e)=>e.name||''],['Employe
 const EXPORT_HEAD=EXPORT_COLS.map(x=>x[0]);
 const ymdhms=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
 function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{},t=get('types',c.type_id)||{};return EXPORT_COLS.map(x=>x[1](c,e,s,t))}
-async function exportCollections(list,name){list=list.slice().sort((a,b)=>(b.created_at||'')<(a.created_at||'')?-1:1);await writeXlsx([['Worksheet',[EXPORT_HEAD,...list.map(exportRow)]]],name||('collections-'+stamp()+'.xlsx'))}
+/* NV48 — Excel headers in Arabic or English (per user and browser; English = the owner's approved template, the default).
+   Imports accept both (xlFromAr). Building columns follow the customer's building form names. */
+const EXPORT_AR={'ID':'الرقم','Employee':'مشرف الميدان','Employee #':'الرقم الوظيفي','Building Name':'اسم المبنى','Building Number':'رقم المبنى','Building Identifier':'معرّف المبنى','City':'المحافظة','District':'الحي / المكتب','Site':'الموقع',
+  'Floor':'الدور','Room Number':'رقم الغرفة','Room Name':'اسم الغرفة','Category':'الفئة الرئيسية','Asset Type':'نوع الأصل','Level 2':'المستوى الثاني','Level 3':'المستوى الثالث','Asset Code':'كود الأصل','Critical':'الأهمية','Condition':'الحالة الفنية',
+  'Quantity':'الكمية','Price':'السعر','Manufacturer':'الشركة المصنعة','Brand':'الماركة','Model':'الموديل','Capacity':'السعة','Serial Number':'الرقم التسلسلي','Agency':'الوكيل','Warranty':'الضمان','Installation Date':'تاريخ التركيب',
+  'Tag Number':'رقم الأصل (Tag)','Parent/Child':'رئيسي / فرعي','Notes':'ملاحظات','Building Image URL':'صورة المبنى','Location Diagram URL':'مخطط الموقع','Asset Image URL':'صورة الأصل','Asset Image 2 URL':'صورة لوحة البيانات',
+  'Submitted At':'وقت الإرسال','Created At':'وقت الإنشاء','Label Number':'رقم الملصق','Label Confirmed At':'تأكيد لصق الملصق',
+  'building_identifier':'معرّف المبنى','Name (Arabic)':'اسم المبنى','Status':'الحالة','Collection Status':'حالة الجرد','Field Supervisor':'مشرف الميدان','Asset Collections Count':'عدد سجلات الجرد','Completed At':'تاريخ الاكتمال','Description':'الوصف'};
+const XL_SITE={'Building Name':'name','Name (Arabic)':'name','Building Number':'moe','Building Identifier':'ident','building_identifier':'ident','City':'city','District':'district','Site':'site','Description':'description'};
+const xlLang=()=>lsGet('nv_xl_lang','en')==='ar'?'ar':'en';
+function xlAr(h){const k=XL_SITE[h];if(k&&window.siteCfg){const l=siteCfg().f[k].l;if(l)return l.replace(/ \(Site\)$/,'')}return EXPORT_AR[h]||h}
+const xlHead=H=>xlLang()==='ar'?H.map(xlAr):H;
+/* an Arabic header row back to the English keys the importers read (English columns win when both exist) */
+function xlFromAr(rows){const m=new Map();for(const h of Object.keys(EXPORT_AR)){const a=xlAr(h);m.set(a,(m.get(a)||[]).concat(h))}return rows.map(r=>{const o=Object.assign({},r);for(const [k,v] of Object.entries(r))for(const en of m.get(String(k).trim())||[])if(!(en in o))o[en]=v;return o})}
+async function exportCollections(list,name){list=list.slice().sort((a,b)=>(b.created_at||'')<(a.created_at||'')?-1:1);await writeXlsx([['Worksheet',[xlHead(EXPORT_HEAD),...list.map(exportRow)]]],name||('collections-'+stamp()+'.xlsx'))}
 async function exportPhotosZip(list){try{await needZip()}catch(e){zipP=null;return toast(e.message,4000)}const zip=new JSZip();const seen=new Set();let n=0;for(const c of list){for(const k of photoKeys(c)){if(!k||seen.has(k))continue;seen.add(k);const b=await IDB.get('photos',k).catch(()=>null);if(b){zip.file(k+'.jpg',b);n++}}}if(!n)return toast('لا توجد صور');toast('جارٍ تجهيز '+n+' صورة…');download(await zip.generateAsync({type:'blob'}),'solvix-photos-'+stamp()+'.zip')}
 
 /* ---------- backup / merge ---------- */
