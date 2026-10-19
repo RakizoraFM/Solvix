@@ -147,7 +147,7 @@ const NAV52=()=>{const T=todo52().total;return [
   {sep:1},
   {h:'#account',i:'⚙️',l:tx('حسابي','My account'),m:/^#account/},
   {out:1,i:'🚪',l:tx('تسجيل الخروج','Sign out')}]};
-function side52(){const e=E52(),h=location.hash||'#';
+function side52(){const e=E52()||{},h=location.hash||'#';
   return `<aside class="nv52-side" id="nv52Side" aria-label="${tx('القائمة','Menu')}"><div class="nv52-me"><i>${esc(String(e.name||'?').trim().charAt(0))}</i><div><b>${esc(e.name)}</b><small>${tx('مشرف ميدان','Field supervisor')} · ${esc(e.number||'')}</small></div></div>
    ${NAV52().filter(x=>!x.hide).map(x=>x.sep?'<div class="sep"></div>':x.scan?`<a id="scanQR" data-scan52="1" title="${tx('مسح ملصق أصل','Scan an asset label')}"><span class="ic">${x.i}</span>${x.l}</a>`:x.out?`<a data-out52="1"><span class="ic">${x.i}</span>${x.l}</a>`
      :`<a href="${x.h}" data-nav52="${x.h}" class="${x.m&&x.m.test(h)?'on':''}"><span class="ic">${x.i}</span>${x.l}${x.bd?`<span class="bd" data-bd52>${x.bd}</span>`:''}</a>`).join('')}</aside>`}
@@ -159,7 +159,11 @@ function shell52(){const a=app();const hd=a&&a.querySelector(':scope>header');if
   const wrap=document.createElement('div');wrap.className='nv52-wrap';wrap.innerHTML=side52();const col=document.createElement('div');col.className='nv52-col';
   [...a.children].filter(n=>n!==hd&&n.id!=='lb').forEach(n=>col.appendChild(n));wrap.appendChild(col);hd.after(wrap);
   if(warn52())col.insertAdjacentHTML('afterbegin',`<div class="nv52-warn" id="nv52Warn">${warn52()}</div>`);
-  a.insertAdjacentHTML('beforeend',bot52());document.body.classList.add('nv52');document.body.classList.remove('nv52-open')}
+  a.insertAdjacentHTML('beforeend',bot52());document.body.classList.add('nv52');document.body.classList.remove('nv52-open');doc52()}
+/* the guide / releases links follow the NV45 grants: load them right after sign-in (not 30 s later) and redraw only the sidebar */
+let doc52at='';
+function doc52(){if(!Cloud.on||!Cloud.role||typeof refreshDocumentAccess45!=='function'||navigator.onLine===false)return;const k=Cloud.scope()+'|'+(Cloud.user&&Cloud.user.id||'');if(doc52at===k)return;doc52at=k;
+  const before=JSON.stringify(Cloud.docAccess||{});refreshDocumentAccess45().then(()=>{if(JSON.stringify(Cloud.docAccess||{})===before)return;const sd=document.getElementById('nv52Side');if(sd)sd.outerHTML=side52()}).catch(()=>{doc52at=''})}
 const _fieldLayout52=fieldLayout;
 fieldLayout=function(inner){_fieldLayout52(inner);try{shell52()}catch(e){console.warn('nv52 shell',e)}};
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-menu52],[data-scan52],[data-out52],[data-nav52]');if(!t)return;

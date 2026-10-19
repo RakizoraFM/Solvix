@@ -81,6 +81,12 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.click('#acLang');await p.waitForSelector('#screen-account');ok((await p.textContent('#nv52Side')).includes('Home'),'language switch from the account page');await p.click('#acLang');await p.waitForTimeout(150);
  // --- the 1-hour un-uploaded warning (cloud only)
  ok(await p.evaluate(()=>{const o={on:Cloud.on,role:Cloud.role,scope:Cloud.scope};Cloud.on=true;Cloud.role='tech';Cloud.scope=()=>'t';lsSet(PK52(),Date.now()-2*36e5);const w=warn52();lsSet(PK52(),Date.now()-5*6e4);const w2=warn52();Object.assign(Cloud,o);return /ساعة/.test(w)&&!w2}),'warning after more than an hour, not before');
+ // --- guide / releases links follow the NV45 grants
+ ok(await p.evaluate(()=>{const o={on:Cloud.on,role:Cloud.role,d:Cloud.docAccess};Cloud.on=true;Cloud.role='tech';Cloud.docAccess={};const off=side52();Cloud.docAccess={guide:true,releases:true};const on=side52();Cloud.docAccess={guide:true};const g=side52();Object.assign(Cloud,{on:o.on,role:o.role,docAccess:o.d});
+   return !/#guide|#releases/.test(off)&&/href="#guide"/.test(on)&&/href="#releases"/.test(on)&&/href="#guide"/.test(g)&&!/#releases/.test(g)}),'sidebar: guide / releases shown only when granted, each on its own');
+ ok(await p.evaluate(async()=>{const o={on:Cloud.on,role:Cloud.role,d:Cloud.docAccess,r:window.refreshDocumentAccess45,sc:Cloud.scope,u:Cloud.user};Cloud.on=true;Cloud.role='tech';Cloud.docAccess={};Cloud.scope=()=>'t';Cloud.user={id:'u52'};
+   refreshDocumentAccess45=async()=>{Cloud.docAccess={guide:true,releases:true}};doc52();await new Promise(r=>setTimeout(r,50));const has=!!document.querySelector('#nv52Side a[href="#guide"]')&&!!document.querySelector('#nv52Side a[href="#releases"]');
+   refreshDocumentAccess45=o.r;Object.assign(Cloud,{on:o.on,role:o.role,docAccess:o.d,scope:o.sc,user:o.u});return has}),'sidebar: granted links appear right after sign-in (no 30 s wait)');
  // --- desktop
  await p.setViewportSize({width:1280,height:900});await nav('#employee-data');await p.waitForSelector('#screen-data');
  ok(await p.$eval('#nv52Side',e=>{const r=e.getBoundingClientRect();return r.width>200&&r.right>1000}),'desktop: sidebar on the right');
