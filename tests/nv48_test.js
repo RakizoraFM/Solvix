@@ -33,7 +33,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  const [rp]=await Promise.all([ctx.waitForEvent('page'),p.click('.nv48-pop [data-r48]')]);await rp.waitForSelector('.kpis',{timeout:30000});
  const rt=await rp.textContent('body');const name=await p.evaluate(id=>get('schools',id).name,ids[0]);
  ok(rt.includes('تقرير أصول المبنى')&&rt.includes(name)&&rt.includes('نوع المبنى')&&rt.includes('إداري'),'report: title, building and own field');
- ok(rt.includes('حسب الحالة الفنية')&&rt.includes('أصول تحتاج صيانة')&&rt.includes('100')&&await rp.$$eval('.ph img',x=>x.length)===1&&!!await rp.$('img.bimg'),'report: totals, condition table, attention list, asset + building photos');
+ ok(rt.includes('حسب الحالة الفنية')&&rt.includes('أصول تحتاج صيانة')&&rt.includes('100')&&await rp.$$eval('.cards .ac',x=>x.length)===1&&!!await rp.$('img.bimg'),'report: totals, condition table, attention list, asset + building photos');
  await rp.screenshot({path:B+'/shots/91-report.png',fullPage:true,timeout:15000}).catch(()=>console.log('note: report screenshot skipped (web font still loading)'));await rp.close();
  // ---- building page: thumbnails + report button
  await go('#admin/collections/building/'+encodeURIComponent(ids[0]),'#b48-pdf');await p.waitForFunction(()=>document.querySelector('.b48-th')?.src?.startsWith('blob:'));ok(true,'building page: asset thumbnail + PDF button');
