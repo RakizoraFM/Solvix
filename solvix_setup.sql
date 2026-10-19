@@ -1118,7 +1118,7 @@ begin
  if length(coalesce(p_note,''))>2000 or (p_action='return' and length(trim(coalesce(p_note,'')))=0) then raise exception 'return reason is required (maximum 2000 characters)';end if;
  final_stage:=r.stage_index+1>=jsonb_array_length(p.stages);
  if p_action='approve' and final_stage then
-  if coalesce((p.requirements->>'photos')::boolean,false) and (not exists(select 1 from storage.objects where bucket_id='nv-photos' and name=c.asset_image||'.jpg') or not exists(select 1 from storage.objects where bucket_id='nv-photos' and name=c.asset_image2||'.jpg')) then raise exception 'required asset photos are missing';end if;
+  if coalesce((p.requirements->>'photos')::boolean,false) and (not exists(select 1 from storage.objects where bucket_id='nv-photos' and name=c.asset_image||'.jpg')) then raise exception 'required asset photos are missing';end if;
   if coalesce((p.requirements->>'serial')::boolean,false) and lower(trim(coalesce(c.serial,''))) in('','n/a','na','none','unknown','غير متوفر','لا يوجد','بدون') then raise exception 'serial number required';end if;
   if coalesce((p.requirements->>'review')::boolean,false) and c.review_status is distinct from 'ok' then raise exception 'photo review must be completed';end if;
  end if;
@@ -1171,14 +1171,14 @@ returns jsonb language sql stable security definer set search_path=public as $$
    v.review_status is distinct from 'ok' as missing_review from visible v
  ), chosen as (
   select * from flags where case p_issue
-   when 'photos' then missing_photo or missing_nameplate when 'serial' then missing_serial when 'review' then missing_review
+   when 'photos' then missing_photo when 'serial' then missing_serial when 'review' then missing_review
    when 'approval' then approval_status is distinct from 'approved' when 'returned' then review_status='returned' or approval_status='returned'
-   when 'complete' then not(missing_photo or missing_nameplate or missing_serial or missing_review)
-   when 'all_assets' then true else missing_photo or missing_nameplate or missing_serial or missing_review end
+   when 'complete' then not(missing_photo or missing_serial or missing_review)
+   when 'all_assets' then true else missing_photo or missing_serial or missing_review end
  ), paged as (select * from chosen order by no,id offset greatest(coalesce(p_offset,0),0) limit least(greatest(coalesce(p_limit,50),1),200))
  select jsonb_build_object('checked_at',now(),'source','server','scope_total',(select count(*) from flags),
-  'with_issues',(select count(*) from flags where missing_photo or missing_nameplate or missing_serial or missing_review),
-  'photos',(select count(*) from flags where missing_photo or missing_nameplate),'serial',(select count(*) from flags where missing_serial),
+  'with_issues',(select count(*) from flags where missing_photo or missing_serial or missing_review),
+  'photos',(select count(*) from flags where missing_photo),'serial',(select count(*) from flags where missing_serial),
   'review',(select count(*) from flags where missing_review),'approval',(select count(*) from flags where approval_status is distinct from 'approved'),
   'filtered_total',(select count(*) from chosen),'items',coalesce((select jsonb_agg(to_jsonb(p) order by p.no,p.id) from paged p),'[]'))
 $$;

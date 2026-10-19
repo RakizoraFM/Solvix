@@ -22,7 +22,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
    await p.fill('#a_quantity',String(q));await p.fill('#a_price','150.5');await p.selectOption('#a_condition_id',{index:2});await p.selectOption('#a_parent_child','Parent');await p.fill('#a_brand','LG');await p.fill('#a_serial','SN-<b>x</b>')};
  await p.click('#sb');ok(await p.$eval('#f',f=>!f.checkValidity()),'asset native validation');
  await fill(3,true);
- await p.click('#sb');await p.waitForFunction(()=>document.querySelector('#e_img').textContent.includes('لوحة البيانات'));ok(true,'NV25: saving needs the second photo');
+ ok(await p.$eval('[data-shot="1"] b',b=>!b.querySelector('.text-red-500')&&b.textContent.includes('اختيارية')),'NV48b: the nameplate photo is optional');
  {const fs=require('fs'),old='/tmp/nv25-old.png';fs.copyFileSync(B+'/a.png',old);const t0=(Date.now()-3*3600e3)/1000;fs.utimesSync(old,t0,t0);await p.setInputFiles('#aimg2G',old)}ok(await p.$eval('[data-shot="1"]',x=>x.classList.contains('ok')),'NV27: an older photo from the gallery is accepted');
  await p.setInputFiles('#aimgXG',[B+'/a.png',B+'/b.png']);await p.waitForFunction(()=>document.querySelectorAll('#nvExtra .nv-x').length===2);await p.click('#nvExtra [data-xp="0"]');
  await p.setInputFiles('#aimgX',{name:'x.png',mimeType:'image/png',buffer:require('fs').readFileSync(B+'/a.png')});await p.waitForFunction(()=>document.querySelectorAll('#nvExtra .nv-x').length===2);ok((await p.textContent('#nvXn')).includes('2 / 10'),'NV27: + adds extra photos (camera / gallery), ✕ removes');

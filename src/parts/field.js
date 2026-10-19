@@ -194,7 +194,7 @@ function vAsset(){
    <div data-lv>${L('a_l3',tx('المستوى الثالث','Level 3'),'',1)}<select id="a_l3" class="${INPUT}" disabled></select></div>
    <div>${L('a_type_id',t('Asset Type'),t('نوع الأصل'),1)}<select id="a_type_id" required class="${INPUT}" ${c.category_id?'':'disabled'}><option value="">${t('Select...')} / ${t('قائمة')}</option>${types.map(x=>`<option value="${esc(x.id)}" ${c.type_id===x.id?'selected':''}>${esc(x.ar)}${x.en?` (${esc(x.en)})`:''}</option>`).join('')}</select><div id="a_tinfo" class="mt-2 text-xs"></div></div>
    <div><label class="block text-sm font-medium text-gray-700 mb-1">${tx('صور الأصل من موقعه','Asset photos on site')} <span class="text-red-500">*</span></label>
-    <p class="text-xs text-gray-500 mb-3">${tx('صورتان إلزاميتان للأصل من الكاميرا أو المعرض، ويمكن إضافة صور أخرى بعلامة +. يُطبع على كل صورة الوقت والمبنى والغرفة والموقع.','Two required photos from the camera or the gallery; add more with +. Time, building, room and location are printed on each photo.')}</p>
+    <p class="text-xs text-gray-500 mb-3">${tx('صورة الأصل كاملاً إلزامية، وصورة لوحة البيانات اختيارية (إن وجدت). من الكاميرا أو المعرض، ويمكن إضافة صور أخرى بعلامة +. يُطبع على كل صورة الوقت والمبنى والغرفة والموقع.','The whole-asset photo is required; the nameplate photo is optional (if there is one). From the camera or the gallery; add more with +. Time, building, room and location are printed on each photo.')}</p>
     <div class="nv-shots">${SHOTS.map((x,n)=>shotTile(n,c[x.k])).join('')}</div>
     <div class="${can('extra')?'':'hidden'}"><div class="text-sm font-medium text-gray-700 mt-4 mb-2">${tx('صور إضافية (اختيارية)','Extra photos (optional)')} <span class="text-xs text-gray-400" id="nvXn"></span></div><div class="nv-shots nv-extra" id="nvExtra"></div></div>
     <button type="button" id="ocr" class="nv-ocr">🔍 ${tx('قراءة لوحة البيانات تلقائياً (الرقم التسلسلي، الموديل، السعة، الماركة)','Read the nameplate (serial, model, capacity, brand)')}</button><p id="ocrMsg" class="nv-ocr-msg"></p>
@@ -276,7 +276,7 @@ function vAsset(){
     try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:g('price')===''?null:num(g('price')),
         manufacturer:g('manufacturer'),brand:g('brand'),model:g('model'),capacity:g('capacity'),serial:g('serial'),agency:g('agency'),warranty:g('warranty'),install_date:g('install_date'),
         lat:lat??null,lng:lng??null,parent_child:g('parent_child')||null,notes:g('notes')};
-      const miss=SHOTS.map((x,n)=>!pend[n]&&!c[x.k]?x.t():null).filter(Boolean);if(miss.length){$('#e_img').textContent=tx('التقط الصور المطلوبة: ','Take the required photos: ')+miss.join('، ');$('#sb').disabled=false;$('.nv-shots').scrollIntoView({block:'center'});return}
+      const miss=SHOTS.map((x,n)=>x.req&&!pend[n]&&!c[x.k]?x.t():null).filter(Boolean);if(miss.length){$('#e_img').textContent=tx('التقط الصور المطلوبة: ','Take the required photos: ')+miss.join('، ');$('#sb').disabled=false;$('.nv-shots').scrollIntoView({block:'center'});return}
       if(!await dupOk(c,vals)){$('#sb').disabled=false;return}
       const ds=pend.filter(Boolean).concat(pendX).map(P=>P.pos&&ref?geoDist(P.pos,ref.p):ref&&lat!=null?geoDist([+lat,+lng],ref.p):null).filter(d=>d!=null);const far=ds.length?Math.max(...ds):null;
       if(far!=null&&far>G.m){if(G.block){$('#e_img').textContent=tx(`أنت على بعد ${fmtDist(far)} من موقع المبنى (المسموح ${fmtDist(G.m)}). صوّر الأصل من داخل المبنى.`,`You are ${fmtDist(far)} from the building (allowed ${fmtDist(G.m)}). Take the photos inside the building.`);$('#sb').disabled=false;return}
@@ -294,9 +294,10 @@ function vAsset(){
 }
 
 /* NV25 — the two on-site photos of an asset */
-const SHOTS=[{k:'asset_image',t:()=>tx('الأصل كاملاً في مكانه','Whole asset in place')},{k:'asset_image2',t:()=>tx('لوحة البيانات / الرقم التسلسلي','Nameplate / serial number')}];
+/* NV48b: only the whole-asset photo is required; the nameplate / serial photo is optional */
+const SHOTS=[{k:'asset_image',req:1,t:()=>tx('الأصل كاملاً في مكانه','Whole asset in place')},{k:'asset_image2',req:0,t:()=>tx('لوحة البيانات / الرقم التسلسلي','Nameplate / serial number')}];
 const CAM='<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.66-.9l.82-1.2A2 2 0 0110.07 4h3.86a2 2 0 011.66.9l.82 1.2a2 2 0 001.66.9H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3.2"/></svg>';
-function shotTile(n,cur){const id='aimg'+(n?'2':'');return `<div class="nv-shot ${cur?'ok':''}" data-shot="${n}"><div class="nv-shot-pv">${cur?img(cur,'',''):CAM}</div><b>${n+1}. ${SHOTS[n].t()} <span class="text-red-500">*</span></b><i data-geo class="nv-geo"></i><small>${cur?tx('✓ موجودة — يمكنك تغييرها','✓ Saved — you can change it'):tx('من الكاميرا أو المعرض','From the camera or the gallery')}</small>
+function shotTile(n,cur){const id='aimg'+(n?'2':'');return `<div class="nv-shot ${cur?'ok':''}" data-shot="${n}"><div class="nv-shot-pv">${cur?img(cur,'',''):CAM}</div><b>${n+1}. ${SHOTS[n].t()} ${SHOTS[n].req?'<span class="text-red-500">*</span>':`<span class="text-gray-500 font-normal">(${tx('اختيارية','optional')})</span>`}</b><i data-geo class="nv-geo"></i><small>${cur?tx('✓ موجودة — يمكنك تغييرها','✓ Saved — you can change it'):tx('من الكاميرا أو المعرض','From the camera or the gallery')}</small>
   <div class="nv-src"><label>📷 ${tx('كاميرا','Camera')}<input type="file" id="${id}" data-n="${n}" accept="image/*" capture="environment"></label>${can('gallery')?`<label>🖼️ ${tx('المعرض','Gallery')}<input type="file" id="${id}G" data-n="${n}" accept="image/*"></label>`:''}</div></div>`}
 
 /* success.blade.php */
