@@ -87,6 +87,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  ok(await p.evaluate(async()=>{const o={on:Cloud.on,role:Cloud.role,d:Cloud.docAccess,r:window.refreshDocumentAccess45,sc:Cloud.scope,u:Cloud.user};Cloud.on=true;Cloud.role='tech';Cloud.docAccess={};Cloud.scope=()=>'t';Cloud.user={id:'u52'};
    refreshDocumentAccess45=async()=>{Cloud.docAccess={guide:true,releases:true}};doc52();await new Promise(r=>setTimeout(r,50));const has=!!document.querySelector('#nv52Side a[href="#guide"]')&&!!document.querySelector('#nv52Side a[href="#releases"]');
    refreshDocumentAccess45=o.r;Object.assign(Cloud,{on:o.on,role:o.role,docAccess:o.d,scope:o.sc,user:o.u});return has}),'sidebar: granted links appear right after sign-in (no 30 s wait)');
+ ok(await p.evaluate(()=>{const o={on:Cloud.on,role:Cloud.role,sys:Cloud.sys,d:Cloud.docAccess};Cloud.on=true;Cloud.role='admin';Cloud.docAccess={};Cloud.sys=true;const a=docAllowed45('guide')&&docAllowed45('releases');Cloud.sys=false;const b=docAllowed45('guide')||docAllowed45('releases');Object.assign(Cloud,{on:o.on,role:o.role,sys:o.sys,docAccess:o.d});return a&&!b}),'NV54: the system Admin always sees guide and releases; other accounts need a grant');
  // --- desktop
  await p.setViewportSize({width:1280,height:900});await nav('#employee-data');await p.waitForSelector('#screen-data');
  ok(await p.$eval('#nv52Side',e=>{const r=e.getBoundingClientRect();return r.width>200&&r.right>1000}),'desktop: sidebar on the right');
