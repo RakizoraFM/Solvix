@@ -23,7 +23,7 @@ if '--release' in sys.argv and any(c['status']=='pending' for c in releases['rel
 payload=lambda value:json.dumps(value,ensure_ascii=False).replace('<','\\u003c')
 system=r('parts/system.js').replace('__PLATFORM_GUIDE__',payload(guide)).replace('__PLATFORM_RELEASES__',payload(releases))
 vendor='<script id="qrcode-generator-bundled">\n/* qrcode-generator 1.4.4\n'+r('vendor/qrcode-LICENSE.txt')+'\n*/\n'+r('vendor/qrcode.min.js').replace('</script','<\\/script')+'\n</script><script id="jsqr-bundled44">\n/*\n'+r('vendor/jsQR-LICENSE.txt')+'\n*/\n'+r('vendor/jsQR.js').replace('</script','<\\/script')+'\n</script>'
-out=head+vendor+r('parts/auth.css')+r('parts/operations.css')+r('parts/analytics.css')+r('parts/inventory.css')+r('parts/building.css')+r('parts/lifecycle.css')+''.join(r('parts/'+f) for f in ['core.js','cloud.js','field.js','auth.js','admin.js','clients.js','operations.js'])+system+r('parts/productivity.js')+r('parts/analytics.js')+r('parts/inventory.js')+r('parts/building.js')+r('parts/lifecycle.js')+r('parts/nv48.js')+r('parts/boot.js')
+out=head+vendor+r('parts/auth.css')+r('parts/operations.css')+r('parts/analytics.css')+r('parts/inventory.css')+r('parts/building.css')+r('parts/lifecycle.css')+''.join(r('parts/'+f) for f in ['core.js','cloud.js','field.js','auth.js','admin.js','clients.js','operations.js'])+system+r('parts/productivity.js')+r('parts/analytics.js')+r('parts/inventory.js')+r('parts/building.js')+r('parts/lifecycle.js')+r('parts/nv48.js')+r('parts/nv51.js')+r('parts/boot.js')
 open(os.path.join(H,'..','index.html'),'w',encoding='utf-8').write(out)
 manual=['# دليل منصة Solvix — '+version,'','آخر مراجعة: '+guide['updated_at'],'']
 for f in guide['features']:

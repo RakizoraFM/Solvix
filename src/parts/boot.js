@@ -10,7 +10,7 @@ function route(){
   if(seg[0]==='releases'){if(!curEmp()&&!Cloud.role)return go('#login');return vReleases()}
   if(seg[0]==='guide'){if(!curEmp()&&!Cloud.role)return go('#login');return vPlatformGuide()}
   if(seg[0]==='conflicts'&&Cloud.on&&Cloud.role)return vConflicts();
-  if(seg[0]==='a'&&seg[1]){destroyCharts();return openAssetLink(seg[1])}
+  if(seg[0]==='a'&&seg[1]){destroyCharts();return openAssetLink(path.slice(2))}
   if(seg[0]==='admin'){
     if(seg[1]==='login'||!isAuthed())return vAdminLogin();
     needAdminLibs().catch(()=>{});
@@ -21,7 +21,7 @@ function route(){
     if(a==='schools'){if(!b)return vSchools();if(b==='create')return vSchoolForm(null);return vSchoolForm(b)}
     if(a==='employees'){if(!b)return vEmployees();if(b==='create')return vEmployeeForm(null);return vEmployeeForm(b)}
     if(LK[a]){if(!b)return vLookup(a);if(b==='create')return vLookupForm(a,null);return vLookupForm(a,b)}
-    if(a==='site-form')return vSiteForm();if(a==='map')return vMap48();if(a==='piece44')return vPiece44(b);if(a==='inventory44')return b?vCycle44(b):vInventory44();if(a==='tasks')return vMyTasks();if(a==='trash')return vTrash();if(a==='guide')return vPlatformGuide();if(a==='releases')return vReleases();if(a==='usage')return vPlatformUsage();if(a==='approvals')return vApprovals();if(a==='approval-path')return vApprovalPath();if(a==='quality')return vQuality();if(a==='conflicts')return vConflicts();if(a==='clients')return vClients();if(a==='analytics')return vAnalytics41();if(a==='system')return vSystem();if(a==='subscription')return vSubscription();if(a==='room-templates')return vRoomTpl();if(a==='review')return vReview();if(a==='label')return vLabelSettings();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
+    if(a==='site-form')return vSiteForm();if(a==='map')return vMap48();if(a==='production')return vProd51();if(a==='exceptions')return vExc51();if(a==='piece44')return vPiece44(b);if(a==='inventory44')return b?vCycle44(b):vInventory44();if(a==='tasks')return vMyTasks();if(a==='trash')return vTrash();if(a==='guide')return vPlatformGuide();if(a==='releases')return vReleases();if(a==='usage')return vPlatformUsage();if(a==='approvals')return vApprovals();if(a==='approval-path')return vApprovalPath();if(a==='quality')return vQuality();if(a==='conflicts')return vConflicts();if(a==='clients')return vClients();if(a==='analytics')return vAnalytics41();if(a==='system')return vSystem();if(a==='subscription')return vSubscription();if(a==='room-templates')return vRoomTpl();if(a==='review')return vReview();if(a==='label')return vLabelSettings();if(a==='settings')return vSettings();if(a==='data')return vData();if(a==='log')return vLog();if(a==='users')return vUsers();
     return vDashboard();
   }
   destroyCharts();setMode('field');

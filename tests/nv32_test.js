@@ -32,6 +32,6 @@ const B=__dirname,U='http://localhost:8766/index.html?local',fs=require('fs');
  const sid=await p.evaluate(id=>S.collections.find(x=>x.id===id).school_id,ids.a);await p.goto(U+'#admin/review?school='+sid+'&st=nolabel');await p.evaluate(()=>route());await p.waitForSelector('.nv-rv');
  ok((await p.$$('.nv-rv')).length===1&&!!(await p.$('[data-lbl="none"]')),'review: «بلا تأكيد ملصق» shows the one without a label');
  await p.goto(U+'#admin/collections/'+ids.a);await p.evaluate(()=>route());await p.waitForSelector('img[alt="الملصق على الأصل"]');ok((await p.textContent('.app-main')).includes('مُلصق ومؤكد'),'asset page: label photo + status');
- const ex=await p.evaluate(()=>EXPORT_HEAD.slice(-2).join('|'));ok(ex==='Label Number|Label Confirmed At','export: «Label Confirmed At» column');
+ const ex=await p.evaluate(()=>EXPORT_HEAD.slice(EXPORT_HEAD.indexOf('Label Number'),EXPORT_HEAD.indexOf('Label Number')+2).join('|'));ok(ex==='Label Number|Label Confirmed At','export: «Label Confirmed At» column (after Label Number)');
  ok(!errs.length,'no page errors '+errs.join(' | '));await br.close();
 })().catch(e=>{console.error(e);process.exit(1)});

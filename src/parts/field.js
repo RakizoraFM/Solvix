@@ -162,6 +162,7 @@ function vLocation(){
      <select name="room_number" id="room-number" required class="${INPUT}"><option value="">${t('Select...')}</option>${ROOM_NUMBERS.map(x=>`<option value="${x}" ${String(c.room_number)===x?'selected':''}>${x}</option>`).join('')}</select></div>
     <div><label for="room-name" class="block text-sm font-medium text-gray-700 mb-1">${t('Room Name')} <span class="text-red-500">*</span></label>
      <select name="room_name_id" id="room-name" required class="${INPUT}"><option value="">${t('Select...')}</option>${rooms.map(r=>`<option value="${esc(r.id)}" data-name-en="${esc(r.en)}" ${c.room_name_id===r.id?'selected':''}>${esc(lang()==='ar'?r.ar:r.en)}</option>`).join('')}</select></div></div>
+   ${zoneField51(c)}
    <div><label for="notes" class="block text-sm font-medium text-gray-700 mb-1">${t('Additional Notes')}</label><textarea name="notes" id="notes" rows="3" class="${INPUT}" placeholder="${esc(t('Any additional notes here...'))}">${esc(c.notes||'')}</textarea></div>
    <div class="flex flex-col sm:flex-row gap-4 pt-4"><a href="#school" class="${BTN_BACK}">${t('Back')}</a><button type="submit" id="submit-btn" class="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-200">${t('Save')}</button></div>
   </form></div></section>`);
@@ -171,11 +172,11 @@ function vLocation(){
     ['bg-blue-600','hover:bg-blue-700','shadow-blue-200'].forEach(k=>sb.classList.toggle(k,!closed));['bg-green-600','hover:bg-green-700','shadow-green-200'].forEach(k=>sb.classList.toggle(k,closed))};
   rs.onchange=upd;upd();
   $('#f').onsubmit=ev=>{ev.preventDefault();const old=Object.assign({},c);const was=!!c.submitted_at;
-    c.floor=$('#floor-select').value;c.room_number=$('#room-number').value;c.room_name_id=rs.value;c.notes=$('#notes').value.trim();c.updated_at=now();
-    if(was){c.floor=old.floor;c.room_number=old.room_number;c.room_name_id=old.room_name_id;}
+    c.floor=$('#floor-select').value;c.room_number=$('#room-number').value;c.room_name_id=rs.value;c.notes=$('#notes').value.trim();if($('#zone'))c.zone=$('#zone').value.trim().slice(0,120)||null;c.updated_at=now();
+    if(was){c.floor=old.floor;c.room_number=old.room_number;c.room_name_id=old.room_name_id;c.zone=old.zone;}
     if(isClosedRoom(c.room_name_id)){Object.assign(c,{category_id:null,type_id:null,condition_id:null,quantity:0,price:null,status:null,asset_image:null,asset_image2:null});if(!c.submitted_at)c.submitted_at=now();
       if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,TRACK));save('collections');setFlash(t('Room marked as closed and finished.'));go('#success');return}
-    if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,['floor','room_number','room_name_id','notes']));save('collections');setFlash(t('Location details saved successfully.'));go('#asset')};
+    if(was)logChange(c,'emp:'+c.employee_id,diff(old,c,['floor','room_number','room_name_id','notes','zone']));save('collections');setFlash(t('Location details saved successfully.'));go('#asset')};
 }
 
 /* asset-details.blade.php */
@@ -196,6 +197,7 @@ function vAsset(){
    <div><label class="block text-sm font-medium text-gray-700 mb-1">${tx('صور الأصل من موقعه','Asset photos on site')} <span class="text-red-500">*</span></label>
     <p class="text-xs text-gray-500 mb-3">${tx('صورة الأصل كاملاً إلزامية، وصورة لوحة البيانات اختيارية (إن وجدت). من الكاميرا أو المعرض، ويمكن إضافة صور أخرى بعلامة +. يُطبع على كل صورة الوقت والمبنى والغرفة والموقع.','The whole-asset photo is required; the nameplate photo is optional (if there is one). From the camera or the gallery; add more with +. Time, building, room and location are printed on each photo.')}</p>
     <div class="nv-shots">${SHOTS.map((x,n)=>shotTile(n,c[x.k])).join('')}</div>
+    ${excBox51(c)}
     <div class="${can('extra')?'':'hidden'}"><div class="text-sm font-medium text-gray-700 mt-4 mb-2">${tx('صور إضافية (اختيارية)','Extra photos (optional)')} <span class="text-xs text-gray-400" id="nvXn"></span></div><div class="nv-shots nv-extra" id="nvExtra"></div></div>
     <button type="button" id="ocr" class="nv-ocr">🔍 ${tx('قراءة لوحة البيانات تلقائياً (الرقم التسلسلي، الموديل، السعة، الماركة)','Read the nameplate (serial, model, capacity, brand)')}</button><p id="ocrMsg" class="nv-ocr-msg"></p>
     <p id="e_img" class="text-red-500 text-xs mt-1"></p></div>
@@ -253,7 +255,7 @@ function vAsset(){
     hydratePhotos(box);
     $$('[data-xk]',box).forEach(b=>b.onclick=()=>{exDrop.push(...exKeep.splice(+b.dataset.xk,1));drawX()});$$('[data-xp]',box).forEach(b=>b.onclick=()=>{pendX.splice(+b.dataset.xp,1);drawX()});
     $$('#aimgX,#aimgXG').forEach(inp=>inp.onchange=()=>{for(const f of [...inp.files].filter(f=>/^image\//.test(f.type||'image/')).slice(0,XMAX-exKeep.length-pendX.length)){const P={f,at:f.lastModified,u:URL.createObjectURL(f)};pendX.push(P);locate(P)}drawX()})};
-  drawX();
+  drawX();const X51=excBind51(c);
   $('#ocr').onclick=async()=>{const b=$('#ocr'),m=$('#ocrMsg');let src=pend[1]&&pend[1].f;
     if(!src&&c.asset_image2)src=await IDB.get('photos',c.asset_image2).catch(()=>null)||(Cloud.on?await Cloud.fetchPhoto(c.asset_image2):null);
     if(!src){m.textContent=tx('التقط صورة لوحة البيانات (الصورة 2) أولاً.','Take the nameplate photo (photo 2) first.');return}
@@ -276,7 +278,8 @@ function vAsset(){
     try{const g=k=>$('#a_'+k).value.trim();const vals={category_id:g('category_id'),type_id:g('type_id'),condition_id:g('condition_id'),quantity:Math.round(num(g('quantity'))),price:g('price')===''?null:num(g('price')),
         manufacturer:g('manufacturer'),brand:g('brand'),model:g('model'),capacity:g('capacity'),serial:g('serial'),agency:g('agency'),warranty:g('warranty'),install_date:g('install_date'),
         lat:lat??null,lng:lng??null,parent_child:g('parent_child')||null,notes:g('notes')};
-      const miss=SHOTS.map((x,n)=>x.req&&!pend[n]&&!c[x.k]?x.t():null).filter(Boolean);if(miss.length){$('#e_img').textContent=tx('التقط الصور المطلوبة: ','Take the required photos: ')+miss.join('، ');$('#sb').disabled=false;$('.nv-shots').scrollIntoView({block:'center'});return}
+      const xe=X51.check();if(xe){$('#exc_e').textContent=xe;$('#sb').disabled=false;$('#excBox').scrollIntoView({block:'center'});return}
+      const miss=SHOTS.map((x,n)=>x.req&&!X51.on()&&!pend[n]&&!c[x.k]?x.t():null).filter(Boolean);if(miss.length){$('#e_img').textContent=tx('التقط الصور المطلوبة: ','Take the required photos: ')+miss.join('، ');$('#sb').disabled=false;$('.nv-shots').scrollIntoView({block:'center'});return}
       if(!await dupOk(c,vals)){$('#sb').disabled=false;return}
       const ds=pend.filter(Boolean).concat(pendX).map(P=>P.pos&&ref?geoDist(P.pos,ref.p):ref&&lat!=null?geoDist([+lat,+lng],ref.p):null).filter(d=>d!=null);const far=ds.length?Math.max(...ds):null;
       if(far!=null&&far>G.m){if(G.block){$('#e_img').textContent=tx(`أنت على بعد ${fmtDist(far)} من موقع المبنى (المسموح ${fmtDist(G.m)}). صوّر الأصل من داخل المبنى.`,`You are ${fmtDist(far)} from the building (allowed ${fmtDist(G.m)}). Take the photos inside the building.`);$('#sb').disabled=false;return}
@@ -284,10 +287,11 @@ function vAsset(){
       if(pend.some(Boolean)||pendX.length)vals.geo_dist=far!=null?Math.round(far):null;vals.review_status=null;
       const sc=get('schools',c.school_id)||{},rm=get('rooms',c.room_name_id)||{};const oldImg=[];
       for(let n=0;n<SHOTS.length;n++){const P=pend[n];if(!P)continue;const k=SHOTS[n].k;
-        const lines=[`${ymdhms(new Date(P.at).toISOString())} · ${SHOTS[n].t()}`,[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')+((P.pos||lat!=null)?`  ·  ${(+(P.pos?P.pos[0]:lat)).toFixed(5)}, ${(+(P.pos?P.pos[1]:lng)).toFixed(5)}`:'')];
+        const lines=[`${ymdhms(new Date(P.at).toISOString())} · ${SHOTS[n].t()}`,[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')+(stampGeo51()&&(P.pos||lat!=null)?`  ·  ${(+(P.pos?P.pos[0]:lat)).toFixed(5)}, ${(+(P.pos?P.pos[1]:lng)).toFixed(5)}`:'')];
         if(c[k])oldImg.push(c[k]);vals[k]=await storePhoto(P.f,lines)}
-      {const xs=exKeep.slice();for(let i=0;i<pendX.length;i++){const P=pendX[i];xs.push(await storePhoto(P.f,[`${ymdhms(new Date(P.at).toISOString())} · ${tx('صورة إضافية','Extra photo')} ${exKeep.length+i+1}`,[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')+((P.pos||lat!=null)?`  ·  ${(+(P.pos?P.pos[0]:lat)).toFixed(5)}, ${(+(P.pos?P.pos[1]:lng)).toFixed(5)}`:'')]))}
+      {const xs=exKeep.slice();for(let i=0;i<pendX.length;i++){const P=pendX[i];xs.push(await storePhoto(P.f,[`${ymdhms(new Date(P.at).toISOString())} · ${tx('صورة إضافية','Extra photo')} ${exKeep.length+i+1}`,[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')+(stampGeo51()&&(P.pos||lat!=null)?`  ·  ${(+(P.pos?P.pos[0]:lat)).toFixed(5)}, ${(+(P.pos?P.pos[1]:lng)).toFixed(5)}`:'')]))}
        vals.extra_images=xs;oldImg.push(...exDrop)}
+      Object.assign(vals,await X51.vals([[sc.name,sc.moe].filter(Boolean).join(' · '),[c.floor,rm.ar,c.room_number].filter(Boolean).join(' · ')],oldImg));
       const old=Object.assign({},c);const was=!!c.submitted_at;Object.assign(c,vals,{updated_at:now()});if(!c.submitted_at)c.submitted_at=now();
       if(was)logChange(c,'emp:'+e.id,diff(old,c,TRACK));save('collections');oldImg.forEach(deletePhoto);
       setFlash(t('Asset details saved successfully.'));go('#success')}catch(er){$('#ferr').textContent=er.message;$('#sb').disabled=false}};
@@ -308,7 +312,7 @@ function vSuccess(){
   fieldLayout(`<section id="screen-success" class="w-full max-w-2xl"><div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 text-center">
   <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg></div>
   ${statusBox(f0&&f0.t)}<h2 class="text-2xl font-bold text-gray-800 mb-2">${t('Asset Saved!')}</h2><p class="text-gray-500 mb-8">${t('The asset has been successfully recorded in the system.')}</p>
-  ${savedLabelCard(curColl())}${printBar(list.filter(a=>a.employee_id===e.id),curColl())}
+  ${savedLabelCard(curColl())}${printBar(list.filter(a=>a.employee_id===e.id),curColl())}${roomCard51(curColl(),list)}
   ${list.length?`<div class="mb-8 text-left"><div class="overflow-x-auto rounded-xl border border-gray-200"><table class="w-full text-sm"><thead><tr class="bg-gray-50 border-b border-gray-200">${th('Image')}${th('Floor')}${th('Room')}${th('Category')}${th('Type')}${th('Brand')}<th class="px-4 py-3 font-bold text-gray-600 text-left">Tag Number</th><th class="px-4 py-3 font-bold text-gray-600 text-center">${t('Action')}</th></tr></thead><tbody>
    ${list.map(a=>`<tr class="border-b border-gray-100 hover:bg-gray-50"><td class="px-4 py-3">${img(a.asset_image,'h-10 w-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity shadow-sm border border-gray-100','<div class="h-10 w-10 bg-gray-100 rounded flex items-center justify-center text-gray-400"><i class="bi bi-image text-xs"></i></div>')}</td>
     <td class="px-4 py-3">${esc(a.floor||'')}</td><td class="px-4 py-3">${esc(roomName(a)??'N/A')} (${esc(a.room_number||'')})</td><td class="px-4 py-3">${esc((get('categories',a.category_id)||{}).ar||'--')}</td><td class="px-4 py-3">${esc((get('types',a.type_id)||{}).ar||'--')}</td><td class="px-4 py-3">${esc(a.brand||'--')}</td><td class="px-4 py-3 font-mono text-xs">${lblReady(a)?esc(assetLabel(a)):'⏳'}${printedSet().has(a.id)?' <span class="nv-badge g">✓</span>':''}</td>
@@ -323,7 +327,7 @@ function vSuccess(){
   $$('[data-ed]').forEach(a=>a.onclick=()=>{setSess({coll:a.dataset.ed});go('#location')});bindPrint(list);
   if(sc.completed_at)return;
   const add=(same,extra)=>{const base=curColl()||list.find(x=>x.employee_id===e.id)||{};let d=S.collections.find(x=>x.employee_id===e.id&&x.school_id===sc.id&&!x.submitted_at);
-    const loc=same&&base.floor?{floor:base.floor,room_number:base.room_number,room_name_id:base.room_name_id}:{floor:null,room_number:null,room_name_id:null};
+    const loc=same&&base.floor?{floor:base.floor,room_number:base.room_number,room_name_id:base.room_name_id,zone:base.zone||null}:{floor:null,room_number:null,room_name_id:null,zone:base.zone||null};
     if(d)Object.assign(d,blankAsset(),loc,extra||{},{updated_at:now()});else{d=newCollection(e.id,sc.id,base.school_image||(list.find(x=>x.employee_id===e.id&&x.school_image)||{}).school_image||null,loc);Object.assign(d,extra||{});S.collections.push(d)}
     save('collections');setSess({coll:d.id});if(loc.floor){setFlash(extra&&extra._msg||t('New asset created in the same room.'));delete d._msg;go('#asset')}else go('#location')};
   $('#same').onclick=()=>{setSess({tq:[]});add(true)};$('#other').onclick=()=>{setSess({tq:[]});add(false)};
@@ -359,7 +363,7 @@ function vHistory(){
     <td class="px-6 py-4"><div class="font-bold text-gray-900">${esc((get('schools',a.school_id)||{}).name||'')}</div><div class="text-xs text-gray-500 flex items-center gap-1 mt-1"><i class="bi bi-geo-alt"></i>${esc(a.floor||'')} • ${esc(roomName(a)??'N/A')}</div></td>
     <td class="px-6 py-4"><div class="text-gray-900 font-medium">${esc((get('types',a.type_id)||{}).ar||'')}${a.review_status==='returned'?` <span class="nv-badge r">${tx('مُرجع','Returned')}</span>`:a.review_status==='ok'?` <span class="nv-badge g">${tx('معتمد','Approved')}</span>`:''}</div><div class="text-xs text-gray-500">${esc((get('categories',a.category_id)||{}).ar||'')}</div></td>
     <td class="px-6 py-4"><div class="text-gray-700 text-xs">${ymd(a.submitted_at)}</div><div class="text-gray-400 text-xs">${hiA(a.submitted_at)}</div></td>
-    <td class="px-6 py-4 text-right whitespace-nowrap">${lblReady(a)?`<a href="javascript:void 0" data-pl="${esc(a.id)}" class="nv-plbtn" title="${tx('طباعة الملصق','Print the label')}">🖨️</a> ${labelOf(a)?`<span class="nv-badge g" title="${tx('الملصق مُلصق ومؤكد','Label stuck and confirmed')}">🏷️✓</span> `:`<a href="javascript:void 0" data-lc="${esc(a.id)}" class="nv-lcbtn" title="${tx('تأكيد لصق الملصق بصورة','Confirm the label with a photo')}">📸</a> `}`:''}${!can('edit_sent')||(Cloud.sub&&Cloud.sub.ok===false)?'':`<a href="javascript:void 0" data-ed="${esc(a.id)}" class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg font-bold transition-all text-xs"><i class="bi bi-pencil-square"></i>${t('Edit')}</a>`}</td></tr>`).join('')}
+    <td class="px-6 py-4 text-right whitespace-nowrap">${lblReady(a)?`<a href="javascript:void 0" data-pl="${esc(a.id)}" class="nv-plbtn" title="${tx('طباعة الملصق','Print the label')}">🖨️</a> ${labelOf(a)&&labelOf(a).check==='fail'?`<span class="nv-badge r" title="${esc(tx('تعذّر اللصق: ','Could not stick: ')+(labelOf(a).note||''))}">🏷️⚠️</span> `:labelOf(a)?`<span class="nv-badge g" title="${tx('الملصق مُلصق ومؤكد','Label stuck and confirmed')}">🏷️✓</span> `:`<a href="javascript:void 0" data-lc="${esc(a.id)}" class="nv-lcbtn" title="${tx('تأكيد لصق الملصق بصورة','Confirm the label with a photo')}">📸</a> `}`:''}${!can('edit_sent')||(Cloud.sub&&Cloud.sub.ok===false)?'':`<a href="javascript:void 0" data-ed="${esc(a.id)}" class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg font-bold transition-all text-xs"><i class="bi bi-pencil-square"></i>${t('Edit')}</a>`}</td></tr>`).join('')}
    </tbody></table></div></div>`:`<div class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200"><div class="text-gray-400 mb-3"><i class="bi bi-inbox text-5xl"></i></div><p class="text-gray-600 font-medium">${t('No history found.')}</p><p class="text-gray-400 text-sm">${t('Start a new collection to see it here.')}</p></div>`}
   <div class="mt-8 pt-6 border-t border-gray-100 flex justify-center"><a href="#school" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-xl transition-all shadow-lg shadow-blue-200">${t('Start New Collection')}</a></div>
   </div></section>`);
@@ -385,7 +389,7 @@ function vAssetCard(c){const s=get('schools',c.school_id)||{},ty=get('types',c.t
    <a href="javascript:void 0" id="cardScan" class="block mt-3 text-center bg-white border border-blue-200 text-blue-700 font-bold py-3 rounded-xl">📷 ${tx('مسح ملصق آخر','Scan another label')}</a>
    <a href="#employee-data" class="block mt-3 text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">${tx('رجوع','Back')}</a></div></section>`);
   if($('#cardEdit'))$('#cardEdit').onclick=()=>{setSess({school:c.school_id,coll:c.id,tq:[]});setFlash(t('You are now editing an existing collection.'));go('#location')};$('#cardScan').onclick=()=>scanQR()}
-function openAssetLink(lb,field){const c=S.collections.find(x=>x.no&&assetLabel(x)===lb);
+function openAssetLink(lb,field){const c=S.collections.find(x=>labelIs(x,lb));
   if(isAuthed()&&!(field&&curEmp())){if(c)return go('#admin/collections/'+encodeURIComponent(c.id));setAFlash(`لم يُعثر على الأصل رقم ${lb}.`,'warning');return go('#admin/collections')}
   if(curEmp()){if(c)return vAssetCard(c);setFlash(tx(`الأصل رقم ${lb} غير موجود في سجلاتك.`,`Asset ${lb} is not in your records.`));return go('#employee-data')}
   try{sessionStorage.setItem('nv_after','#a/'+lb)}catch(e){}go(Cloud.on?'#login':'#admin/login')}
@@ -417,7 +421,8 @@ async function dupOk(c,vals){if(!await duplicatePreflight([{...c,...vals}]))retu
     if(rec.length){const m=Math.max(1,Math.round((Date.now()-new Date(rec[0].submitted_at).getTime())/6e4));if(!confirm(tx(`سجّلت «${(get('types',vals.type_id)||{}).ar||''}» في نفس الغرفة قبل ${m} دقيقة (الكمية ${num(rec[0].quantity)}).\nإذا كان نفس الأصل فعدّل كميته بدلاً من تكراره.\n\nهل هو أصل آخر فعلاً؟`,`You saved the same asset in this room ${m} min ago. If it is the same asset, change its quantity instead.\n\nIs this really another asset?`)))return false}}
   return true}
 /* label scanning: BarcodeDetector when the browser has it, else jsQR 1.4.0 (jsdelivr) */
-const labelFromQR=t=>{t=String(t||'');const m=/#a\/(\d{11})\b/.exec(t)||/Tag Number:\s*(\d{11})/.exec(t)||/(?:^|\D)(101\d{8})(?:\D|$)/.exec(t);return m?m[1]:null};
+/* NV51: the label may follow the customer's own format (tagRe); a label printed with the old 101… number still reads */
+const labelFromQR=t=>{t=String(t||'');const m=/#a\/([A-Za-z0-9\-_.%]+)/.exec(t)||/Tag Number:\s*([A-Za-z0-9\-_/.]+)/.exec(t)||new RegExp('(?:^|[^A-Za-z0-9])('+tagRe()+')(?![A-Za-z0-9])').exec(t)||/(?:^|\D)(101\d{8})(?:\D|$)/.exec(t);try{return m?decodeURIComponent(m[1]):null}catch(e){return m[1]}};
 let jsqrP=null;const needJsQR=()=>jsqrP||(jsqrP=window.jsQR?Promise.resolve():loadScript('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js').catch(e=>{jsqrP=null;throw e}));
 function onScanText(t){const lb=labelFromQR(t);if(!lb){toast(tx('هذا الرمز ليس ملصق أصل من Solvix.','This code is not a Solvix asset label.'),4000);return}openAssetLink(lb,true)}
 async function scanQR(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){const v=prompt(tx('الكاميرا غير متاحة. اكتب رقم الأصل (Tag Number):','No camera. Type the Tag Number:'));if(v)onScanText(v.replace(/\D/g,''));return}
@@ -461,7 +466,7 @@ window.nvLabelRefresh=()=>{const w=$('#lblCard[data-wait]');if(w&&lblReady(curCo
    database through nv_label_printed / nv_label_confirm (queued in localStorage nv_label_q while offline; a supervisor never pushes label_* fields). */
 const labelQueueKey=()=>Cloud.on?'nv_label_q_'+Cloud.scope()+'_'+(Cloud.user&&Cloud.user.id||'signed-out'):'nv_label_q_local';
 const labelQ=()=>lsGet(labelQueueKey(),[]);const labelQSet=q=>lsSet(labelQueueKey(),q);window.labelQ=labelQ;
-function labelOf(c){if(c.label_at)return {at:c.label_at,photo:c.label_photo,check:c.label_check};const q=labelQ().find(x=>x.id===c.id&&x.op==='confirm');return q?{at:q.at,photo:q.key,check:q.check,pending:1}:null}
+function labelOf(c){const q=labelQ().find(x=>x.id===c.id&&(x.op==='confirm'||x.op==='fail'));if(q)return {at:q.at,photo:q.key,check:q.op==='fail'?'fail':q.check,note:q.reason,pending:1};if(c.label_at)return {at:c.label_at,photo:c.label_photo,check:c.label_check,note:c.label_note};return null}
 /* every print (admin or field) records the first print time */
 function markLabelsPrinted(list){const t=now();let ch=0;for(const c of list)if(!c.label_printed_at){c.label_printed_at=t;ch++}if(!ch)return;
   if(Cloud.on&&Cloud.role==='tech'){const q=labelQ();for(const c of list)if(!q.some(x=>x.id===c.id&&x.op==='print'))q.push({id:c.id,op:'print'});labelQSet(q);saveNow('collections').then(flushLabels)}else save('collections')}
@@ -472,7 +477,12 @@ async function flushLabels(){if(lblFlushing||!Cloud.on||Cloud.role!=='tech'||nav
     for(const it of labelQ().filter(x=>x.op==='confirm'&&Cloud.snap.collections&&Cloud.snap.collections[x.id]!==undefined)){
       try{await Cloud.uploadPhoto(it.key);const {data,error}=await cl.rpc('nv_label_confirm',{p_id:it.id,p_photo:it.key,p_check:it.check});if(error)throw error;
         const c=S.collections.find(x=>x.id===it.id);if(c)Object.assign(c,{label_photo:it.key,label_at:(data&&data.label_at)||it.at,label_check:it.check,label_printed_at:c.label_printed_at||it.at});
-        labelQSet(labelQ().filter(x=>x!==it&&!(x.id===it.id&&x.op==='confirm')))}catch(e){console.warn('label',e)}}
+        labelQSet(labelQ().filter(x=>!(x.id===it.id&&(x.op==='confirm'||x.op==='fail'))))}catch(e){console.warn('label',e)}}
+    /* NV51: «could not stick» (nv_label_fail) */
+    for(const it of labelQ().filter(x=>x.op==='fail'&&Cloud.snap.collections&&Cloud.snap.collections[x.id]!==undefined)){
+      try{await Cloud.uploadPhoto(it.key);const {data,error}=await cl.rpc('nv_label_fail',{p_id:it.id,p_photo:it.key,p_reason:it.reason});if(error)throw error;
+        const c=S.collections.find(x=>x.id===it.id);if(c)Object.assign(c,{label_photo:it.key,label_at:(data&&data.label_at)||it.at,label_check:'fail',label_note:it.reason});
+        labelQSet(labelQ().filter(x=>!(x.id===it.id&&(x.op==='confirm'||x.op==='fail'))))}catch(e){console.warn('label fail',e)}}
     await saveNow('collections')}finally{lblFlushing=false}}
 window.addEventListener('online',()=>setTimeout(flushLabels,2500));
 /* read a QR code from a photo (BarcodeDetector, else jsQR) */
@@ -482,17 +492,18 @@ async function readQRImage(blob){try{const bmp=await createImageBitmap(blob);
     const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(bmp,0,0,cv.width,cv.height);const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'attemptBoth'});if(r)return r.data}}catch(e){console.warn('qr',e)}return null}
 async function confirmLabel(c,f){if(!f)return;const want=assetLabel(c);const msg=$('#lcMsg');if(msg)msg.textContent=tx('جارٍ قراءة رمز QR من الصورة…','Reading the QR code from the photo…');
   const got=labelFromQR(await readQRImage(f)||'');
-  if(got&&got!==want){if(msg)msg.textContent='';return alert(tx(`هذه الصورة لملصق أصل آخر (${got}) وليس لهذا الأصل (${want}). تأكد أنك ألصقت الملصق الصحيح.`,`This photo shows another asset's label (${got}), not this one (${want}).`))}
+  if(got&&!labelIs(c,got)){if(msg)msg.textContent='';return alert(tx(`هذه الصورة لملصق أصل آخر (${got}) وليس لهذا الأصل (${want}). تأكد أنك ألصقت الملصق الصحيح.`,`This photo shows another asset's label (${got}), not this one (${want}).`))}
   if(!got&&!confirm(tx('لم يُقرأ رمز QR في الصورة. صوّر الملصق أقرب وبوضوح، أو احفظ الصورة كما هي وستُعلَّم «لم يُقرأ الرمز» للمراجعة.\n\nحفظ كما هي؟','The QR code could not be read. Save the photo anyway (marked «unread» for review)?'))){if(msg)msg.textContent='';return}
   const s=get('schools',c.school_id)||{},at=now();const key=await storePhoto(f,[`${ymdhms(at)} · ${tx('الملصق على الأصل','Label on the asset')} · Tag ${want}`,[s.name,s.moe].filter(Boolean).join(' · '),[c.floor,roomName(c),c.room_number].filter(Boolean).join(' · ')]);
   const check=got?'ok':'unread';
-  if(Cloud.on&&Cloud.role==='tech'){const q=labelQ().filter(x=>!(x.id===c.id&&x.op==='confirm'));q.push({id:c.id,op:'confirm',key,check,at});labelQSet(q);if(!c.label_printed_at)c.label_printed_at=at;await saveNow('collections');flushLabels()}
-  else{Object.assign(c,{label_photo:key,label_at:at,label_check:check,label_by:'emp:'+(sess().emp||''),label_printed_at:c.label_printed_at||at});save('collections')}
+  if(Cloud.on&&Cloud.role==='tech'){const q=labelQ().filter(x=>!(x.id===c.id&&(x.op==='confirm'||x.op==='fail')));q.push({id:c.id,op:'confirm',key,check,at});labelQSet(q);if(!c.label_printed_at)c.label_printed_at=at;await saveNow('collections');flushLabels()}
+  else{Object.assign(c,{label_photo:key,label_at:at,label_check:check,label_note:null,label_by:'emp:'+(sess().emp||''),label_printed_at:c.label_printed_at||at});save('collections')}
   toast(got?tx('✓ تم تأكيد لصق الملصق (مطابق).','✓ Label confirmed (matches).'):tx('تم الحفظ — «لم يُقرأ الرمز».','Saved — «code unread».'),3500);route()}
 function labelConfirmBox(c){const L=labelOf(c);
+  if(L&&L.check==='fail')return lfDone51(c,L);
   if(L)return `<div class="nv-lblok ${L.check==='ok'?'':'warn'}" id="lcDone">${img(L.photo,'','')}<span>${L.check==='ok'?tx('✓ الملصق مُلصق على الأصل ومؤكد (الرمز مطابق)','✓ Label stuck and confirmed (code matches)'):tx('⚠️ صورة الملصق محفوظة — لم يُقرأ الرمز','⚠️ Label photo saved — code unread')}${L.pending?` <small>(${tx('بانتظار الرفع','waiting to upload')})</small>`:''}</span></div>`;
   return `<div class="nv-lblconf" id="lcBox"><b>📸 ${tx('بعد لصق الملصق: صوّره على الأصل للتأكيد','After sticking the label: photograph it on the asset to confirm')}</b><small>${tx('يُقرأ رمز QR من الصورة ويُطابَق مع رقم الأصل.','The QR code is read from the photo and matched with the asset number.')}</small>
-   <div class="nv-src"><label>📷 ${tx('كاميرا','Camera')}<input type="file" id="lcCam" accept="image/*" capture="environment"></label>${can('gallery')?`<label>🖼️ ${tx('المعرض','Gallery')}<input type="file" id="lcGal" accept="image/*"></label>`:''}</div><p id="lcMsg" class="text-xs text-blue-700 mt-1"></p></div>`}
+   <div class="nv-src"><label>📷 ${tx('كاميرا','Camera')}<input type="file" id="lcCam" accept="image/*" capture="environment"></label>${can('gallery')?`<label>🖼️ ${tx('المعرض','Gallery')}<input type="file" id="lcGal" accept="image/*"></label>`:''}</div><p id="lcMsg" class="text-xs text-blue-700 mt-1"></p>${lfLink51(c)}</div>`}
 /* bind the confirm inputs (success page) and the 📸 buttons (lists) */
 document.addEventListener('change',e=>{const t=e.target;if(t&&(t.id==='lcCam'||t.id==='lcGal')&&t.files[0]){const c=curColl();if(c)confirmLabel(c,t.files[0]);t.value=''}});
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-lc]');if(!b)return;e.preventDefault();const c=S.collections.find(x=>x.id===b.dataset.lc);if(!c)return;

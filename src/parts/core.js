@@ -1,7 +1,7 @@
 <script id="nv-core">
 /* Solvix (formerly Novaro) asset collection — single-file app. Data lives on this device (IndexedDB). */
 'use strict';
-const NV={version:'NV50',date:'2026-10-19'};
+const NV={version:'NV51',date:'2026-10-19'};
 const FLOORS=['الأرضي','الأول','الثاني','الثالث','الرابع','الملعب','المقصف'];
 const ROOM_NUMBERS=Array.from({length:20},(_,i)=>String(i+1));
 const TABLES=['schools','employees','categories','types','conditions','rooms','collections','log','settings','approval_paths','approvals','trash'];
@@ -96,8 +96,8 @@ async function stampPhoto(blob,lines){const u=URL.createObjectURL(blob);try{cons
   const fs=Math.max(13,Math.round(w/48)),lh=Math.round(fs*1.4),pad=Math.round(fs*.6),bh=lines.length*lh+pad*2;x.fillStyle='rgba(15,23,42,.66)';x.fillRect(0,h-bh,w,bh);
   x.fillStyle='#fff';x.font=`700 ${fs}px Cairo, Tahoma, sans-serif`;x.direction='rtl';x.textAlign='right';x.textBaseline='top';lines.forEach((l,i)=>x.fillText(l,w-pad,h-bh+pad+i*lh,w-pad*2));
   return await new Promise(r=>c.toBlob(b=>r(b||blob),'image/jpeg',.85))}catch(e){return blob}finally{URL.revokeObjectURL(u)}}
-const PHOTO_KEYS=['school_image','asset_image','asset_image2','label_photo'];const photoKeys=c=>PHOTO_KEYS.map(k=>c[k]).concat(Array.isArray(c.extra_images)?c.extra_images:[]).filter(Boolean);
-async function deletePhoto(key){if(!key)return;if((S.trash||[]).some(t=>!t.restored_at&&new Date(t.expires_at).getTime()>Date.now()&&photoKeys(t.snapshot).includes(key)))return;if(S.collections.some(c=>c.school_image===key||c.asset_image===key||c.asset_image2===key||c.label_photo===key||(c.extra_images||[]).includes(key)))return;await IDB.del('photos',key).catch(()=>{});const u=urlCache.get(key);if(u){URL.revokeObjectURL(u);urlCache.delete(key)}}
+const PHOTO_KEYS=['school_image','asset_image','asset_image2','label_photo','exc_photo'];const photoKeys=c=>PHOTO_KEYS.map(k=>c[k]).concat(Array.isArray(c.extra_images)?c.extra_images:[]).filter(Boolean);
+async function deletePhoto(key){if(!key)return;if((S.trash||[]).some(t=>!t.restored_at&&new Date(t.expires_at).getTime()>Date.now()&&photoKeys(t.snapshot).includes(key)))return;if(S.collections.some(c=>photoKeys(c).includes(key)))return;await IDB.del('photos',key).catch(()=>{});const u=urlCache.get(key);if(u){URL.revokeObjectURL(u);urlCache.delete(key)}}
 async function hydratePhotos(root=document){for(const el of $$('img[data-photo]',root)){const u=await photoURL(el.dataset.photo);if(u){el.src=u;if(!el.onclick)el.onclick=()=>(window.openPhoto||lightbox)(u)}}}
 function lightbox(u){window.open(u,'_blank')}
 
@@ -117,7 +117,7 @@ const FIELD_LBL={category_id:'الفئة',type_id:'نوع الأصل',condition_
 function fieldText(k,v){if(v==null||v==='')return '—';switch(k){case 'category_id':return (get('categories',v)||{}).ar||v;case 'type_id':return (get('types',v)||{}).ar||v;case 'condition_id':return (get('conditions',v)||{}).ar||v;case 'room_name_id':return (get('rooms',v)||{}).ar||v;case 'employee_id':return empName(v);case 'school_id':return (get('schools',v)||{}).name||v;case 'asset_image':case 'asset_image2':case 'school_image':return 'صورة';case 'extra_images':return (v||[]).length+' صورة';default:return String(v)}}
 function diff(oldR,newR,keys){const ch={};for(const k of keys){const a=oldR[k]==null?'':String(oldR[k]),b=newR[k]==null?'':String(newR[k]);if(a!==b)ch[k]={old:oldR[k]??null,new:newR[k]??null}}return ch}
 const TRACK=['category_id','type_id','condition_id','quantity','price','status','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','notes','floor','room_number','room_name_id'];
-function blankAsset(){return {category_id:null,type_id:null,condition_id:null,quantity:1,price:null,status:null,manufacturer:'',brand:'',model:'',capacity:'',serial:'',agency:'',warranty:'',install_date:'',asad_country:'',lat:null,lng:null,asset_image:null,asset_image2:null,extra_images:[],parent_child:null,tag:'',notes:'',submitted_at:null}}
+function blankAsset(){return {category_id:null,type_id:null,condition_id:null,quantity:1,price:null,status:null,manufacturer:'',brand:'',model:'',capacity:'',serial:'',agency:'',warranty:'',install_date:'',asad_country:'',lat:null,lng:null,asset_image:null,asset_image2:null,extra_images:[],parent_child:null,tag:'',notes:'',submitted_at:null,exc_kind:null,exc_reason:null,exc_photo:null}}
 function nextNo(){S.settings.seq=Math.max(num(S.settings.seq),...S.collections.map(c=>num(c.no)))+1;save('settings');return S.settings.seq}
 function newCollection(emp,school,schoolImage,loc){const t=now();return Object.assign({id:uid(),no:nextNo(),employee_id:emp,school_id:school,school_image:schoolImage,floor:null,room_number:null,room_name_id:null,created_at:t,updated_at:t},blankAsset(),loc||{})}
 
@@ -135,14 +135,29 @@ function download(blob,name){const a=document.createElement('a');a.href=URL.crea
 const stamp=()=>new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');
 
 /* NV12 — asset label number 101XXXXXXXX from the record number (unique: server identity in the cloud, device sequence offline) */
-const assetLabel=c=>c&&c.no?'101'+String(c.no).padStart(8,'0'):'';
+/* NV51 — the asset number format is chosen by the customer («إعدادات الملصق»): fixed text + {N:8} (record number, padded),
+   {B} building number, {Y} year of the record. Default 101{N:8}. Labels printed with the old 101… number are still recognised. */
+const TAG_DEF='101{N:8}';
+const tagFmtOk=f=>typeof f==='string'&&f.length<=40&&/\{N(?::\d{1,2})?\}/.test(f)&&/^(?:[A-Za-z0-9\-_/.]|\{N(?::\d{1,2})?\}|\{B\}|\{Y\})*$/.test(f);
+function tagFmt(){const l=typeof S!=='undefined'&&S.settings&&S.settings.label||{};return tagFmtOk(l.fmt)?l.fmt:TAG_DEF}
+function tagOf(c,f){f=f||tagFmt();const s=(typeof get==='function'&&get('schools',c.school_id))||{};
+  return f.replace(/\{N(?::(\d{1,2}))?\}/g,(m,p)=>String(c.no).padStart(+p||0,'0')).replace(/\{B\}/g,String(s.moe||s.ident||'').replace(/[^A-Za-z0-9-]/g,'')).replace(/\{Y\}/g,String(new Date(c.created_at||c.submitted_at||Date.now()).getFullYear()))}
+const assetLabel=c=>c&&c.no?tagOf(c):'';
+const legacyLabel=c=>c&&c.no?'101'+String(c.no).padStart(8,'0'):'';
+const labelIs=(c,lb)=>!!(lb&&c&&c.no)&&(assetLabel(c)===lb||legacyLabel(c)===lb);
+/* a regular expression that finds a label of the current format inside a text */
+function tagRe(f){f=f||tagFmt();return f.replace(/\{N(?::(\d{1,2}))?\}|\{B\}|\{Y\}|[^{}]/g,(m,p)=>m[0]!=='{'||m.length===1?m.replace(/[.*+?^${}()|[\]\\/-]/g,'\\$&'):m==='{B}'?'[A-Za-z0-9-]*':m==='{Y}'?'\\d{4}':'\\d{'+(p?p:1)+',}')}
 /* NV19 — column order approved by the owner (his sample file); «Status» (Works / Does not work) is no longer collected */
 const EXPORT_COLS=[['ID',(c)=>c.no||''],['Employee',(c,e)=>e.name||''],['Employee #',(c,e)=>e.number||''],['Building Name',(c,e,s)=>s.name||''],['Building Number',(c,e,s)=>s.moe||''],['Building Identifier',(c,e,s)=>s.ident||''],
   ['City',(c,e,s)=>s.city||''],['District',(c,e,s)=>s.district||''],['Site',(c,e,s)=>s.site||''],['Floor',c=>c.floor||''],['Room Number',c=>c.room_number||''],['Room Name',c=>(get('rooms',c.room_name_id)||{}).ar||''],
   ['Category',c=>(get('categories',c.category_id)||{}).ar||''],['Asset Type',(c,e,s,t)=>t.ar||''],['Level 2',(c,e,s,t)=>t.l2||''],['Level 3',(c,e,s,t)=>t.l3||''],['Asset Code',(c,e,s,t)=>t.code||''],['Critical',(c,e,s,t)=>c.type_id?(t.critical?'حرج':'غير حرج'):''],
   ['Condition',c=>(get('conditions',c.condition_id)||{}).ar||''],['Quantity',c=>num(c.quantity)],['Price',c=>c.price??''],['Manufacturer',c=>c.manufacturer||''],['Brand',c=>c.brand||''],['Model',c=>c.model||''],['Capacity',c=>c.capacity||''],
   ['Serial Number',c=>c.serial||''],['Agency',c=>c.agency||''],['Warranty',c=>c.warranty||''],['Installation Date',c=>c.install_date||''],['Tag Number',c=>assetLabel(c)],['Parent/Child',c=>c.parent_child||''],
-  ['Notes',c=>c.notes||''],['Building Image URL',c=>c.school_image?c.school_image+'.jpg':''],['Location Diagram URL',()=>''],['Asset Image URL',c=>c.asset_image?c.asset_image+'.jpg':''],['Asset Image 2 URL',c=>c.asset_image2?c.asset_image2+'.jpg':''],['Submitted At',c=>ymdhms(c.submitted_at)],['Created At',c=>ymdhms(c.created_at)],['Label Number',c=>assetLabel(c)],['Label Confirmed At',c=>c.label_at?ymdhms(c.label_at)+(c.label_check==='unread'?' (QR unread)':''):'']];
+  ['Notes',c=>c.notes||''],['Building Image URL',c=>c.school_image?c.school_image+'.jpg':''],['Location Diagram URL',()=>''],['Asset Image URL',c=>c.asset_image?c.asset_image+'.jpg':''],['Asset Image 2 URL',c=>c.asset_image2?c.asset_image2+'.jpg':''],['Submitted At',c=>ymdhms(c.submitted_at)],['Created At',c=>ymdhms(c.created_at)],['Label Number',c=>assetLabel(c)],['Label Confirmed At',c=>c.label_at&&c.label_check!=='fail'?ymdhms(c.label_at)+(c.label_check==='unread'?' (QR unread)':''):''],
+  ['Zone',c=>c.zone||''],['Exception',c=>excText(c)],['Exception Reason',c=>[c.exc_kind?c.exc_reason:'',c.label_check==='fail'?c.label_note:''].filter(Boolean).join(' / ')],['Exception Image URL',c=>c.exc_photo?c.exc_photo+'.jpg':c.label_check==='fail'&&c.label_photo?c.label_photo+'.jpg':'']];
+/* NV51 — exceptions: the asset could not be reached (exc_kind='access') / the label could not be stuck (label_check='fail') */
+const excText=c=>[c.exc_kind==='access'?'تعذّر الوصول':'',c.label_check==='fail'?'تعذّر اللصق':''].filter(Boolean).join(' + ');
+const hasExc=c=>!!(c&&(c.exc_kind||c.label_check==='fail'));
 const EXPORT_HEAD=EXPORT_COLS.map(x=>x[0]);
 const ymdhms=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
 function exportRow(c){const e=get('employees',c.employee_id)||{},s=get('schools',c.school_id)||{},t=get('types',c.type_id)||{};return EXPORT_COLS.map(x=>x[1](c,e,s,t))}
@@ -152,7 +167,7 @@ const EXPORT_AR={'ID':'الرقم','Employee':'مشرف الميدان','Employe
   'Floor':'الدور','Room Number':'رقم الغرفة','Room Name':'اسم الغرفة','Category':'الفئة الرئيسية','Asset Type':'نوع الأصل','Level 2':'المستوى الثاني','Level 3':'المستوى الثالث','Asset Code':'كود الأصل','Critical':'الأهمية','Condition':'الحالة الفنية',
   'Quantity':'الكمية','Price':'السعر','Manufacturer':'الشركة المصنعة','Brand':'الماركة','Model':'الموديل','Capacity':'السعة','Serial Number':'الرقم التسلسلي','Agency':'الوكيل','Warranty':'الضمان','Installation Date':'تاريخ التركيب',
   'Tag Number':'رقم الأصل (Tag)','Parent/Child':'رئيسي / فرعي','Notes':'ملاحظات','Building Image URL':'صورة المبنى','Location Diagram URL':'مخطط الموقع','Asset Image URL':'صورة الأصل','Asset Image 2 URL':'صورة لوحة البيانات',
-  'Submitted At':'وقت الإرسال','Created At':'وقت الإنشاء','Label Number':'رقم الملصق','Label Confirmed At':'تأكيد لصق الملصق',
+  'Submitted At':'وقت الإرسال','Created At':'وقت الإنشاء','Label Number':'رقم الملصق','Label Confirmed At':'تأكيد لصق الملصق','Zone':'المنطقة / القسم','Exception':'الاستثناء','Exception Reason':'سبب الاستثناء','Exception Image URL':'صورة الاستثناء',
   'building_identifier':'معرّف المبنى','Name (Arabic)':'اسم المبنى','Status':'الحالة','Collection Status':'حالة الجرد','Field Supervisor':'مشرف الميدان','Asset Collections Count':'عدد سجلات الجرد','Completed At':'تاريخ الاكتمال','Description':'الوصف'};
 const XL_SITE={'Building Name':'name','Name (Arabic)':'name','Building Number':'moe','Building Identifier':'ident','building_identifier':'ident','City':'city','District':'district','Site':'site','Description':'description'};
 const xlLang=()=>lsGet('nv_xl_lang','en')==='ar'?'ar':'en';
@@ -161,7 +176,20 @@ const xlHead=H=>xlLang()==='ar'?H.map(xlAr):H;
 /* an Arabic header row back to the English keys the importers read (English columns win when both exist) */
 function xlFromAr(rows){const m=new Map();for(const h of Object.keys(EXPORT_AR)){const a=xlAr(h);m.set(a,(m.get(a)||[]).concat(h))}return rows.map(r=>{const o=Object.assign({},r);for(const [k,v] of Object.entries(r))for(const en of m.get(String(k).trim())||[])if(!(en in o))o[en]=v;return o})}
 async function exportCollections(list,name){list=list.slice().sort((a,b)=>(b.created_at||'')<(a.created_at||'')?-1:1);await writeXlsx([['Worksheet',[xlHead(EXPORT_HEAD),...list.map(exportRow)]]],name||('collections-'+stamp()+'.xlsx'))}
-async function exportPhotosZip(list){try{await needZip()}catch(e){zipP=null;return toast(e.message,4000)}const zip=new JSZip();const seen=new Set();let n=0;for(const c of list){for(const k of photoKeys(c)){if(!k||seen.has(k))continue;seen.add(k);const b=await IDB.get('photos',k).catch(()=>null);if(b){zip.file(k+'.jpg',b);n++}}}if(!n)return toast('لا توجد صور');toast('جارٍ تجهيز '+n+' صورة…');download(await zip.generateAsync({type:'blob'}),'solvix-photos-'+stamp()+'.zip')}
+/* NV51 — every photo in the archive is named by the asset number, in one folder per building:
+   <building>/<Tag>_asset.jpg, _nameplate, _label, _exception, _extra-1 …; the building photo once per building; index.csv lists every file */
+const ZIP_SUF={school_image:'building',asset_image:'asset',asset_image2:'nameplate',label_photo:'label',exc_photo:'exception'};
+const zipSafe=v=>String(v||'').replace(/[\\/:*?"<>|\u0000-\u001f]+/g,'-').replace(/\s+/g,' ').trim().slice(0,60);
+function zipNames(list){const out=[],seen=new Set(),used=new Set();const uniq=n=>{let k=n,i=2;while(used.has(k.toLowerCase()))k=n.replace(/\.jpg$/,'')+'-'+(i++)+'.jpg';used.add(k.toLowerCase());return k};
+  for(const c of list){const s=get('schools',c.school_id)||{};const dir=zipSafe([s.moe||s.ident,s.name].filter(Boolean).join(' - ')||'building')||'building';const tag=zipSafe(assetLabel(c))||('rec-'+String(c.id).slice(-6));
+    const add=(k,suf,sh)=>{if(!k||seen.has(k))return;seen.add(k);out.push({k,c,s,name:uniq(dir+'/'+(sh?'_building':tag+'_'+suf)+'.jpg'),kind:suf})};
+    for(const f of PHOTO_KEYS)add(c[f],ZIP_SUF[f],f==='school_image');(Array.isArray(c.extra_images)?c.extra_images:[]).forEach((k,i)=>add(k,'extra-'+(i+1)))}
+  return out}
+async function exportPhotosZip(list){try{await needZip()}catch(e){zipP=null;return toast(e.message,4000)}const zip=new JSZip();let n=0;const rows=[['file','tag','building','floor','room','asset','photo']];
+  const items=zipNames(list);if(items.length)toast('جارٍ تجهيز '+items.length+' صورة…');
+  for(const it of items){let b=await IDB.get('photos',it.k).catch(()=>null);if(!b&&window.Cloud&&Cloud.on)b=await Cloud.fetchPhoto(it.k);if(!b)continue;zip.file(it.name,b);n++;
+    rows.push([it.name,assetLabel(it.c),it.s.name||'',it.c.floor||'',[(get('rooms',it.c.room_name_id)||{}).ar,it.c.room_number].filter(Boolean).join(' '),(get('types',it.c.type_id)||{}).ar||'',it.kind])}
+  if(!n)return toast('لا توجد صور');zip.file('index.csv','﻿'+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n'));download(await zip.generateAsync({type:'blob'}),'solvix-photos-'+stamp()+'.zip')}
 
 /* ---------- backup / merge ---------- */
 const blobToData=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)});
@@ -203,6 +231,9 @@ const setSess=o=>lsSet(sessionKey(),Object.assign(sess(),o));
 const clearSess=()=>{try{localStorage.removeItem(sessionKey())}catch(e){}};
 /* NV26 — location check, asset link in the QR, nameplate reading */
 const geoCfg=()=>Object.assign({m:300,block:false},S.settings.geo||{});
+/* NV51 — «ops» settings: daily target per supervisor, the optional zone / department field of a location; GPS printed on photos unless geo.stamp=false */
+const opsCfg=()=>{const o=S.settings.ops||{},z=o.zone||{};return {target:Math.max(1,Math.round(+o.target||40)),zone:{on:!!z.on,l:String(z.l||'').trim()||'المنطقة / القسم'}}};
+const stampGeo51=()=>geoCfg().stamp!==false;
 /* metres between two [lat,lng] points (haversine) */
 function geoDist(a,b){if(!a||!b||a[0]==null||b[0]==null)return null;const R=6371e3,r=x=>x*Math.PI/180;const dl=r(b[0]-a[0]),dn=r(b[1]-a[1]);
   const h=Math.sin(dl/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
@@ -212,7 +243,7 @@ function schoolRef(sid,skip){const s=get('schools',sid)||{};if(s.lat!=null&&s.ln
   const med=a=>{a=a.slice().sort((x,y)=>x-y);const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2};return {p:[med(L.map(c=>+c.lat)),med(L.map(c=>+c.lng))],src:'assets',n:L.length}}
 const fmtDist=m=>m==null?'':m>=1000?(m/1000).toFixed(1).replace(/\.0$/,'')+' '+tx('كم','km'):Math.round(m)+' '+tx('م','m');
 /* a link that opens the asset (with its photos) after sign-in */
-const assetURL=c=>c&&c.no?(Cloud.on?Cloud.link().split('#')[0]:location.origin+location.pathname+location.search)+'#a/'+assetLabel(c):'';
+const assetURL=c=>c&&c.no?(Cloud.on?Cloud.link().split('#')[0]:location.origin+location.pathname+location.search)+'#a/'+encodeURIComponent(assetLabel(c)):'';
 /* nameplate OCR: Tesseract.js 5.1.1 + English data, all from jsdelivr, loaded only when asked */
 const TESS={lib:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',langPath:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int'};
 async function ocrPlate(blob,progress){if(!window.Tesseract)await loadScript(TESS.lib);

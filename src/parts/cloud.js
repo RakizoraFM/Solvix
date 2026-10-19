@@ -14,7 +14,9 @@ const NV_ORDER=['categories','conditions','rooms','types','employees','schools',
 const NV_COLS={categories:['id','ar','en'],conditions:['id','ar','en'],rooms:['id','en','ar'],types:['id','cat','ar','en','l2','l3','code','critical'],employees:['id','number','name','email','created_at'],
   schools:['id','moe','ident','site','name','district','city','description','status','completed_at','completed_by','created_at','lat','lng','extra'],
   collections:['id','employee_id','school_id','school_image','floor','room_number','room_name_id','notes','category_id','type_id','condition_id','quantity','price','status',
-    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','submitted_at','created_at','geo_dist','review_status','review_note','reviewed_at','reviewed_by','label_photo','label_at','label_by','label_check','label_printed_at']};
+    'manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','lat','lng','asset_image','asset_image2','extra_images','parent_child','tag','submitted_at','created_at','geo_dist','review_status','review_note','reviewed_at','reviewed_by','label_photo','label_at','label_by','label_check','label_printed_at','zone','exc_kind','exc_reason','exc_photo','label_note']};
+/* NV51: columns of migration 048, synced only once this project's database has them (Cloud.c51Ok) */
+const NV51C=new Set(['zone','exc_kind','exc_reason','exc_photo','label_note']);
 const NV_TEXT0=new Set(['l2','l3','moe','site','district','city','description','en','notes','manufacturer','brand','model','capacity','serial','agency','warranty','install_date','asad_country','tag','review_note']);
 const tsNorm=v=>{if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?v:d.toISOString()};
 const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null,user:null,busy:new Set(),snap:{},uploaded:new Set(),dirty:new Set(),err:null,syncing:false,again:false,lastPull:0,tablesMissing:false,
@@ -25,7 +27,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
   async sb(){if(this.client)return this.client;if(!(window.supabase&&window.supabase.createClient))await loadScript(NV_LIB);const c=this.cfg();
     this.client=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:c.url===SOLVIX_CFG.url?'solvix-auth':'solvix-auth-'+new URL(c.url).hostname}});return this.client},
   chk({data,error}){if(error)throw new Error(error.message||String(error));return data},
-  canon(t,r){const o={};for(const k of NV_COLS[t]){if(this.skip.has(t+'.'+k))continue;if(k==='extra'&&!this.extraOk())continue;if(t==='collections'&&this.role==='tech'&&/^label_/.test(k))continue;let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='extra')v=r.extra&&typeof r.extra==='object'&&!Array.isArray(r.extra)?r.extra:{};if(k==='extra_images')v=Array.isArray(v)?v.filter(Boolean):[];if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
+  canon(t,r){const o={};for(const k of NV_COLS[t]){if(this.skip.has(t+'.'+k))continue;if(k==='extra'&&!this.extraOk())continue;if(t==='collections'&&NV51C.has(k)&&!this.c51Ok())continue;if(t==='collections'&&this.role==='tech'&&/^label_/.test(k))continue;let v=r[k];if(v===undefined||v==='')v=NV_TEXT0.has(k)?'':null;if(v!=null&&/(_at)$/.test(k))v=tsNorm(v);if(v!=null&&(k==='lat'||k==='lng'||k==='price'))v=Number(v);if(k==='quantity')v=Math.max(0,Math.round(Number(v)||0));if(k==='room_number'&&v!=null)v=String(v);if(k==='critical')v=!!v;if(k==='extra')v=r.extra&&typeof r.extra==='object'&&!Array.isArray(r.extra)?r.extra:{};if(k==='extra_images')v=Array.isArray(v)?v.filter(Boolean):[];if(k==='geo_dist'&&v!=null)v=Math.round(Number(v));o[k]=v}return o},
   key(t,r){return JSON.stringify(this.canon(t,r))},
   /* NV46: nv_schools.extra (custom building fields) is synced only once this project's database has the column (migration 046).
      The flag is kept per project, so a device never compares rows with and without the column. Old snapshots get extra:{} added
@@ -34,6 +36,11 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
   async detectExtra(rows){let has;if(rows&&rows.length)has='extra' in rows[0];else{try{const {error}=await (await this.sb()).from('nv_schools').select('extra').limit(1);has=!error}catch(e){has=false}}
     try{localStorage.setItem('nv_extra_ok_'+this.scope(),has?'1':'0')}catch(e){}this.dbOld=(this.dbOld||[]).filter(x=>x!=='nv_schools.extra');if(!has)this.dbOld.push('nv_schools.extra');
     if(has){const snap=this.snap.schools||{};for(const id in snap)if(snap[id].indexOf('"extra":')<0){const o=JSON.parse(snap[id]);o.extra={};snap[id]=JSON.stringify(o)}}},
+  /* NV51: the same for the collection columns of migration 048 (zone, exceptions, label note); old snapshots get the server default (null) */
+  c51Ok(){try{return localStorage.getItem('nv51_ok_'+this.scope())==='1'}catch(e){return false}},
+  async detect51(rows){let has;if(rows&&rows.length)has='exc_kind' in rows[0];else{try{const {error}=await (await this.sb()).from('nv_collections').select('exc_kind').limit(1);has=!error}catch(e){has=false}}
+    try{localStorage.setItem('nv51_ok_'+this.scope(),has?'1':'0')}catch(e){}this.dbOld=(this.dbOld||[]).filter(x=>x!=='nv_collections.exc_kind');if(!has)this.dbOld.push('nv_collections.exc_kind');
+    if(has){const snap=this.snap.collections||{},keys=[...NV51C].filter(k=>!(this.role==='tech'&&/^label_/.test(k)));for(const id in snap){const o=JSON.parse(snap[id]);let ch=0;for(const k of keys)if(!(k in o)){o[k]=null;ch=1}if(ch)snap[id]=JSON.stringify(o)}}},
   /* ---- start-up: who is signed in, and which role he has in Novaro ---- */
   async init(){
     const cached=await IDB.get('kv','cloud_me').catch(()=>null);this.conflicts=await IDB.get('kv','sync_conflicts').catch(()=>null)||{};this.snap=await IDB.get('kv','snap').catch(()=>null)||{};this.uploaded=new Set(await IDB.get('kv','uploaded').catch(()=>null)||[]);
@@ -56,7 +63,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
   pushTables(){return this.role==='admin'?NV_ORDER:this.role==='tech'?['collections','schools']:[]},
   orphanPending(){let n=0;for(const t of NV_ORDER){const snap=this.snap[t]||{};for(const row of S[t]||[]){const raw=snap[row.id];if(raw===undefined){n++;continue}const before=JSON.parse(raw),after=this.canon(t,row);if(Object.keys(before).some(k=>JSON.stringify(before[k])!==JSON.stringify(after[k])))n++}for(const id of Object.keys(snap))if(!(S[t]||[]).some(r=>r.id===id))n++}return n},
   /* NV46: «site» (the building form of this customer) is sent only when set, so a database without migration 046 keeps syncing the rest */
-  settingsOf(d){d=d||{};const o={app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null,geo:d.geo||null,room_tpl:d.room_tpl||null};if(d.site)o.site=d.site;return o},
+  settingsOf(d){d=d||{};const o={app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null,geo:d.geo||null,room_tpl:d.room_tpl||null};if(d.site)o.site=d.site;if(d.ops)o.ops=d.ops;return o},
   settingsRow(){return this.settingsOf(S.settings)},
   persistConflicts(){return IDB.put('kv','sync_conflicts',this.conflicts)},
   async rememberConflict(table,id,base){const key=table+':'+id;if(!this.conflicts[key])this.conflicts[key]={table,id,base:JSON.parse(JSON.stringify(base)),local:table==='settings'?this.settingsRow():(S[table].find(r=>r.id===id)?this.canon(table,S[table].find(r=>r.id===id)):null),at:new Date().toISOString()};await saveNow(table);await this.persistConflicts()},
@@ -78,7 +85,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
         if(t==='schools'&&this.role==='tech'){/* a technician only finishes a building, through the server function */
           for(const [r,row,js] of upd){const was=JSON.parse(snap[r.id]);if(row.completed_at&&!was.completed_at){this.chk(await c.rpc('nv_complete_school',{p_school:r.id}))}snap[r.id]=js}
           await this.persistSnap();continue}
-        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image);await this.uploadPhoto(r.asset_image2);await this.uploadPhoto(r.label_photo);for(const x of r.extra_images||[])await this.uploadPhoto(x)}
+        if(t==='collections')for(const [r] of ins.concat(upd)){await this.uploadPhoto(r.school_image);await this.uploadPhoto(r.asset_image);await this.uploadPhoto(r.asset_image2);await this.uploadPhoto(r.label_photo);await this.uploadPhoto(r.exc_photo);for(const x of r.extra_images||[])await this.uploadPhoto(x)}
         for(let i=0;i<ins.length;i+=300){const part=ins.slice(i,i+300);const back=this.chk(await c.from(NV_T[t]).insert(part.map(x=>x[1])).select(t==='collections'?'id,no':'id'));
           for(const [r,,js] of part){snap[r.id]=js}if(t==='collections')for(const b of back||[]){const r=S.collections.find(x=>x.id===b.id);if(r)r.no=b.no}await this.persistSnap()}
         for(const [r,row,js] of upd){const before=JSON.parse(snap[r.id]);const patch={};for(const k of Object.keys(row))if(k!=='id'&&JSON.stringify(row[k])!==JSON.stringify(before[k]))patch[k]=row[k];
@@ -98,7 +105,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
     if(!this.on||!this.role)return;
     const tabs=this.role==='tech'?['categories','conditions','rooms','types','employees','schools','collections']:NV_ORDER;
     for(const t of tabs){let rows=await this.fetchAll(NV_T[t],t==='collections'?r=>r.order('no'):null);
-      if(t==='employees')rows=rows.map(r=>{const o=Object.assign({},r);delete o.user_id;return o});if(t==='schools')await this.detectExtra(rows);
+      if(t==='employees')rows=rows.map(r=>{const o=Object.assign({},r);delete o.user_id;return o});if(t==='schools')await this.detectExtra(rows);if(t==='collections')await this.detect51(rows);
       const snap=this.snap[t],local=new Map(S[t].map(r=>[r.id,r])),cloudIds=new Set(rows.map(r=>r.id)),next=[],ns={};
       for(const r of rows){if(!discard&&!local.has(r.id)&&snap[r.id]!==undefined){ns[r.id]=snap[r.id];continue}const l=local.get(r.id);const pending=!discard&&l&&snap[r.id]!==undefined&&snap[r.id]!==this.key(t,l);
         ns[r.id]=pending?snap[r.id]:this.key(t,r);if(pending){if(t==='collections')l.no=r.no;next.push(l)}else{const o=Object.assign({},r);for(const k of ['lat','lng','price'])if(o[k]!=null)o[k]=Number(o[k]);next.push(o)}}
@@ -106,13 +113,13 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
       
       S[t]=next;this.snap[t]=ns}
     if(this.role!=='tech'){S.log=(await this.fetchAll('nv_log',r=>r.order('at',{ascending:false}).limit(3000))).slice(0,3000)}else S.log=[];
-    const st=this.chk(await (await this.sb()).rpc('nv_client_settings'));if(st&&st.data&&!(this.snap.settings.data&&!discard&&this.snap.settings.data!==JSON.stringify(this.settingsRow()))){const d=st.data;Object.assign(S.settings,this.settingsOf(d),{site:d.site||null});this.snap.settings.data=JSON.stringify(this.settingsRow())}
+    const st=this.chk(await (await this.sb()).rpc('nv_client_settings'));if(st&&st.data&&!(this.snap.settings.data&&!discard&&this.snap.settings.data!==JSON.stringify(this.settingsRow()))){const d=st.data;Object.assign(S.settings,this.settingsOf(d),{site:d.site||null,ops:d.ops||null});this.snap.settings.data=JSON.stringify(this.settingsRow())}
     if(this.role==='tech'){try{this.busy=new Set(this.chk(await (await this.sb()).rpc('nv_busy_schools'))||[])}catch(e){}}
     reindex();await saveAll();await this.persistSnap();this.lastPull=Date.now();this.badge();
   },
   async loadPublicSettings(){try{const c=await this.sb();const st=this.chk(await c.rpc('nv_public_settings'));if(st&&st.data){Object.assign(S.settings,{app_name:st.data.app_name||S.settings.app_name,logo:st.data.logo||S.settings.logo});await saveNow('settings')}}catch(e){}},
   async resolveConflict(){const hash=this.role==='tech'?'#conflicts':'#admin/conflicts';if(location.hash===hash)route();else location.hash=hash},
-  badge(){if(window.nvPendUI)nvPendUI();if(window.flushLabels&&!this.syncing)setTimeout(flushLabels,0);if(window.nvLabelRefresh)setTimeout(nvLabelRefresh,0);const n=this.on&&this.role?this.pendingCount():0;const txt=!this.on?'':this.err&&n?`⚠️ ${n}`:n?`⏳ ${n}`:'☁️';
+  badge(){if(window.nvPendUI)nvPendUI();if(window.flushLabels&&!this.syncing)setTimeout(flushLabels,0);if(window.RD&&!this.syncing)setTimeout(()=>RD.flush(),0);if(window.nvLabelRefresh)setTimeout(nvLabelRefresh,0);const n=this.on&&this.role?this.pendingCount():0;const txt=!this.on?'':this.err&&n?`⚠️ ${n}`:n?`⏳ ${n}`:'☁️';
     $$('[data-nv-sync]').forEach(el=>{el.textContent=txt;el.onclick=Object.keys(this.conflicts).length||this.err&&/SOLVIX_CONFLICT/.test(this.err.message)?()=>this.resolveConflict().catch(e=>toast(e.message,7000)):null;el.style.cursor=el.onclick?'pointer':'';el.title=n?(this.err?('لم يُرسل: '+this.err.message):'بانتظار المزامنة'):'متزامن مع قاعدة Solvix'})}
 };
 window.Cloud=Cloud;

@@ -11,7 +11,7 @@ const L44={
  async cycle(id){const scope=I42.scope(),result=await this.rpc('nv_inventory_cycle44',{p_id:id});if(scope!==I42.scope())throw Error('تغير الحساب أثناء التحميل');return result},
  async beforeAsset(id){if(!Cloud.on||navigator.onLine===false)throw Error('يلزم الاتصال بالخادم لهذه العملية.');await Cloud.sync();if(Cloud.err||Object.keys(Cloud.conflicts||{}).length)throw Error('عالج تعارضات المزامنة أولًا.');const data=Cloud.chk(await (await Cloud.sb()).from('nv_collections').select('*').eq('id',id).maybeSingle());if(!data)throw Error('الأصل غير موجود');return data},
  async assetsChanged(){await Cloud.pull();await loadApprovals();this.cache=null},
- no(text){const lb=labelFromQR(String(text).trim());if(!lb)throw Error('أدخل رقم أصل Solvix أو امسح QR الخاص به');return Number(lb.slice(3))},
+ no(text){const lb=labelFromQR(String(text).trim());if(!lb)throw Error('أدخل رقم أصل Solvix أو امسح QR الخاص به');const c=typeof S!=='undefined'&&typeof labelIs==='function'?S.collections.find(x=>labelIs(x,lb)):null;if(c)return Number(c.no);if(/^101\d{8}$/.test(lb))return Number(lb.slice(3));throw Error('لم يُعثر على أصل بهذا الرقم: '+lb)},
  isEditor(){return Cloud.role==='admin'&&can('edit')&&Cloud.sub?.ok!==false},
  canScan(c){return Cloud.sub?.ok!==false&&!!(this.isEditor()||(Cloud.role==='tech'&&Cloud.emp?.id===c.owner_id&&can('collect')))}
 };window.L44=L44;
