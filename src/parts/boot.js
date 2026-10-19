@@ -29,7 +29,7 @@ function route(){
   if(Cloud.on&&Cloud.role!=='tech'&&sess().emp)clearSess();
   if(!curEmp()&&a&&a!=='login'){clearSess();return go('#login')}
   if(Cloud.on&&a==='school'&&Date.now()-Cloud.lastPull>60000){Cloud.lastPull=Date.now();Cloud.sync().then(()=>Cloud.pull()).catch(()=>{})}
-  switch(a){case '':case 'login':return curEmp()?go('#employee-data'):vLogin();case 'employee-data':return vEmployee();case 'school':return vSchool();case 'location':return vLocation();case 'asset':return vAsset();case 'success':return vSuccess();case 'history':return vHistory();case 'job-completed':return vJobDone();default:return go('#login')}
+  switch(a){case '':case 'login':return curEmp()?go('#employee-data'):vLogin();case 'employee-data':return vEmployee();case 'school':return vSchool();case 'location':return vLocation();case 'asset':return vAsset();case 'success':return vSuccess();case 'history':return vHistory();case 'buildings':return vBuildings52();case 'bmap':return vBMap52(seg.slice(1).join('/'));case 'labels':return vLabels52();case 'todo':return vTodo52();case 'account':return vAccount52();case 'job-completed':return vJobDone();default:return go('#login')}
 }
 window.addEventListener('hashchange',route);
 (async()=>{try{

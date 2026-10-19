@@ -25,7 +25,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await t.goto(U);await t.waitForSelector('#pw');await t.fill('#em','22912');await t.fill('#pw','bad');await t.click('button[type=submit]');
  await t.waitForSelector('.sx-err');ok((await t.textContent('.sx-err')).includes('غير صحيحة'),'tech wrong password');
  await t.fill('#pw',pw);await t.click('button[type=submit]');await t.waitForSelector('#screen-data');ok(!(await t.$('#send')),'no send-file card in cloud');
- await t.click('text=تأكيد البيانات');await t.fill('#q','الضياء');await t.waitForSelector('#res li');await t.click('#res li >> nth=0');await t.setInputFiles('#school-image',B+'/a.png');await t.click('#next');
+ await t.click('#homeStart');await t.fill('#q','الضياء');await t.waitForSelector('#res li');await t.click('#res li >> nth=0');await t.setInputFiles('#school-image',B+'/a.png');await t.click('#next');
  await t.waitForSelector('#floor-select');await t.selectOption('#floor-select','الأرضي');await t.selectOption('#room-number','1');
  await t.selectOption('#room-name',await t.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await t.click('#submit-btn');await t.waitForSelector('#a_category_id');
  const fill=async q=>{await t.selectOption('#a_category_id',await t.$eval('#a_category_id',s=>s.options[2].value));await t.selectOption('#a_l2',{index:1});await t.selectOption('#a_l3',{index:1});await t.selectOption('#a_type_id',{index:1});await t.setInputFiles('#aimg',{name:'b.png',mimeType:'image/png',buffer:require('fs').readFileSync(B+'/b.png')});await t.setInputFiles('#aimg2',{name:'c.png',mimeType:'image/png',buffer:require('fs').readFileSync(B+'/a.png')});
@@ -52,7 +52,7 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  const school=M.db.nv_collections[0].school_id;
  // second technician cannot take a school the first one is working on
  const T2=await mk({width:390,height:844});const t2=T2.p;await t2.goto(U);await t2.waitForSelector('#pw');await t2.fill('#em','21426');await t2.fill('#pw','87654321');await t2.click('button[type=submit]');
- await t2.waitForSelector('#screen-data');await t2.click('text=تأكيد البيانات');const sname=M.db.nv_schools.find(s=>s.id===school).name;await t2.uncheck('#favail');await t2.fill('#q',M.db.nv_schools.find(s=>s.id===school).moe);await t2.waitForSelector('#res li');await t2.click('#res li >> nth=0');
+ await t2.waitForSelector('#screen-data');await t2.click('#homeStart');const sname=M.db.nv_schools.find(s=>s.id===school).name;await t2.uncheck('#favail');await t2.fill('#q',M.db.nv_schools.find(s=>s.id===school).moe);await t2.waitForSelector('#res li');await t2.click('#res li >> nth=0');
  ok((await t2.textContent('#eid')).length>0,'busy school blocked for technician 2');
  // first technician finishes the school
  await t.click('#fin');await t.waitForSelector('#screen-job-completed');await t.waitForTimeout(1500);

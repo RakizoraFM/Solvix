@@ -31,7 +31,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.fill('#code','109999999001');await p.selectOption('#critical','true');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
  ok(await p.evaluate(()=>{const t=S.types.find(x=>x.code==='109999999001');return !!t&&t.critical===true&&get('categories',t.cat).ar==='مجموعة تجريبية'&&t.id==='a109999999001'}),'new asset + new level 1 saved');
  // field: level 1 → 2 → 3 → asset, code and criticality shown
- const num=await p.evaluate(()=>S.employees[0].number);await p.goto(U+'#login');await p.waitForSelector('#employee-id');await p.fill('#employee-id',num);await p.click('button[type=submit]');await p.waitForSelector('#screen-data');await p.click('text=تأكيد البيانات');
+ const num=await p.evaluate(()=>S.employees[0].number);await p.goto(U+'#login');await p.waitForSelector('#employee-id');await p.fill('#employee-id',num);await p.click('button[type=submit]');await p.waitForSelector('#screen-data');await p.click('#homeStart');
  await p.waitForSelector('#q');await p.fill('#q',await p.evaluate(()=>S.schools[5].moe));await p.waitForSelector('#res li');await p.click('#res li >> nth=0');await p.setInputFiles('#school-image',B+'/a.png');await p.click('#next');
  await p.waitForSelector('#floor-select');await p.selectOption('#floor-select','الأرضي');await p.selectOption('#room-number','1');await p.selectOption('#room-name',await p.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await p.click('#submit-btn');await p.waitForSelector('#a_category_id');
  const l1=await p.evaluate(()=>S.categories.find(c=>c.ar==='معدات التوزيع والتكييف').id);await p.selectOption('#a_category_id',l1);

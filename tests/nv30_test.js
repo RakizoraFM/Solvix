@@ -21,7 +21,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local',fs=require('fs');
  await p.screenshot({path:B+'/shots/80-room-tpl.png',fullPage:true});
  // field: the template on a new asset in a «Class» room
  await p.goto(U+'#login');await p.waitForSelector('#employee-id');await p.fill('#employee-id','22912');await p.click('button[type=submit]');await p.waitForSelector('#screen-data');
- await p.click('text=تأكيد البيانات');await p.fill('#q','الضياء');await p.waitForSelector('#res li');await p.click('#res li >> nth=0');await p.setInputFiles('#school-image',B+'/a.png');await p.click('#next');
+ await p.click('#homeStart');await p.fill('#q','الضياء');await p.waitForSelector('#res li');await p.click('#res li >> nth=0');await p.setInputFiles('#school-image',B+'/a.png');await p.click('#next');
  await p.waitForSelector('#floor-select');await p.selectOption('#floor-select','الأرضي');await p.selectOption('#room-number','1');await p.selectOption('#room-name',cls);await p.click('#submit-btn');await p.waitForSelector('#tplBox');
  ok((await p.$$('#tplBox [data-tplon]')).length===2&&(await p.textContent('#tplGo')).includes('(2)'),'template offered on the new asset');await p.screenshot({path:B+'/shots/81-tpl-field.png',fullPage:true});
  await p.click('#tplGo');await p.waitForSelector('#a_category_id');ok(await p.$eval('#a_type_id',s=>s.value)===tt[0].id&&!(await p.$('#tplBox'))&&(await p.textContent('.nv-tplnote')).includes('1'),'first template asset opened ready');

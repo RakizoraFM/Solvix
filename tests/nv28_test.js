@@ -52,10 +52,10 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  M.sub.ends_at=new Date(Date.now()-2*864e5).toISOString();M.sub.grace_days=0;
  await o.evaluate(()=>Cloud.init());await o.goto(U+'#admin/collections');await o.evaluate(()=>route());await o.waitForSelector('[data-sub="over"]');ok((await o.textContent('[data-sub="over"]')).includes('للقراءة فقط'),'owner banner: read only after the end');
  const T=await mk({width:390,height:844});const t=T.p;await t.goto(U);await t.waitForSelector('#pw');await t.fill('#em','22912');await t.fill('#pw','87654321');await t.click('button[type=submit]');await t.waitForSelector('#screen-data');
- ok(!!(await t.$('[data-sub="over"]')),'field: read-only bar');await t.click('text=تأكيد البيانات');await t.waitForSelector('#empMsg');ok((await t.textContent('#empMsg')).includes('انتهى الاشتراك'),'field: no new collection after the end');
+ ok(!!(await t.$('[data-sub="over"]')),'field: read-only bar');await t.click('#homeStart');await t.waitForSelector('#empMsg');ok((await t.textContent('#empMsg')).includes('انتهى الاشتراك'),'field: no new collection after the end');
  await t.screenshot({path:B+'/shots/72-field-over.png'});
  // renewed → the supervisor works, without the gallery button
- M.sub.ends_at=new Date(Date.now()+90*864e5).toISOString();await t.evaluate(()=>Cloud.init());await t.goto(U+'#employee-data');await t.evaluate(()=>route());await t.click('text=تأكيد البيانات');await t.waitForSelector('#q');
+ M.sub.ends_at=new Date(Date.now()+90*864e5).toISOString();await t.evaluate(()=>Cloud.init());await t.goto(U+'#employee-data');await t.evaluate(()=>route());await t.click('#homeStart');await t.waitForSelector('#q');
  await t.fill('#q','الضياء');await t.waitForSelector('#res li');await t.click('#res li >> nth=0');await t.setInputFiles('#school-image',B+'/a.png');await t.click('#next');await t.waitForSelector('#floor-select');
  await t.selectOption('#floor-select','الأرضي');await t.selectOption('#room-number','1');await t.selectOption('#room-name',await t.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await t.click('#submit-btn');await t.waitForSelector('#a_category_id');
  ok(!!(await t.$('#aimg'))&&!(await t.$('#aimgG'))&&!(await t.$('#aimgXG')),'field: camera only (gallery permission removed)');

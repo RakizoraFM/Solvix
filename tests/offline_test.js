@@ -12,7 +12,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.goto(U);await p.waitForSelector('#employee-id');await p.waitForTimeout(500);await shot('01-login');
  await p.fill('#employee-id','999');await p.click('button[type=submit]');ok((await p.textContent('#app')).includes('الموظف غير موجود'),'wrong number');
  await p.fill('#employee-id','22912');await p.click('button[type=submit]');await p.waitForSelector('#screen-data');await shot('02-employee');
- await p.click('text=تأكيد البيانات');await p.waitForSelector('#q');
+ await p.click('#homeStart');await p.waitForSelector('#q');
  await p.fill('#q','الضياء');await p.waitForSelector('#res li');await shot('03-school-search');await p.click('#res li >> nth=0');
  await p.setInputFiles('#school-image',B+'/a.png');await shot('04-school-selected');await p.click('#next');
  await p.waitForSelector('#floor-select');await p.selectOption('#floor-select','الأرضي');await p.selectOption('#room-number','1');
@@ -37,7 +37,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  ok((await p.textContent('#submit-btn')).trim()!=='حفظ','closed room button text: '+(await p.textContent('#submit-btn')).trim());
  await p.click('#submit-btn');await p.waitForSelector('#fin');ok((await p.$$('#screen-success tbody tr')).length===3,'3 rows in success');
  await p.click('#fin');await p.waitForSelector('#screen-job-completed');await shot('08-done');await p.click('#out');await p.waitForSelector('#employee-id');
- await p.fill('#employee-id','22912');await p.click('button[type=submit]');await p.click('text=عرض السجل');await p.waitForSelector('#screen-history');await shot('09-history');
+ await p.fill('#employee-id','22912');await p.click('button[type=submit]');await p.waitForSelector('#screen-data');await p.click('#nv52Side a[href="#history"]',{force:true});await p.waitForSelector('#screen-history');await shot('09-history');
  await p.click('[data-ed] >> nth=1');await p.waitForSelector('#floor-select');await p.click('#submit-btn');await p.waitForSelector('#a_quantity');await p.fill('#a_quantity','4');await p.click('#sb');await p.waitForSelector('#screen-success');
  // language toggle
  await p.click('#langSw');await p.waitForTimeout(200);ok((await p.textContent('h2')).includes('Asset Saved'),'english toggle');await p.click('#langSw');

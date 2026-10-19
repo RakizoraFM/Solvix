@@ -8,7 +8,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push('PAGEERR '+e.message));p.on('dialog',d=>d.accept());
  const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)process.exitCode=1};
  await p.goto(U);await p.waitForSelector('#employee-id');await p.fill('#employee-id','22912');await p.click('button[type=submit]');await p.waitForSelector('#screen-data');
- await p.click('text=تأكيد البيانات');await p.waitForSelector('#q');await p.fill('#q','الضياء');await p.waitForSelector('#res li');await p.click('#res li >> nth=0');
+ await p.click('#homeStart');await p.waitForSelector('#q');await p.fill('#q','الضياء');await p.waitForSelector('#res li');await p.click('#res li >> nth=0');
  await p.setInputFiles('#school-image',B+'/a.png');await p.click('#next');await p.waitForSelector('#floor-select');await p.selectOption('#floor-select','الأرضي');await p.selectOption('#room-number','1');
  const cls=await p.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value);await p.selectOption('#room-name',cls);await p.click('#submit-btn');await p.waitForSelector('#a_category_id');
  ok(await p.$eval('[data-shot="0"] b',b=>!!b.querySelector('.text-red-500')),'photo 1 (whole asset) marked required');

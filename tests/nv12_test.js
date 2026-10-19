@@ -77,7 +77,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await imp([H,[ids.e1num,ids.s2ident,room,cat,ids.type0.ar,cond,'2','15','1','4'],[ids.e1num,ids.s2ident,room,cat,ids.type0.en,'','1','','2','5']]);
  ok((await p.evaluate(()=>S.collections.length))===before+2,'2 rows imported');
  // field directory filters
- await p.goto(U+'#login');await p.waitForSelector('#employee-id');await p.fill('#employee-id',ids.e1num);await p.click('button[type=submit]');await p.waitForSelector('#screen-data');await p.click('text=تأكيد البيانات');await p.waitForSelector('#fcity');
+ await p.goto(U+'#login');await p.waitForSelector('#employee-id');await p.fill('#employee-id',ids.e1num);await p.click('button[type=submit]');await p.waitForSelector('#screen-data');await p.click('#homeStart');await p.waitForSelector('#fcity');
  const city=await p.evaluate(()=>S.schools.find(s=>s.status==='active'&&s.city).city);await p.selectOption('#fcity',city);await p.waitForSelector('#res li');
  const all=await p.$$eval('#res li',l=>l.length);ok(all>0&&all<=60,'city filter lists schools ('+all+')');await p.screenshot({path:B+'/shots/42-field-filter.png'});
  console.log(errs.length?errs.join('\n'):'no console errors');await br.close();

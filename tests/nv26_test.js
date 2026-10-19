@@ -19,7 +19,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local',fs=require('fs');
  ok(await p.evaluate(()=>S.settings.geo.m===300&&S.settings.geo.block===false),'settings: 300 m, warn only');
  // field: school far from where the photos are taken
  await p.goto(U+'#login');await p.waitForSelector('#employee-id');await p.fill('#employee-id','22912');await p.click('button[type=submit]');await p.waitForSelector('#screen-data');
- await p.click('text=تأكيد البيانات');await p.fill('#q','الضياء');await p.waitForSelector('#res li');await p.click('#res li >> nth=0');await p.setInputFiles('#school-image',B+'/a.png');await p.click('#next');
+ await p.click('#homeStart');await p.fill('#q','الضياء');await p.waitForSelector('#res li');await p.click('#res li >> nth=0');await p.setInputFiles('#school-image',B+'/a.png');await p.click('#next');
  await p.waitForSelector('#floor-select');const sid=await p.evaluate(()=>{const s=get('schools',sess().school);s.lat=26.40;s.lng=43.97;save('schools');return s.id});
  await p.selectOption('#floor-select','الأرضي');await p.selectOption('#room-number','1');await p.selectOption('#room-name',await p.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value));await p.click('#submit-btn');await p.waitForSelector('#a_category_id');
  const img=n=>({name:n+'.png',mimeType:'image/png',buffer:fs.readFileSync(B+'/'+n+'.png')});

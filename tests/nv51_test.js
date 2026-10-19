@@ -33,7 +33,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.evaluate(()=>{window.__lines=[];const o=window.stampPhoto;window.stampPhoto=(b,l)=>{window.__lines.push(l);return o(b,l)}});
  // --- field: location with zone
  await p.fill('#employee-id','22912');await p.click('button[type=submit]');await p.waitForSelector('#screen-data');
- await p.click('text=تأكيد البيانات');await p.waitForSelector('#q');await p.fill('#q','الضياء');await p.waitForSelector('#res li');await p.click('#res li >> nth=0');
+ await p.click('#homeStart');await p.waitForSelector('#q');await p.fill('#q','الضياء');await p.waitForSelector('#res li');await p.click('#res li >> nth=0');
  await p.setInputFiles('#school-image',B+'/a.png');await p.click('#next');await p.waitForSelector('#floor-select');
  ok(!!await p.$('#zone')&&(await p.textContent('label[for=zone]')).includes('الجناح'),'location: zone field with the customer name');
  await p.selectOption('#floor-select','الأرضي');await p.selectOption('#room-number','1');const cls=await p.$eval('#room-name',s=>[...s.options].find(o=>o.dataset.nameEn==='Class').value);await p.selectOption('#room-name',cls);await p.fill('#zone','الجناح الشرقي');
