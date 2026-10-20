@@ -4,7 +4,7 @@ const {chromium}=(()=>{try{return require('playwright')}catch(e){return require(
 const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-server.js')();
 const calls=[];let reply=null;const handle=M.handle;
 let schema='ok';
-M.handle=j=>{const s=JSON.parse(j);if(s.op==='rpc'&&s.fn==='nv_schema_level'){if(schema==='old')return JSON.stringify({data:null,error:{message:'Could not find the function public.nv_schema_level without parameters in the schema cache'}});const items=[['044','دورات الجرد'],['045','الدليل'],['046','المباني'],['047','لوحة البيانات'],['048','الاستثناءات'],['049','الدليل للأدمن'],['050','مساعدك الذكي']].map(([m,name])=>({m,name,ok:!(schema==='miss'&&(m==='048'||m==='049'))}));return JSON.stringify({data:{latest:'050',items},error:null})}
+M.handle=j=>{const s=JSON.parse(j);if(s.op==='rpc'&&s.fn==='nv_schema_level'){if(schema==='old')return JSON.stringify({data:null,error:{message:'Could not find the function public.nv_schema_level without parameters in the schema cache'}});const items=[['044','دورات الجرد'],['045','الدليل'],['046','المباني'],['047','لوحة البيانات'],['048','الاستثناءات'],['049','الدليل للأدمن'],['050','مساعدك الذكي'],['051','المتابعة المباشرة']].map(([m,name])=>({m,name,ok:!(schema==='miss'&&(m==='048'||m==='049'))}));return JSON.stringify({data:{latest:'051',items},error:null})}
  if(s.op==='fn'&&s.name==='solvix-ai'){calls.push(s.body);const r=typeof reply==='function'?reply(s.body):reply;return JSON.stringify({data:r,error:null})}return handle(j)};
 (async()=>{
  const br=await chromium.launch();const errs=[];
@@ -30,7 +30,7 @@ M.handle=j=>{const s=JSON.parse(j);if(s.op==='rpc'&&s.fn==='nv_schema_level'){if
  ok(await a.evaluate(()=>{const o=Cloud.settingsOf(S.settings);return o.ai&&o.ai.on===true&&o.ai.daily===5}),'settings row carries «ai»');
  // database status card (system Admin)
  const Y=await mk();const y=Y.p;await y.goto(U+'#admin');await y.waitForSelector('#em');await y.fill('#em','sys@x.com');await y.fill('#pw','syspass');await y.click('button[type=submit]');await y.waitForTimeout(1500);
- await y.goto(U+'#admin/system');await y.waitForSelector('#schemaCard');ok((await y.getAttribute('#schemaCard','data-miss'))===''&&(await y.textContent('#schemaCard')).includes('محدّثة حتى الترحيل 050'),'database status: up to date');
+ await y.goto(U+'#admin/system');await y.waitForSelector('#schemaCard');ok((await y.getAttribute('#schemaCard','data-miss'))===''&&(await y.textContent('#schemaCard')).includes('محدّثة حتى الترحيل 051'),'database status: up to date');
  schema='miss';await y.click('#schemaRe');await y.waitForSelector('#schemaCard[data-miss="048,049"]');ok((await y.textContent('#schemaCard')).includes('migrations/048_*.sql')&&(await y.textContent('#schemaCard')).includes('solvix_setup.sql'),'database status: lists the missing upgrades');
  schema='old';await y.click('#schemaRe');await y.waitForSelector('#schemaCard[data-miss="old"]');ok((await y.textContent('#schemaCard')).includes('أقدم من NV55'),'database status: an older database');schema='ok';
  await Y.ctx.close();

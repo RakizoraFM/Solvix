@@ -74,6 +74,7 @@ function adminShell(active,title,content){
     ${navItem('#admin/collections','bi-collection','أعمال الجرد',A('collections'))}
     ${navItem('#admin/analytics','bi-diagram-3','تحليل الأصول',A('analytics'))}
     ${navItem('#admin/quality','bi-clipboard-check','جودة البيانات',A('quality'))}
+    ${navItem('#admin/live','bi-broadcast','المتابعة المباشرة',A('live'))}
     ${navItem('#admin/production','bi-bar-chart-steps','الإنتاج اليومي والغرف',A('production'))}
     ${navItem('#admin/exceptions','bi-exclamation-octagon','سجل الاستثناءات',A('exceptions'))}
     ${navItem('#admin/approvals','bi-diagram-3','اعتماد الجرد',A('approvals'))}

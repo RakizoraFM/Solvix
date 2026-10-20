@@ -145,6 +145,7 @@ async function ai55Usage(box){box.innerHTML='<p class="small text-muted mb-0">ج
 async function nv55Schema(box){if(!box||!Cloud.on)return;box.innerHTML='<div class="card mb-3"><div class="card-body small text-muted">جارٍ فحص قاعدة البيانات…</div></div>';
   let r=null,err='';try{const c=await Cloud.sb();r=Cloud.chk(await c.rpc('nv_schema_level'))}catch(e){err=e.message||String(e)}
   if(!document.body.contains(box))return;
+  if(r&&Array.isArray(r.items))for(const x of (window.SCHEMA_EXPECT||[]))if(!r.items.some(i=>i.m===x.m))r.items.push({m:x.m,name:x.name,ok:false});
   const miss=r&&Array.isArray(r.items)?r.items.filter(x=>!x.ok):null;const old=!r&&/nv_schema_level|schema cache|does not exist|Could not find/i.test(err);
   box.innerHTML=`<div class="card mb-3 ${miss&&!miss.length?'border-success':'border-warning'}" id="schemaCard" data-miss="${miss?miss.map(x=>x.m).join(','):old?'old':'err'}"><div class="card-body">
    <h3 class="h6 fw-bold mb-2"><i class="bi bi-database-check me-1 ${miss&&!miss.length?'text-success':'text-warning'}"></i>حالة قاعدة البيانات</h3>
