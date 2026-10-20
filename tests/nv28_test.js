@@ -11,6 +11,8 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  const signIn=async(p,em,pw,sel)=>{await p.goto(U+'#admin');await p.waitForSelector('#em');await p.fill('#em',em);await p.fill('#pw',pw);await p.click('button[type=submit]');await p.waitForSelector(sel)};
  // system Admin
  const S1=await mk();const a=S1.p;await signIn(a,'sys@x.com','syspass','#initCloud');await a.click('#initCloud');await a.waitForSelector('.alert-success',{timeout:60000});
+ // initialization loads only the lists (no buildings / supervisors): add the test fixture like cloud_test
+ await a.evaluate(async()=>{const demo=seedLists({});S.schools=demo.schools;S.employees=demo.employees;reindex();save('schools');save('employees');await Cloud.sync()});
  ok(await a.evaluate(()=>Cloud.sys&&staffRole()==='sysadmin'),'signed in as Admin');
  await a.goto(U+'#admin/system');await a.waitForSelector('#subF');const tabs=await a.$$eval('.nv-set-tabs a',x=>x.map(y=>y.textContent.trim()));ok(tabs[0].includes('إدارة النظام'),'settings tab «إدارة النظام (Admin)» first: '+tabs.join(' | '));
  const in10=new Date(Date.now()+10*864e5).toISOString().slice(0,10);
@@ -52,7 +54,8 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  M.sub.ends_at=new Date(Date.now()-2*864e5).toISOString();M.sub.grace_days=0;
  await o.evaluate(()=>Cloud.init());await o.goto(U+'#admin/collections');await o.evaluate(()=>route());await o.waitForSelector('[data-sub="over"]');ok((await o.textContent('[data-sub="over"]')).includes('للقراءة فقط'),'owner banner: read only after the end');
  const T=await mk({width:390,height:844});const t=T.p;await t.goto(U);await t.waitForSelector('#pw');await t.fill('#em','22912');await t.fill('#pw','87654321');await t.click('button[type=submit]');await t.waitForSelector('#screen-data');
- ok(!!(await t.$('[data-sub="over"]')),'field: read-only bar');await t.click('#homeStart');await t.waitForSelector('#empMsg');ok((await t.textContent('#empMsg')).includes('انتهى الاشتراك'),'field: no new collection after the end');
+ ok(!!(await t.$('[data-sub="over"]')),'field: read-only bar');ok((await t.textContent('#homeStart')).includes('انتهى الاشتراك'),'field Home: the start button is locked after the end');
+ await t.evaluate(()=>{location.hash='#school'});await t.waitForSelector('#empMsg');ok((await t.textContent('#empMsg')).includes('انتهى الاشتراك'),'field: no new collection after the end');
  await t.screenshot({path:B+'/shots/72-field-over.png'});
  // renewed → the supervisor works, without the gallery button
  M.sub.ends_at=new Date(Date.now()+90*864e5).toISOString();await t.evaluate(()=>Cloud.init());await t.goto(U+'#employee-data');await t.evaluate(()=>route());await t.click('#homeStart');await t.waitForSelector('#q');

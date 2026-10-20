@@ -63,7 +63,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
   pushTables(){return this.role==='admin'?NV_ORDER:this.role==='tech'?['collections','schools']:[]},
   orphanPending(){let n=0;for(const t of NV_ORDER){const snap=this.snap[t]||{};for(const row of S[t]||[]){const raw=snap[row.id];if(raw===undefined){n++;continue}const before=JSON.parse(raw),after=this.canon(t,row);if(Object.keys(before).some(k=>JSON.stringify(before[k])!==JSON.stringify(after[k])))n++}for(const id of Object.keys(snap))if(!(S[t]||[]).some(r=>r.id===id))n++}return n},
   /* NV46: «site» (the building form of this customer) is sent only when set, so a database without migration 046 keeps syncing the rest */
-  settingsOf(d){d=d||{};const o={app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null,geo:d.geo||null,room_tpl:d.room_tpl||null};if(d.site)o.site=d.site;if(d.ops)o.ops=d.ops;return o},
+  settingsOf(d){d=d||{};const o={app_name:d.app_name||'Solvix',admin_email:d.admin_email||'',logo:d.logo||null,label:d.label||null,geo:d.geo||null,room_tpl:d.room_tpl||null};if(d.site)o.site=d.site;if(d.ops)o.ops=d.ops;if(d.ai)o.ai=d.ai;return o},
   settingsRow(){return this.settingsOf(S.settings)},
   persistConflicts(){return IDB.put('kv','sync_conflicts',this.conflicts)},
   async rememberConflict(table,id,base){const key=table+':'+id;if(!this.conflicts[key])this.conflicts[key]={table,id,base:JSON.parse(JSON.stringify(base)),local:table==='settings'?this.settingsRow():(S[table].find(r=>r.id===id)?this.canon(table,S[table].find(r=>r.id===id)):null),at:new Date().toISOString()};await saveNow(table);await this.persistConflicts()},
@@ -113,7 +113,7 @@ const Cloud={conflicts:{},skip:new Set(),on:false,client:null,role:null,emp:null
       
       S[t]=next;this.snap[t]=ns}
     if(this.role!=='tech'){S.log=(await this.fetchAll('nv_log',r=>r.order('at',{ascending:false}).limit(3000))).slice(0,3000)}else S.log=[];
-    const st=this.chk(await (await this.sb()).rpc('nv_client_settings'));if(st&&st.data&&!(this.snap.settings.data&&!discard&&this.snap.settings.data!==JSON.stringify(this.settingsRow()))){const d=st.data;Object.assign(S.settings,this.settingsOf(d),{site:d.site||null,ops:d.ops||null});this.snap.settings.data=JSON.stringify(this.settingsRow())}
+    const st=this.chk(await (await this.sb()).rpc('nv_client_settings'));if(st&&st.data&&!(this.snap.settings.data&&!discard&&this.snap.settings.data!==JSON.stringify(this.settingsRow()))){const d=st.data;Object.assign(S.settings,this.settingsOf(d),{site:d.site||null,ops:d.ops||null,ai:d.ai||null});this.snap.settings.data=JSON.stringify(this.settingsRow())}
     if(this.role==='tech'){try{this.busy=new Set(this.chk(await (await this.sb()).rpc('nv_busy_schools'))||[])}catch(e){}}
     reindex();await saveAll();await this.persistSnap();this.lastPull=Date.now();this.badge();
   },

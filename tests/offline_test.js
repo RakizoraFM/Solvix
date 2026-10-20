@@ -45,12 +45,15 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.goto(U+'#admin');await p.waitForSelector('#em');await shot('10-admin-login');await p.fill('#em','admin@test.com');await p.fill('#pw','secret1');await p.fill('#pw2','secret1');await p.click('button[type=submit]');
  await p.waitForSelector('.nvd [data-kpi=bar]');await p.waitForTimeout(1500);await shot('11-dashboard');
  const k=[await p.getAttribute('[data-kpi=assets]','data-val'),await p.getAttribute('[data-kpi=bar]','data-val')];ok(k.join(',')==='7,1,0,2169','dashboard '+k.join(','));
- await p.click('.app-sidebar a[href="#admin/collections"]');await p.waitForSelector('#collections-form');await shot('12-collections');ok((await p.$$('tbody tr')).length===1,'1 group');
- const [dl]=await Promise.all([p.waitForEvent('download',{timeout:30000}).catch(()=>null),p.click('#export-btn')]);ok(!!dl,'excel '+(dl&&dl.suggestedFilename()));if(dl)await dl.saveAs(B+'/out2.xlsx');
- await p.click('.app-main a[href^="#admin/collections/view/"]');await p.waitForSelector('#xl');await p.waitForTimeout(400);await shot('13-group');ok((await p.$$('tbody tr')).length===3,'group rows');ok(!(await p.content()).includes('<b>x</b>'),'escaped');
- await p.click('a[title="عرض التفاصيل"] >> nth=0');await p.waitForSelector('.table-bordered');await p.waitForTimeout(800);await shot('14-show');
- await p.goBack();await p.waitForSelector('#xl');await p.click('a[title="تعديل"] >> nth=2');await p.waitForSelector('[name=brand]');await shot('15-edit');await p.fill('[name=brand]','Samsung');await p.click('button:has-text("حفظ التعديل")');await p.waitForSelector('.alert-success');
- await p.click('.app-sidebar a[href="#admin/log"]');await p.waitForSelector('.nv-ph h3:has-text("سجل التعديلات")');await p.waitForSelector('table');const lr=await p.$$eval('tbody tr',r=>r.map(x=>x.innerText.replace(/\s+/g,' ').slice(0,160)));ok(lr.length===2,'log rows '+JSON.stringify(lr));
+ // NV42 asset list: one row per building / supervisor group
+ await p.click('.app-sidebar a[href="#admin/collections"]');await p.waitForSelector('section.i42 [data-i42-expand]');await shot('12-collections');ok((await p.$$('[data-i42-expand]')).length===1,'1 group');
+ const [dl]=await Promise.all([p.waitForEvent('download',{timeout:30000}).catch(()=>null),p.click('#i42-export')]);ok(!!dl,'excel '+(dl&&dl.suggestedFilename()));if(dl)await dl.saveAs(B+'/out2.xlsx');
+ // the group opens the building page (NV43): its assets, show and edit pages
+ const g1=await p.evaluate(()=>{const c=S.collections.find(c=>c.submitted_at&&c.type_id);return {e:c.employee_id,s:c.school_id}});await p.goto(U+'#admin/collections/view/'+encodeURIComponent(g1.e)+'/'+encodeURIComponent(g1.s));await p.waitForSelector('a[href$="/edit"]');await p.waitForTimeout(400);await shot('13-group');
+ ok((await p.$$('a[href$="/edit"]')).length===3,'group rows');ok(!(await p.content()).includes('<b>x</b>'),'escaped');
+ await p.goto(U+'#admin/collections/view/'+encodeURIComponent(g1.e)+'/'+encodeURIComponent(g1.s));await p.waitForSelector('a[href$="/edit"]');const ed3=await p.$$eval('a[href$="/edit"]',a=>a.map(x=>x.getAttribute('href')));await p.goto(U+ed3[0].replace(/\/edit$/,''));await p.waitForSelector('.table-bordered');await p.waitForTimeout(800);await shot('14-show');
+ await p.goto(U+ed3[2]);await p.waitForSelector('[name=brand]');await shot('15-edit');await p.fill('[name=brand]','Samsung');await p.click('button:has-text("حفظ التعديل")');await p.waitForSelector('.alert-success');
+ await p.goto(U+'#admin/log');await p.waitForSelector('.nv-ph h3:has-text("سجل التعديلات")');await p.waitForSelector('table');const lr=await p.$$eval('tbody tr',r=>r.map(x=>x.innerText.replace(/\s+/g,' ').slice(0,160)));ok(lr.length===2,'log rows '+JSON.stringify(lr));
  await p.goto(U+'#admin/schools?status=completed');await p.waitForSelector('#nvt-schools tbody tr');await shot('16-schools');ok((await p.$$('#nvt-schools tbody tr')).length===1,'completed filter');
  await p.goto(U+'#admin/schools');await p.waitForSelector('.pagination');ok((await p.textContent('.card-footer')).includes('من 2170'),'pagination');
  await p.click('[data-nv-tree] >> nth=0');
@@ -59,8 +62,8 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.goto(U+'#admin/schools/create');await p.waitForSelector('#ident');await p.click('button:has-text("حفظ")');ok(await p.$('#ident.is-invalid')!==null,'school validation');
  await p.goto(U+'#admin/settings');await p.waitForSelector('#application_name');await shot('19-settings');
  // reassign modal
- await p.goto(U+'#admin/collections');await p.waitForSelector('.row-checkbox');await p.check('.row-checkbox');await p.click('button[data-bs-target="#reassignModal"]');await p.waitForSelector('#reassignModal.show');await shot('20-modal');
- await p.selectOption('[name=new_employee_id]',{index:3});await p.click('#reassign-form button[type=submit]');await p.waitForTimeout(400);ok((await p.textContent('.alert')).length>0,'reassign: '+(await p.textContent('.alert')).trim());
+ await p.goto(U+'#admin/collections');await p.waitForSelector('[data-i42-select]');await p.check('[data-i42-select] >> nth=0');const [dg]=await Promise.all([p.waitForEvent('dialog'),p.click('#i42-transfer-selected')]);await shot('20-modal');ok(/مبنى مكتمل/.test(dg.message()),'transfer refuses a finished building');
+
  // backup, wipe, merge
  await p.goto(U+'#admin/data');await p.waitForSelector('#bk');const [bk]=await Promise.all([p.waitForEvent('download'),p.click('#bk')]);await bk.saveAs(B+'/bk2.json');
  await p.click('#wipe');await p.waitForSelector('.alert-success');ok((await p.textContent('#app')).includes('0 سجل جرد ·'),'wiped');

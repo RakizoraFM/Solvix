@@ -64,9 +64,9 @@ const B=__dirname,U='http://localhost:8766/index.html';const M=require('./mock-s
  await t.click('#out');await t.waitForSelector('#pw');ok(true,'tech signed out');
  // ---- admin sees it, edits, change log from the server
  await a.goto(U+'#admin/collections');await a.waitForSelector('table');await a.waitForTimeout(1500);await a.goto(U+'#admin/data');await a.click('#cPull');await a.waitForSelector('.alert-success');
- await a.goto(U+'#admin/collections');await a.waitForSelector('.app-main a[href^="#admin/collections/view/"]');ok(true,'admin sees the technician group');
- await a.click('.app-main a[href^="#admin/collections/view/"]');await a.waitForSelector('a[title="تعديل"]');await a.waitForTimeout(500);await a.screenshot({path:B+'/shots/30-cloud-group.png'});
- await a.click('a[title="تعديل"] >> nth=0');await a.waitForSelector('[name=brand]');await a.fill('[name=brand]','Samsung');await a.click('button:has-text("حفظ التعديل")');await a.waitForSelector('.alert-success');await a.waitForTimeout(1500);
+ // the asset list (NV42) groups by building; the technician's group page is opened by its address
+ {const g=M.db.nv_collections.find(c=>c.submitted_at&&c.type_id);await a.goto(U+'#admin/collections/view/'+encodeURIComponent(g.employee_id)+'/'+encodeURIComponent(g.school_id));await a.waitForSelector('a[href$="/edit"]');ok(true,'admin sees the technician group (building page)');await a.goto(U+'#admin/collections/'+encodeURIComponent(g.id)+'/edit');}await a.waitForTimeout(500);await a.screenshot({path:B+'/shots/30-cloud-group.png'});
+ await a.waitForSelector('[name=brand]');await a.fill('[name=brand]','Samsung');await a.click('button:has-text("حفظ التعديل")');await a.waitForSelector('.alert-success');await a.waitForTimeout(1500);
  ok(M.db.nv_collections.some(c=>c.brand==='Samsung')&&M.db.nv_log.length===1&&M.db.nv_log[0].by==='admin','admin edit + server log');
  await a.goto(U+'#admin/settings');await a.fill('#application_name','Novaro Qassim');await a.click('button:has-text("حفظ")');await a.waitForTimeout(1500);ok(M.db.nv_settings[0].data.app_name==='Novaro Qassim','settings in cloud');
  await a.goto(U+'#admin');await a.waitForSelector('[data-kpi=bar]');const k=[await a.getAttribute('[data-kpi=assets]','data-val'),await a.getAttribute('[data-kpi=bar]','data-val')];ok(k.join(',')==='5,1,0,2169','dashboard '+k.join(','));await a.screenshot({path:B+'/shots/31-cloud-dashboard.png'});

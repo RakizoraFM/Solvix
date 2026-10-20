@@ -35,7 +35,7 @@ const B=__dirname,U='http://localhost:8766/index.html?local',fs=require('fs');
  ok(await p.$eval('#a_type_id',s=>s.value)===tt[1].id&&await p.$eval('#a_brand',x=>x.value)==='LG'&&await p.$eval('#a_serial',x=>x.value)===''&&!(await p.$('[data-shot="0"].ok')),'like the previous: type + brand copied, serial and photos empty');
  // the same serial → warning (cancel = not saved)
  await finish('sn 2002');mode='dismiss';dialogs=[];const n0=await p.evaluate(()=>S.collections.filter(c=>c.submitted_at).length);await p.click('#sb');await p.waitForTimeout(800);
- ok(dialogs.some(m=>m.includes('مسجّل لأصل آخر'))&&await p.evaluate(()=>S.collections.filter(c=>c.submitted_at).length)===n0,'duplicate serial warned, cancel keeps it unsaved');
+ ok(dialogs.some(m=>/مسجّل لأصل آخر|الرقم التسلسلي مكرر/.test(m))&&await p.evaluate(()=>S.collections.filter(c=>c.submitted_at).length)===n0,'duplicate serial warned, cancel keeps it unsaved');
  // another serial, same type in the same room minutes ago → second warning; accept saves
  await p.fill('#a_serial','SN-3003');mode='accept';dialogs=[];await p.click('#sb');await p.waitForSelector('#screen-success');
  ok(dialogs.some(m=>m.includes('في نفس الغرفة قبل')),'same asset in the same room a few minutes ago: warned');

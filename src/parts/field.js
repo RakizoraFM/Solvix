@@ -199,7 +199,7 @@ function vAsset(){
     <div class="nv-shots">${SHOTS.map((x,n)=>shotTile(n,c[x.k])).join('')}</div>
     ${excBox51(c)}
     <div class="${can('extra')?'':'hidden'}"><div class="text-sm font-medium text-gray-700 mt-4 mb-2">${tx('صور إضافية (اختيارية)','Extra photos (optional)')} <span class="text-xs text-gray-400" id="nvXn"></span></div><div class="nv-shots nv-extra" id="nvExtra"></div></div>
-    <button type="button" id="ocr" class="nv-ocr">🔍 ${tx('قراءة لوحة البيانات تلقائياً (الرقم التسلسلي، الموديل، السعة، الماركة)','Read the nameplate (serial, model, capacity, brand)')}</button><p id="ocrMsg" class="nv-ocr-msg"></p>
+    <button type="button" id="ocr" class="nv-ocr">🔍 ${tx('قراءة لوحة البيانات تلقائياً (الرقم التسلسلي، الموديل، السعة، الماركة)','Read the nameplate (serial, model, capacity, brand)')}</button><p id="ocrMsg" class="nv-ocr-msg"></p>${typeof ai55FillBtn==='function'?ai55FillBtn():''}
     <p id="e_img" class="text-red-500 text-xs mt-1"></p></div>
    <div class="pt-4 border-t border-gray-100"><div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <div>${L('a_quantity',t('Quantity'),t('العدد'),1)}<input type="number" id="a_quantity" required min="1" value="${esc(c.quantity??1)}" class="${INPUT}"></div>
@@ -256,6 +256,9 @@ function vAsset(){
     $$('[data-xk]',box).forEach(b=>b.onclick=()=>{exDrop.push(...exKeep.splice(+b.dataset.xk,1));drawX()});$$('[data-xp]',box).forEach(b=>b.onclick=()=>{pendX.splice(+b.dataset.xp,1);drawX()});
     $$('#aimgX,#aimgXG').forEach(inp=>inp.onchange=()=>{for(const f of [...inp.files].filter(f=>/^image\//.test(f.type||'image/')).slice(0,XMAX-exKeep.length-pendX.length)){const P={f,at:f.lastModified,u:URL.createObjectURL(f)};pendX.push(P);locate(P)}drawX()})};
   drawX();const X51=excBind51(c);
+  /* NV55 — «مساعدك الذكي» reads the asset + nameplate photos and fills the empty fields */
+  if($('#aiFill'))$('#aiFill').onclick=async()=>{const fs=[];for(const n of [0,1]){let f=pend[n]&&pend[n].f;const k=SHOTS[n].k;if(!f&&c[k])f=await IDB.get('photos',c[k]).catch(()=>null)||(Cloud.on?await Cloud.fetchPhoto(c[k]):null);if(f)fs.push(f)}
+    ai55Asset(fs,id=>{const x=get('types',id);if(!x)return false;cat.value=x.cat;cat.onchange();if(lv()&&x.l2){l2.value=x.l2;l2.onchange();l3.value=x.l3;l3.onchange()}typ.value=id;info();return typ.value===id})};
   $('#ocr').onclick=async()=>{const b=$('#ocr'),m=$('#ocrMsg');let src=pend[1]&&pend[1].f;
     if(!src&&c.asset_image2)src=await IDB.get('photos',c.asset_image2).catch(()=>null)||(Cloud.on?await Cloud.fetchPhoto(c.asset_image2):null);
     if(!src){m.textContent=tx('التقط صورة لوحة البيانات (الصورة 2) أولاً.','Take the nameplate photo (photo 2) first.');return}

@@ -24,16 +24,12 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  const sc=await p.evaluate(()=>S.schools[0].city);await p.selectOption('#dCity',sc);await p.waitForFunction(c=>document.querySelector('[data-kpi=bar]')&&document.querySelector('[data-kpi=bar]').dataset.val.split(',').reduce((a,b)=>a+ +b,0)===S.schools.filter(s=>s.city===c).length,sc);ok(true,'city filter narrows the schools');
  await p.selectOption('#dEmp',ids.e1);await p.waitForFunction(()=>document.querySelector('[data-kpi=assets]').dataset.val==='7');ok(true,'supervisor filter: his 7 assets');
  ok((await p.$$('#chEmp .nvc-row')).length===1&&(await p.$$('#byCity .nvc-row')).length>=1&&(await p.$$('#chValue .nvc-row')).length>=1,'supervisors / cities / value bars rendered');await p.click('#dReset');
- await p.goto(U+'#admin/analytics');await p.waitForSelector('.breadcrumb');
- let rows=await p.$$eval('.app-main tbody tr',r=>r.length);ok(rows===2,'drill-down level 1: 2 categories ('+rows+')');
- const tot=await p.$$eval('[data-kpi=qty],[data-kpi=cost],[data-kpi=rec]',x=>x.map(y=>y.dataset.val));ok(tot[0]==='11'&&tot[1]==='590'&&tot[2]==='5','totals: qty 11, cost 590, 5 records ('+tot+')');
- await p.goto(U+'#admin/analytics?cat='+ids.cat0);await p.waitForSelector('.breadcrumb');await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/cond=/.test(location.hash));
- await p.click('.app-main tbody tr >> nth=0');await p.waitForFunction(()=>/type=/.test(location.hash));await p.waitForFunction(()=>{const h=document.querySelector('.app-main thead');return h&&h.textContent.includes('المبنى')});rows=await p.$$eval('.app-main tbody tr',r=>r.length);
- ok((await p.textContent('.app-main thead')).includes('المبنى')&&rows>=1&&!(await p.textContent('.app-main tbody')).includes('s1'),'drill-down to schools by name ('+rows+')');await p.screenshot({path:B+'/shots/40-analytics.png'});
+ // NV41 replaced the drill-down with the pivot (tested in nv41_*): the page opens and lists the analysis measures
+ await p.goto(U+'#admin/analytics');await p.waitForSelector('#a41-metric');ok(true,'analytics page (NV41 pivot) opens');
  // group view: label numbers, labels window, school report
- await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#lbl');
- ok(/^101\d{8}$/.test((await p.textContent('.app-main tbody tr td')).trim()),'label number 101XXXXXXXX');
- const [pop]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop.waitForSelector('.lb .qr svg',{timeout:20000});
+ await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#b43-print-all');
+ ok(await p.evaluate(([e,sc])=>S.collections.filter(c=>c.employee_id===e&&c.school_id===sc&&c.submitted_at&&c.type_id).every(c=>/^101\d{8}$/.test(assetLabel(c))),[ids.e1,ids.s1]),'label number 101XXXXXXXX');
+ const [pop]=await Promise.all([ctx.waitForEvent('page'),p.evaluate(([e,sc])=>{printLabels(S.collections.filter(c=>c.employee_id===e&&c.school_id===sc&&c.submitted_at&&c.type_id),'t')},[ids.e1,ids.s1])]);await pop.waitForSelector('.lb .qr svg',{timeout:20000});
  ok((await pop.$$('.lb')).length===3,'3 labels with QR');await pop.screenshot({path:B+'/shots/41-labels.png'});await pop.close();
  // NV13: label size from the settings (cm)
  // NV22: label settings have their own tab
@@ -51,15 +47,15 @@ const B=__dirname,U='http://localhost:8766/index.html?local';
  await p.click('[data-qrset="basic"]');await p.fill('#lbl_w','6.3');await p.fill('#lbl_h','3.6');await p.waitForSelector('#qr_meter.alert-success');ok(true,'basic fields on 6.3 × 3.6 cm → clear');
  await p.screenshot({path:B+'/shots/45-qr-fields.png',fullPage:true});await p.fill('#lbl_w','5');await p.fill('#lbl_h','3');await p.click('button:has-text("حفظ")');await p.waitForSelector('.alert-success');
  const qb=await p.evaluate(c0=>qrText(S.collections.find(x=>x.id===c0)),ids.c0);ok(qb.includes('المبنى:')&&qb.includes('الكود:')&&!qb.includes('الكمية')&&!qb.includes('الحالة الفنية'),'saved: QR has only the chosen fields');ok(/^📍 موقع الأصل\nالمبنى: .+\nالطابق: .+\nالغرفة: .+\(رقم 3\)\n— بيانات الأصل —\nTag Number: 101\d{8}/.test(qt),'QR text: location first, then the asset');
- await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#lbl');
- const [pop2]=await Promise.all([ctx.waitForEvent('page'),p.click('#lbl')]);await pop2.waitForSelector('.lb .qr svg',{timeout:20000});
+ await p.goto(U+'#admin/collections/view/'+ids.e1+'/'+ids.s1);await p.waitForSelector('#b43-print-all');
+ const [pop2]=await Promise.all([ctx.waitForEvent('page'),p.evaluate(([e,sc])=>{printLabels(S.collections.filter(c=>c.employee_id===e&&c.school_id===sc&&c.submitted_at&&c.type_id),'t')},[ids.e1,ids.s1])]);await pop2.waitForSelector('.lb .qr svg',{timeout:20000});
  const box=await pop2.$eval('.lb',e=>{const r=e.getBoundingClientRect();return [Math.round(r.width/37.8*10)/10,Math.round(r.height/37.8*10)/10]});ok(box[0]===5&&box[1]===3,'label printed 5 × 3 cm ('+box+')');ok(!!(await pop2.$('.lb .lg img'))&&(await pop2.textContent('.lb .ft')).includes('Please do not remove'),'printed label: logo + footer');await pop2.screenshot({path:B+'/shots/43-labels-5x3.png'});await pop2.close();
- const [d1]=await Promise.all([p.waitForEvent('download'),p.click('#rep')]);ok(!!d1,'school report downloaded');
+ const [d1]=await Promise.all([p.waitForEvent('download'),p.evaluate(([e,sc])=>schoolReport(S.collections.filter(c=>c.employee_id===e&&c.school_id===sc&&c.submitted_at),get('schools',sc)),[ids.e1,ids.s1])]);ok(!!d1,'school report downloaded');
  const sheets=await p.evaluate(async b=>{const wb=XLSX.read(Uint8Array.from(atob(b),c=>c.charCodeAt(0)),{type:'array'});return wb.SheetNames.join(',')+'|'+XLSX.utils.sheet_to_json(wb.Sheets['English'],{header:1})[5][0]},require('fs').readFileSync(await d1.path()).toString('base64'));
  ok(sheets.startsWith('عربي,English|Tag Number'),'report sheets '+sheets);
  // NV18: full Excel with photos + QR + asset number
  await p.evaluate(async c0=>{const c=S.collections.find(x=>x.id===c0);c.asset_image=await storePhoto(await (await fetch('/tests/b.png')).blob());save('collections')},ids.c0);
- const [dF]=await Promise.all([p.waitForEvent('download',{timeout:60000}),p.click('#full')]);const fx=await p.evaluate(async b=>{const wb=new ExcelJS.Workbook();await wb.xlsx.load(Uint8Array.from(atob(b),c=>c.charCodeAt(0)).buffer);const d=wb.getWorksheet('البيانات'),ph=wb.getWorksheet('صور الأصول');return [d.rowCount,d.getRow(1).getCell(1).value,ph.rowCount,ph.getImages().length,d.getRow(1).values.slice(1).join('|')]},require('fs').readFileSync(await dF.path()).toString('base64'));
+ const [dF]=await Promise.all([p.waitForEvent('download',{timeout:60000}),p.evaluate(([e,sc])=>exportFull(S.collections.filter(c=>c.employee_id===e&&c.school_id===sc&&c.submitted_at),'full'),[ids.e1,ids.s1])]);const fx=await p.evaluate(async b=>{const wb=new ExcelJS.Workbook();await wb.xlsx.load(Uint8Array.from(atob(b),c=>c.charCodeAt(0)).buffer);const d=wb.getWorksheet('البيانات'),ph=wb.getWorksheet('صور الأصول');return [d.rowCount,d.getRow(1).getCell(1).value,ph.rowCount,ph.getImages().length,d.getRow(1).values.slice(1).join('|')]},require('fs').readFileSync(await dF.path()).toString('base64'));
  ok(fx[0]===4&&fx[1]==='ID'&&fx[2]===4&&fx[3]===4,'full Excel: 3 assets, 3 QR + 1 photo');
  ok(fx[4]==='ID|Employee|Employee #|Building Name|Building Number|Building Identifier|City|District|Site|Floor|Room Number|Room Name|Category|Asset Type|Level 2|Level 3|Asset Code|Critical|Condition|Quantity|Price|Manufacturer|Brand|Model|Capacity|Serial Number|Agency|Warranty|Installation Date|Tag Number|Parent/Child|Notes|Building Image URL|Location Diagram URL|Asset Image URL|Asset Image 2 URL|Submitted At|Created At|Label Number|Label Confirmed At|Zone|Exception|Exception Reason|Exception Image URL','columns in the approved order, no Status');require('fs').copyFileSync(await dF.path(),B+'/shots/full-report.xlsx');
  await p.goto(U+'#admin/collections/'+ids.c0);await p.waitForSelector('#qr1 svg',{timeout:20000});ok(true,'QR on the asset page');
